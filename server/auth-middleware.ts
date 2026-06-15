@@ -1,5 +1,5 @@
 import { Elysia } from "elysia";
-import { extractToken, verifyToken } from "./auth";
+import { extractToken, verifyToken } from "./auth.js";
 
 function authFromRequest(request: Request) {
   const token = extractToken(request.headers.get("authorization") ?? undefined);

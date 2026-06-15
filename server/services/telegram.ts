@@ -1,4 +1,4 @@
-import { parseFinanceText } from "./ai-parser";
+import { parseFinanceText } from "./ai-parser.js";
 
 const TELEGRAM_API = "https://api.telegram.org";
 

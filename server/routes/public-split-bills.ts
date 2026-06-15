@@ -16,9 +16,9 @@
  */
 
 import { Elysia } from "elysia";
-import { appConfig } from "../data";
-import { db } from "../prisma-client";
-import { fail, ok } from "../utils";
+import { appConfig } from "../data.js";
+import { db } from "../prisma-client.js";
+import { fail, ok } from "../utils.js";
 
 interface PublicBillData {
   /** The bill ID (useful for deep links). */

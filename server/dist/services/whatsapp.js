@@ -1,8 +1,8 @@
 import fs from "fs";
 import path from "path";
 import QRCode from "qrcode";
-import { db as prisma, canUseDatabase } from "../prisma-client";
-import { parseFinanceText, ocrReceiptImage } from "./ai-parser";
+import { db as prisma, canUseDatabase } from "../prisma-client.js";
+import { parseFinanceText, ocrReceiptImage } from "./ai-parser.js";
 let socket = null;
 let reconnecting = false;
 let manuallyStopped = false;

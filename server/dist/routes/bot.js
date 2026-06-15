@@ -1,11 +1,11 @@
 import { Elysia } from "elysia";
-import { requireAuth } from "../auth-middleware";
-import { extractToken, verifyToken } from "../auth";
-import { canUseDatabase, db as prisma } from "../prisma-client";
-import { fail, ok } from "../utils";
-import { mockOcrReceipt, parseFinanceText } from "../services/ai-parser";
-import { handleTelegramUpdate, sendTelegramMessage, telegramStatus, verifyTelegramToken, getTelegramContacts, } from "../services/telegram";
-import { resetWhatsAppSession, sendWhatsAppMessage, setWhatsAppConnectedUser, startWhatsAppBot, startWhatsAppBotWithPairing, stopWhatsAppBot, whatsappStatus, getWhatsAppContacts, } from "../services/whatsapp";
+import { requireAuth } from "../auth-middleware.js";
+import { extractToken, verifyToken } from "../auth.js";
+import { canUseDatabase, db as prisma } from "../prisma-client.js";
+import { fail, ok } from "../utils.js";
+import { mockOcrReceipt, parseFinanceText } from "../services/ai-parser.js";
+import { handleTelegramUpdate, sendTelegramMessage, telegramStatus, verifyTelegramToken, getTelegramContacts, } from "../services/telegram.js";
+import { resetWhatsAppSession, sendWhatsAppMessage, setWhatsAppConnectedUser, startWhatsAppBot, startWhatsAppBotWithPairing, stopWhatsAppBot, whatsappStatus, getWhatsAppContacts, } from "../services/whatsapp.js";
 function getUserIdFromRequest(request) {
     const token = extractToken(request.headers.get("authorization") ?? undefined);
     const auth = token ? verifyToken(token) : null;

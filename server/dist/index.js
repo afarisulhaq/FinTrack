@@ -1,15 +1,20 @@
 import fs from "fs";
 import path from "path";
 import { node } from "@elysia/node";
-import cors from "@elysiajs/cors";
+// @elysiajs/cors is a CJS package whose real export is the named
+// `cors` function (no default export). Under moduleResolution:
+// "Bundler" the default-import form worked because TypeScript
+// aliased it. NodeNext exposes the real shape, so we import the
+// named function directly and call it.
+import { cors as corsFn } from "@elysiajs/cors";
 import { Elysia } from "elysia";
-import { authRoutes } from "./routes/auth";
-import { financeRoutes, resourceRoutes } from "./routes/finance";
-import { botRoutes } from "./routes/bot";
-import { publicMarketRoutes } from "./routes/public-market";
-import { publicSplitBillRoutes } from "./routes/public-split-bills";
-import { startWhatsAppBot } from "./services/whatsapp";
-import { ok } from "./utils";
+import { authRoutes } from "./routes/auth.js";
+import { financeRoutes, resourceRoutes } from "./routes/finance.js";
+import { botRoutes } from "./routes/bot.js";
+import { publicMarketRoutes } from "./routes/public-market.js";
+import { publicSplitBillRoutes } from "./routes/public-split-bills.js";
+import { startWhatsAppBot } from "./services/whatsapp.js";
+import { ok } from "./utils.js";
 const port = Number(process.env.PORT ?? 4000);
 const allowedOrigins = [
     "http://localhost:3000",
@@ -18,7 +23,7 @@ const allowedOrigins = [
 ];
 void allowedOrigins;
 const app = new Elysia({ adapter: node() })
-    .use(cors({
+    .use(corsFn({
     origin: true,
     credentials: true,
 }))

@@ -1,6 +1,6 @@
 import { Elysia } from "elysia";
-import { GOLD_PRODUCTS, getBareksaGoldPrices, } from "../services/market-price";
-import { ok } from "../utils";
+import { GOLD_PRODUCTS, getBareksaGoldPrices, } from "../services/market-price.js";
+import { ok } from "../utils.js";
 export const publicMarketRoutes = new Elysia({ prefix: "/api/public" })
     .get("/market-prices", async () => {
     // Try to get updated prices from Bareksa, fallback to hardcoded

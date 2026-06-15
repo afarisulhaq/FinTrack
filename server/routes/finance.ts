@@ -1,15 +1,15 @@
 import { Elysia } from "elysia";
-import { appConfig, db, setAppConfig, users } from "../data";
-import { extractToken, verifyToken } from "../auth";
-import { requireAdmin, requireAuth } from "../auth-middleware";
-import { canUseDatabase, db as prisma } from "../prisma-client";
+import { appConfig, db, setAppConfig, users } from "../data.js";
+import { extractToken, verifyToken } from "../auth.js";
+import { requireAdmin, requireAuth } from "../auth-middleware.js";
+import { canUseDatabase, db as prisma } from "../prisma-client.js";
 import {
   getYahooFinancePrice,
   getYahooFinanceQuote,
   normalizeMarketSymbol,
   searchYahooFinance,
-} from "../services/market-price";
-import { fail, id, ok, publicUser } from "../utils";
+} from "../services/market-price.js";
+import { fail, id, ok, publicUser } from "../utils.js";
 
 type ResourceKey = keyof typeof db;
 type Decimalish = { toString(): string } | number | string | null | undefined;

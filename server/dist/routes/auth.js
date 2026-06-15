@@ -1,10 +1,10 @@
 import bcrypt from "bcryptjs";
 import { Elysia, t } from "elysia";
 import { z } from "zod";
-import { users } from "../data";
-import { extractToken, signToken, verifyToken } from "../auth";
-import { canUseDatabase, db as prisma } from "../prisma-client";
-import { fail, id, ok, publicUser } from "../utils";
+import { users } from "../data.js";
+import { extractToken, signToken, verifyToken } from "../auth.js";
+import { canUseDatabase, db as prisma } from "../prisma-client.js";
+import { fail, id, ok, publicUser } from "../utils.js";
 const loginSchema = z.object({
     email: z.string().email(),
     password: z.string().min(6),

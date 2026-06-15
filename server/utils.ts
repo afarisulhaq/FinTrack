@@ -1,4 +1,4 @@
-import type { ApiResponse, PublicUser, User } from "./types";
+import type { ApiResponse, PublicUser, User } from "./types.js";
 
 export function ok<T>(data: T): ApiResponse<T> {
   return { success: true, data };

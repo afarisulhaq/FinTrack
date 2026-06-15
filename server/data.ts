@@ -1,5 +1,5 @@
 import bcrypt from "bcryptjs";
-import type { AppConfig, User } from "./types";
+import type { AppConfig, User } from "./types.js";
 
 const now = new Date().toISOString();
 
