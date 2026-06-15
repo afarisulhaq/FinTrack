@@ -1,0 +1,53 @@
+# Local env / secrets
+.env
+.env*
+!.env.production.example
+
+# Build artifacts (rebuilt inside the image)
+node_modules
+.next
+.next/standalone
+out
+build
+dist
+server/dist
+*.tsbuildinfo
+.turbo
+
+# Docker meta-files (we don't ship them in the image)
+Dockerfile
+.dockerignore
+docker-compose.yml
+docker-compose.*.yml
+docker-entrypoint.sh
+
+# Repo / IDE clutter
+.git
+.gitignore
+.gitattributes
+.vscode
+.idea
+.DS_Store
+*.swp
+*.swo
+
+# Test / coverage
+coverage
+.nyc_output
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Local Prisma data (not used in production, but keep it out of the image)
+prisma/db.sqlite
+prisma/db.sqlite-journal
+
+# Tesseract data — heavy and not needed at runtime
+ind.traineddata
+*.traineddata
+
+# Local-only scripts and WhatsApp session (mounted as a volume in compose)
+fix-orphans.mjs
+test-*.mjs
+.baileys-session/

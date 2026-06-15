@@ -1,0 +1,420 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+    admin
+    owner
+    member
+}
+
+enum UserStatus {
+    active
+    inactive
+}
+
+model User {
+    id               String     @id @default(cuid())
+    name             String
+    email            String     @unique
+    password         String
+    role             UserRole   @default(owner)
+    status           UserStatus @default(active)
+    phone            String?
+    avatar           String?
+    currency         String     @default("IDR")
+    language         String     @default("id")
+    timezone         String     @default("Asia/Jakarta")
+    monthlyIncome    Decimal?
+    disposableIncome Decimal?
+    createdAt        DateTime   @default(now())
+    updatedAt        DateTime   @updatedAt
+}
+
+model AppSetting {
+    id           String   @id @default(cuid())
+    appName      String   @default("FinTrack")
+    tagline      String   @default("Kelola keuangan pribadimu")
+    logoType     String   @default("icon")
+    logoIcon     String   @default("TrendingUp")
+    logoImageUrl String   @default("")
+    primaryColor String   @default("#6366f1")
+    accentColor  String   @default("#8b5cf6")
+    currency     String   @default("IDR")
+    dateFormat   String   @default("dd/MM/yyyy")
+    faviconUrl   String   @default("")
+    footerText   String   @default("© 2026 FinTrack")
+    qrisStatic   String?  // Static QRIS string for dynamic generation
+    createdAt    DateTime @default(now())
+    updatedAt    DateTime @updatedAt
+}
+
+model Wallet {
+    id        String   @id @default(cuid())
+    name      String
+    type      String
+    balance   Decimal  @default(0)
+    currency  String   @default("IDR")
+    color     String   @default("#6366f1")
+    icon      String   @default("💳")
+    parentId  String?
+    userId    String?
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}
+
+model Transaction {
+    id           String   @id @default(cuid())
+    type         String
+    amount       Decimal
+    category     String
+    categoryIcon String   @default("💸")
+    walletId     String
+    walletName   String
+    description  String
+    date         DateTime
+    userId       String?
+    /// Optional FK to master Category. Kept nullable so legacy rows
+    /// (where only the string `category` was stored) keep working.
+    categoryId   String?
+    categoryRef  Category?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+    subCategoryId String?
+    subCategory  SubCategory?  @relation(fields: [subCategoryId], references: [id], onDelete: SetNull)
+    createdAt    DateTime @default(now())
+    updatedAt    DateTime @updatedAt
+}
+
+model Category {
+    id            String   @id @default(cuid())
+    /// "income" | "expense" | "transfer" — used by the UI to filter and by
+    /// transaction-create to pick the right list. Kept as a string for
+    /// forward compat (no enum migration needed if we add new types).
+    type          String   @default("expense")
+    name          String
+    icon          String   @default("📁")
+    color         String   @default("#6366f1")
+    sortOrder     Int      @default(0)
+    /// System-seeded categories cannot be deleted (they survive a reset).
+    isSystem      Boolean  @default(false)
+    userId        String?
+    subCategories SubCategory[]
+    transactions  Transaction[]
+    budgets       Budget[]
+    bills         Bill[]
+    recurringTransactions RecurringTransaction[]
+    createdAt     DateTime @default(now())
+    updatedAt     DateTime @updatedAt
+
+    @@index([userId, type, sortOrder])
+    @@unique([userId, type, name])
+}
+
+model SubCategory {
+    id         String   @id @default(cuid())
+    name       String
+    icon       String   @default("🔖")
+    color      String   @default("#6366f1")
+    sortOrder  Int      @default(0)
+    isSystem   Boolean  @default(false)
+    userId     String?
+    categoryId String
+    category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+    transactions Transaction[]
+    budgets    Budget[]
+    recurringTransactions RecurringTransaction[]
+    createdAt  DateTime @default(now())
+    updatedAt  DateTime @updatedAt
+
+    @@index([userId, categoryId, sortOrder])
+    @@unique([userId, categoryId, name])
+}
+
+model Budget {
+    id           String   @id @default(cuid())
+    category     String
+    categoryIcon String
+    limit        Decimal
+    spent        Decimal  @default(0)
+    period       String   @default("monthly")
+    color        String   @default("#6366f1")
+    walletId     String?
+    userId       String?
+    /// Master category this budget rolls up to. The `category` string
+    /// above is kept in sync for backwards compatibility (old reports
+    /// and existing transactions look it up by string).
+    categoryId   String?
+    categoryRef  Category?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+    subCategoryId String?
+    subCategory  SubCategory? @relation(fields: [subCategoryId], references: [id], onDelete: SetNull)
+    createdAt    DateTime @default(now())
+    updatedAt    DateTime @updatedAt
+}
+
+model Investment {
+    id           String   @id @default(cuid())
+    name         String
+    symbol       String
+    assetClass   String
+    broker       String
+    quantity     Decimal
+    avgBuyPrice  Decimal
+    currentPrice Decimal
+    currency     String   @default("IDR")
+    color        String   @default("#6366f1")
+    sellPrice    Decimal?
+    soldAt       DateTime?
+    buyFee       Decimal?  @default(0)
+    sellFee      Decimal?  @default(0)
+    userId       String?
+    createdAt    DateTime @default(now())
+    updatedAt    DateTime @updatedAt
+
+    @@index([userId, broker, symbol, assetClass])
+}
+
+model Bill {
+    id              String   @id @default(cuid())
+    name            String
+    amount          Decimal
+    dueDate         DateTime
+    status          String   @default("unpaid")
+    category        String
+    icon            String   @default("🧾")
+    isRecurring     Boolean  @default(false)
+    recurringPeriod String?
+    userId          String?
+    categoryId      String?
+    categoryRef     Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+    createdAt       DateTime @default(now())
+    updatedAt       DateTime @updatedAt
+}
+
+model SavingGoal {
+    id            String   @id @default(cuid())
+    name          String
+    icon          String   @default("🎯")
+    targetAmount  Decimal
+    currentAmount Decimal  @default(0)
+    deadline      DateTime
+    color         String   @default("#22c55e")
+    userId        String?
+    createdAt     DateTime @default(now())
+    updatedAt     DateTime @updatedAt
+}
+
+model Note {
+    id        String   @id @default(cuid())
+    title     String
+    content   String
+    tags      Json     @default("[]")
+    color     String   @default("#1a1d27")
+    userId    String?
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}
+
+model RecurringTransaction {
+    id           String   @id @default(cuid())
+    name         String
+    amount       Decimal
+    type         String
+    category     String
+    categoryIcon String   @default("💸")
+    walletId     String
+    period       String   @default("monthly")
+    nextDate     DateTime
+    isActive     Boolean  @default(true)
+    userId       String?
+    categoryId   String?
+    categoryRef  Category?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+    subCategoryId String?
+    subCategory  SubCategory? @relation(fields: [subCategoryId], references: [id], onDelete: SetNull)
+    createdAt    DateTime @default(now())
+    updatedAt    DateTime @updatedAt
+}
+
+model BotConnection {
+    id        String   @id @default(cuid())
+    channel   String   @unique // whatsapp | telegram
+    enabled   Boolean  @default(false)
+    status    String   @default("disconnected")
+    meta      Json?
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}
+
+model Debt {
+    id          String   @id @default(cuid())
+    direction   String   // owe | lent
+    personName  String
+    personContact String?
+    amount      Decimal
+    paidAmount  Decimal  @default(0)
+    dueDate     DateTime?
+    description String   @default("")
+    installments Json   @default("[]")
+    isSettled   Boolean  @default(false)
+    userId      String?
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+}
+
+model SplitBill {
+    id          String   @id @default(cuid())
+    title       String
+    description String   @default("")
+    totalAmount Decimal
+    currency    String   @default("IDR")
+    paidBy      String   // Name of the person who paid
+    date        DateTime
+    splitMethod String   @default("equal") // equal | percentage | custom
+    status      String   @default("active") // active | settled | cancelled
+    userId      String?
+    participants SplitBillParticipant[]
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+}
+
+model SplitBillParticipant {
+    id          String   @id @default(cuid())
+    splitBillId String
+    name        String
+    contact     String?
+    amount      Decimal  // Amount this participant owes
+    paid        Boolean  @default(false)
+    paidAt      DateTime?
+    /// Random token used for the public pay link (one URL per participant).
+    /// Anyone with this URL can view the bill detail and mark the participant as paid.
+    payToken    String?  @unique
+    splitBill   SplitBill @relation(fields: [splitBillId], references: [id], onDelete: Cascade)
+}
+
+model Card {
+    id               String   @id @default(cuid())
+    name             String
+    bank             String
+    type             String   // credit | debit
+    last4Digits      String
+    limit            Decimal?
+    used             Decimal?
+    billingCycleStart Int
+    statementDate    Int
+    dueDate          Int
+    color            String   @default("#6366f1")
+    interestRate     Decimal?
+    userId           String?
+    createdAt        DateTime @default(now())
+    updatedAt        DateTime @updatedAt
+}
+
+model WishlistItem {
+    id          String   @id @default(cuid())
+    name        String
+    price       Decimal
+    icon        String   @default("🎁")
+    priority    String   @default("medium") // low | medium | high
+    category    String   @default("Lainnya")
+    url         String?
+    notes       String?
+    isPurchased Boolean  @default(false)
+    userId      String?
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+}
+
+model Reimbursement {
+    id            String   @id @default(cuid())
+    title         String
+    amount        Decimal
+    paidFrom      String   // walletId
+    walletName    String   @default("")
+    project       String?
+    company       String?
+    status        String   @default("active") // active | settled
+    submittedDate DateTime @default(now())
+    settledDate   DateTime?
+    notes         String?
+    receiptUrl    String?
+    userId        String?
+    createdAt     DateTime @default(now())
+    updatedAt     DateTime @updatedAt
+}
+
+model TeamMember {
+    id             String   @id @default(cuid())
+    name           String
+    email          String
+    phone          String?
+    avatar         String?
+    role           String   @default("viewer") // owner | member | viewer
+    permissions    Json     @default("{}")
+    status         String   @default("active") // active | invited | inactive
+    invitedAt      DateTime?
+    userId         String?  // owner who invited
+    createdAt      DateTime @default(now())
+    updatedAt      DateTime @updatedAt
+}
+
+model NotificationSetting {
+    id            String @id @default(cuid())
+    channelWA     Boolean @default(false)
+    channelPhone  String  @default("")
+    channelTG     Boolean @default(false)
+    channelTGChatId String @default("")
+    channelTGBot  String  @default("")
+    channelEmail  Boolean @default(false)
+    channelEmailAddr String @default("")
+    channelPush   Boolean @default(false)
+    prefDailyReminder   Boolean @default(false)
+    prefDailyReminderTime String @default("08:00")
+    prefWeeklyReport    Boolean @default(false)
+    prefWeeklyReportDay Int     @default(1)
+    prefMonthlyReport   Boolean @default(false)
+    prefBudgetAlert     Boolean @default(false)
+    prefBudgetAlertThreshold Int @default(80)
+    prefBillReminder    Boolean @default(false)
+    prefBillReminderDays Int    @default(3)
+    prefSavingGoalUpdate Boolean @default(false)
+    prefDebtReminder    Boolean @default(false)
+    prefLargeTxAlert    Boolean @default(false)
+    prefLargeTxThreshold Decimal @default(1000000)
+    userId        String? @unique
+    createdAt     DateTime @default(now())
+    updatedAt     DateTime @updatedAt
+}
+
+model GamificationState {
+    id              String @id @default(cuid())
+    totalXP         Int    @default(0)
+    level           Int    @default(1)
+    levelName       String @default("Pemula Finansial")
+    healthScore     Int    @default(0)
+    savingsScore    Int    @default(0)
+    budgetScore     Int    @default(0)
+    debtScore       Int    @default(0)
+    investmentScore Int    @default(0)
+    currentStreak   Int    @default(0)
+    longestStreak   Int    @default(0)
+    zeroSpendStreak Int    @default(0)
+    totalZeroSpendDays Int @default(0)
+    badges          Json   @default("[]")
+    lastUpdated     DateTime @default(now())
+    userId          String? @unique
+    createdAt       DateTime @default(now())
+    updatedAt       DateTime @updatedAt
+}
+
+model BotPermission {
+    id          String   @id @default(cuid())
+    userId      String
+    channel     String   // "whatsapp" | "telegram"
+    contactName String   @default("")
+    contactId   String
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+}
