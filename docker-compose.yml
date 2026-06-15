@@ -1,0 +1,58 @@
+# FinTrack — single-container production deploy.
+#
+# Usage:
+#   1. cp .env.production.example .env.production
+#   2. edit .env.production (DATABASE_URL + JWT_SECRET at minimum)
+#   3. docker compose up -d --build
+#   4. docker compose logs -f app   # to watch the first boot
+#
+# The image does NOT include Postgres. Set DATABASE_URL to an
+# external DB (managed, RDS, Supabase, your own VPS, etc.) and the
+# backend will connect to it on startup.
+#
+# Only port 3000 is published. The Elysia backend stays on the
+# internal network on port 4000 and is reached through Next.js's
+# `/api/*` rewrite (see next.config.mjs).
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: fintrack:latest
+    container_name: fintrack
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    ports:
+      # Browser-facing Next.js. Put a reverse proxy (Caddy / Nginx /
+      # Cloudflare Tunnel) in front of this in production for TLS
+      # and a real domain.
+      - "3000:3000"
+      # Uncomment the line below ONLY if you want the backend to be
+      # directly reachable from the host or a sibling service. The
+      # default setup keeps the backend internal and uses the
+      # Next.js rewrite to proxy /api/* instead.
+      # - "4000:4000"
+    volumes:
+      # Persist the WhatsApp pairing session so `docker compose up
+      # --build` doesn't force you to re-scan the QR code every time.
+      - whatsapp-session:/app/.baileys-session
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    logging:
+      # Cap each log file at 10 MB and keep 5 rotated files. Without this
+      # the container writes to a single json-file that grows until the
+      # disk fills up, which is the #1 cause of mysterious prod outages
+      # for long-lived Node services.
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+volumes:
+  whatsapp-session:
