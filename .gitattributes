@@ -1,0 +1,34 @@
+# Force LF line endings for shell scripts and other Unix-style files so
+# the shebang parses correctly when the image runs in Linux, even
+# when contributors commit from Windows (where Git otherwise converts
+# to CRLF on checkout). Without this, a CRLF shebang like
+# `#!/bin/sh\r` makes tini / exec fail with "No such file or
+# directory" because the kernel looks up the literal path `/bin/sh\r`.
+
+# Shell scripts must always be LF
+*.sh              text eol=lf
+
+# Common config / build files that are typically LF on the wire
+*.json            text eol=lf
+*.yml             text eol=lf
+*.yaml            text eol=lf
+*.toml            text eol=lf
+*.env*            text eol=lf
+Dockerfile        text eol=lf
+.gitignore        text eol=lf
+.gitattributes    text eol=lf
+
+# Explicitly mark binary files (so Git never tries line-ending
+# conversion on them and never produces a corrupt diff).
+*.png             binary
+*.jpg             binary
+*.jpeg            binary
+*.gif             binary
+*.ico             binary
+*.webp            binary
+*.pdf             binary
+*.zip             binary
+*.tar             binary
+*.gz              binary
+*.woff            binary
+*.woff2           binary
