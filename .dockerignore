@@ -19,7 +19,10 @@ Dockerfile
 .dockerignore
 docker-compose.yml
 docker-compose.*.yml
-docker-entrypoint.sh
+# NOTE: docker-entrypoint.sh is intentionally NOT excluded — it is
+# copied into the runtime stage by the Dockerfile and runs as
+# ENTRYPOINT. Adding it to .dockerignore here used to silently
+# break `docker build` with "/app/docker-entrypoint.sh: not found".
 
 # Repo / IDE clutter
 .git
