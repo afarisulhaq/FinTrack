@@ -68,6 +68,7 @@ export default function LoginPage() {
     setEmail(queryEmail);
     setPassword(queryPassword);
     void submitLogin(queryEmail, queryPassword);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function quickLogin(nextEmail: string, nextPassword: string) {
