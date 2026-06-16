@@ -82,6 +82,67 @@ let bareksaGoldCache: {
   expiresAt: number;
 } | null = null;
 
+// ── In-memory cache for Yahoo Finance responses ────────────────────
+// Yahoo's public endpoints (query1.finance.yahoo.com and friends)
+// aggressively rate-limit per IP. Without a cache, opening the
+// Investments page (one call per holding) or the Market Watch page
+// (one call per symbol in the list, dispatched in parallel) hits
+// `429 Too Many Requests` within minutes.
+//
+// We cache quotes for 1 minute, prices for 5 minutes, and search
+// results for 30 seconds. On any fetch error — especially a 429 —
+// we fall back to the stale cached value if one exists, so the UI
+// keeps working through a rate-limit window. A global 60-second
+// cooldown after a 429 prevents us from retrying the dead endpoint
+// over and over from concurrent requests.
+type CacheEntry<T> = { value: T; expiresAt: number };
+
+const QUOTE_TTL_MS = 60 * 1000;
+const PRICE_TTL_MS = 5 * 60 * 1000;
+const SEARCH_TTL_MS = 30 * 1000;
+const YAHOO_COOLDOWN_MS = 60 * 1000;
+
+const quoteCache = new Map<string, CacheEntry<MarketQuote | null>>();
+type YahooPriceResult = {
+  symbol: string;
+  price: number;
+  currency: string;
+  name: string;
+};
+const priceCache = new Map<string, CacheEntry<YahooPriceResult | null>>();
+const searchCache = new Map<string, CacheEntry<MarketSearchResult[]>>();
+
+let yahooCooldownUntil = 0;
+
+function readCache<T>(
+  cache: Map<string, CacheEntry<T>>,
+  key: string,
+): { value: T; stale: boolean } | null {
+  const entry = cache.get(key);
+  if (!entry) return null;
+  return { value: entry.value, stale: entry.expiresAt <= Date.now() };
+}
+
+function writeCache<T>(
+  cache: Map<string, CacheEntry<T>>,
+  key: string,
+  value: T,
+  ttlMs: number,
+) {
+  cache.set(key, { value, expiresAt: Date.now() + ttlMs });
+}
+
+function inYahooCooldown() {
+  return Date.now() < yahooCooldownUntil;
+}
+
+function tripYahooCooldown() {
+  yahooCooldownUntil = Date.now() + YAHOO_COOLDOWN_MS;
+  console.warn(
+    `[market-price] Yahoo Finance rate-limited; cooling down for ${YAHOO_COOLDOWN_MS / 1000}s`,
+  );
+}
+
 export const GOLD_PRODUCTS: Record<
   string,
   {
@@ -345,6 +406,16 @@ export async function searchYahooFinance(
   const value = query.trim();
   if (value.length < 2) return [];
 
+  const cacheKey = `${assetClass}:${value.toLowerCase()}`;
+  const cached = readCache(searchCache, cacheKey);
+  if (cached && !cached.stale) return cached.value;
+
+  // If Yahoo is in cooldown, return whatever we had cached (stale is
+  // fine for a search-as-you-type box) or an empty result.
+  if (inYahooCooldown()) {
+    return cached?.value ?? [];
+  }
+
   const params = new URLSearchParams({
     q: value,
     quotesCount: "10",
@@ -364,6 +435,15 @@ export async function searchYahooFinance(
       searchBareksaGold(value).catch(() => []),
     ],
   );
+
+  // If Yahoo failed and we have a stale cached search, prefer it over
+  // returning just the Bareksa results (which usually aren't what the
+  // user is searching for when assetClass=stock).
+  if ((!yahooResponse || !yahooResponse.ok) && cached) {
+    if (yahooResponse?.status === 429) tripYahooCooldown();
+    return cached.value;
+  }
+  if (yahooResponse?.status === 429) tripYahooCooldown();
 
   const data: YahooSearchResult = yahooResponse?.ok
     ? ((await yahooResponse.json()) as YahooSearchResult)
@@ -407,10 +487,13 @@ export async function searchYahooFinance(
       return 0;
     });
 
-  return [...bareksaGoldResults, ...bareksaResults, ...yahooResults].slice(
-    0,
-    10,
-  );
+  const combined = [
+    ...bareksaGoldResults,
+    ...bareksaResults,
+    ...yahooResults,
+  ].slice(0, 10);
+  writeCache(searchCache, cacheKey, combined, SEARCH_TTL_MS);
+  return combined;
 }
 
 export type MarketQuote = {
@@ -434,44 +517,82 @@ export async function getYahooFinanceQuote(
   const normalized = normalizeMarketSymbol(symbol, assetClass);
   if (!normalized) return null;
 
-  const response = await fetch(
-    `${YAHOO_CHART_URL}/${encodeURIComponent(normalized)}?interval=1d&range=1d`,
-    {
-      headers: {
-        Accept: "application/json",
-        "User-Agent": "Mozilla/5.0 FinTrack/1.0",
-      },
-    },
-  );
+  const cacheKey = `${assetClass}:${normalized}`;
+  const cached = readCache(quoteCache, cacheKey);
+  if (cached && !cached.stale) return cached.value;
 
-  if (!response.ok) {
-    throw new Error(`Yahoo Finance request failed: ${response.status}`);
+  // Don't even attempt the network if Yahoo just rate-limited us.
+  // The stale cache (if any) is the best we can do.
+  if (inYahooCooldown()) {
+    return cached?.value ?? null;
   }
 
-  const data = (await response.json()) as YahooChartResult;
-  const meta = data.chart?.result?.[0]?.meta;
-  if (!meta) return null;
+  try {
+    const response = await fetch(
+      `${YAHOO_CHART_URL}/${encodeURIComponent(normalized)}?interval=1d&range=1d`,
+      {
+        headers: {
+          Accept: "application/json",
+          "User-Agent": "Mozilla/5.0 FinTrack/1.0",
+        },
+      },
+    );
 
-  const price = meta.regularMarketPrice ?? meta.chartPreviousClose;
-  if (!price) return null;
+    if (response.status === 429) {
+      tripYahooCooldown();
+      if (cached) return cached.value;
+      throw new Error(`Yahoo Finance request failed: 429`);
+    }
 
-  const previousClose = meta.previousClose ?? meta.chartPreviousClose ?? price;
-  const change = price - previousClose;
-  const changePercent = previousClose ? (change / previousClose) * 100 : 0;
+    if (!response.ok) {
+      throw new Error(`Yahoo Finance request failed: ${response.status}`);
+    }
 
-  return {
-    symbol: normalized,
-    name: meta.longName ?? meta.shortName ?? meta.symbol ?? normalized,
-    currency: meta.currency ?? "IDR",
-    price,
-    previousClose,
-    change,
-    changePercent,
-    dayHigh: meta.regularMarketDayHigh ?? null,
-    dayLow: meta.regularMarketDayLow ?? null,
-    fiftyTwoWeekHigh: meta.fiftyTwoWeekHigh ?? null,
-    fiftyTwoWeekLow: meta.fiftyTwoWeekLow ?? null,
-  };
+    const data = (await response.json()) as YahooChartResult;
+    const meta = data.chart?.result?.[0]?.meta;
+    if (!meta) {
+      writeCache(quoteCache, cacheKey, null, QUOTE_TTL_MS);
+      return null;
+    }
+
+    const price = meta.regularMarketPrice ?? meta.chartPreviousClose;
+    if (!price) {
+      writeCache(quoteCache, cacheKey, null, QUOTE_TTL_MS);
+      return null;
+    }
+
+    const previousClose =
+      meta.previousClose ?? meta.chartPreviousClose ?? price;
+    const change = price - previousClose;
+    const changePercent = previousClose ? (change / previousClose) * 100 : 0;
+
+    const result: MarketQuote = {
+      symbol: normalized,
+      name: meta.longName ?? meta.shortName ?? meta.symbol ?? normalized,
+      currency: meta.currency ?? "IDR",
+      price,
+      previousClose,
+      change,
+      changePercent,
+      dayHigh: meta.regularMarketDayHigh ?? null,
+      dayLow: meta.regularMarketDayLow ?? null,
+      fiftyTwoWeekHigh: meta.fiftyTwoWeekHigh ?? null,
+      fiftyTwoWeekLow: meta.fiftyTwoWeekLow ?? null,
+    };
+    writeCache(quoteCache, cacheKey, result, QUOTE_TTL_MS);
+    return result;
+  } catch (err) {
+    // On any error (network blip, 5xx, parse failure), serve the stale
+    // cached value if we have one. Better to show a slightly old
+    // price than nothing.
+    if (cached) {
+      console.warn(
+        `[market-price] quote fetch failed for ${cacheKey}; serving stale cache`,
+      );
+      return cached.value;
+    }
+    throw err;
+  }
 }
 
 export async function getYahooFinancePrice(
@@ -489,31 +610,63 @@ export async function getYahooFinancePrice(
   const normalized = normalizeMarketSymbol(symbol, assetClass);
   if (!normalized) return null;
 
-  const response = await fetch(
-    `${YAHOO_CHART_URL}/${encodeURIComponent(normalized)}?interval=1d&range=5d`,
-    {
-      headers: {
-        Accept: "application/json",
-        "User-Agent": "Mozilla/5.0 FinTrack/1.0",
-      },
-    },
-  );
+  const cacheKey = `${assetClass}:${normalized}`;
+  const cached = readCache(priceCache, cacheKey);
+  if (cached && !cached.stale) return cached.value;
 
-  if (!response.ok) {
-    throw new Error(`Yahoo Finance request failed: ${response.status}`);
+  if (inYahooCooldown()) {
+    return cached?.value ?? null;
   }
 
-  const data = (await response.json()) as YahooChartResult;
-  const meta = data.chart?.result?.[0]?.meta;
-  if (!meta) return null;
+  try {
+    const response = await fetch(
+      `${YAHOO_CHART_URL}/${encodeURIComponent(normalized)}?interval=1d&range=5d`,
+      {
+        headers: {
+          Accept: "application/json",
+          "User-Agent": "Mozilla/5.0 FinTrack/1.0",
+        },
+      },
+    );
 
-  const price = meta.regularMarketPrice ?? meta.chartPreviousClose;
-  if (!price) return null;
+    if (response.status === 429) {
+      tripYahooCooldown();
+      if (cached) return cached.value;
+      throw new Error(`Yahoo Finance request failed: 429`);
+    }
 
-  return {
-    symbol: normalized,
-    price,
-    currency: meta.currency ?? "IDR",
-    name: meta.longName ?? meta.shortName ?? meta.symbol ?? normalized,
-  };
+    if (!response.ok) {
+      throw new Error(`Yahoo Finance request failed: ${response.status}`);
+    }
+
+    const data = (await response.json()) as YahooChartResult;
+    const meta = data.chart?.result?.[0]?.meta;
+    if (!meta) {
+      writeCache(priceCache, cacheKey, null, PRICE_TTL_MS);
+      return null;
+    }
+
+    const price = meta.regularMarketPrice ?? meta.chartPreviousClose;
+    if (!price) {
+      writeCache(priceCache, cacheKey, null, PRICE_TTL_MS);
+      return null;
+    }
+
+    const result: YahooPriceResult = {
+      symbol: normalized,
+      price,
+      currency: meta.currency ?? "IDR",
+      name: meta.longName ?? meta.shortName ?? meta.symbol ?? normalized,
+    };
+    writeCache(priceCache, cacheKey, result, PRICE_TTL_MS);
+    return result;
+  } catch (err) {
+    if (cached) {
+      console.warn(
+        `[market-price] price fetch failed for ${cacheKey}; serving stale cache`,
+      );
+      return cached.value;
+    }
+    throw err;
+  }
 }
