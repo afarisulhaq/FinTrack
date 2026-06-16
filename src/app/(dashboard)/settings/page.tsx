@@ -39,6 +39,7 @@ import { Button } from "~/components/ui/button";
 import { Card, CardBody, CardHeader } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Modal } from "~/components/ui/modal";
+import { confirm } from "~/components/ui/confirm-dialog";
 import { QrisImageUpload } from "~/components/qris/qris-image-upload";
 import { useFinanceStore } from "~/store/useFinanceStore";
 import { useAppConfigStore } from "~/store/useAppConfigStore";
@@ -1919,12 +1920,14 @@ function DataEksporTab() {
               <Button
                 variant="danger"
                 size="sm"
-                onClick={() => {
-                  if (
-                    window.confirm(
-                      "Reset semua transaksi? Tindakan ini tidak bisa dibatalkan.",
-                    )
-                  ) {
+                onClick={async () => {
+                  const ok = await confirm({
+                    title: "Reset semua transaksi?",
+                    message: "Tindakan ini tidak bisa dibatalkan.",
+                    variant: "warning",
+                    confirmText: "Reset",
+                  });
+                  if (ok) {
                     // UI only — no real action
                   }
                 }}
@@ -1946,12 +1949,15 @@ function DataEksporTab() {
                 <Button
                   size="sm"
                   className="bg-red-950 text-red-200 hover:bg-red-900"
-                  onClick={() => {
-                    if (
-                      window.confirm(
-                        "Reset SEMUA data? Ini akan menghapus dompet, transaksi, anggaran, dan semua data lainnya. Tindakan ini TIDAK BISA dibatalkan.",
-                      )
-                    ) {
+                  onClick={async () => {
+                    const ok = await confirm({
+                      title: "Reset SEMUA data?",
+                      message:
+                        "Ini akan menghapus dompet, transaksi, anggaran, dan semua data lainnya. Tindakan ini TIDAK BISA dibatalkan.",
+                      variant: "danger",
+                      confirmText: "Reset Semua",
+                    });
+                    if (ok) {
                       // UI only — no real action
                     }
                   }}

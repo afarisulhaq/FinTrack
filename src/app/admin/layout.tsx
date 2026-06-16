@@ -12,6 +12,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { cn } from "~/lib/utils";
+import { ConfirmDialog } from "~/components/ui/confirm-dialog";
 import { useAuthStore } from "~/store/useAuthStore";
 import { useAppConfigStore } from "~/store/useAppConfigStore";
 
@@ -124,6 +125,7 @@ export default function AdminLayout({
         </header>
         <div className="p-6">{children}</div>
       </main>
+      <ConfirmDialog />
     </div>
   );
 }

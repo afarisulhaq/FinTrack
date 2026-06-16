@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { Sidebar } from "~/components/layout/sidebar";
 import AuthGuard from "~/components/auth/auth-guard";
 import { ToastContainer } from "~/components/ui/toast";
+import { ConfirmDialog } from "~/components/ui/confirm-dialog";
 import { useSidebarStore } from "~/store/useSidebarStore";
 import { useAuthStore } from "~/store/useAuthStore";
 import { useFinanceStore } from "~/store/useFinanceStore";
@@ -112,6 +113,7 @@ export default function DashboardLayout({
         </main>
       </div>
       <ToastContainer />
+      <ConfirmDialog />
     </AuthGuard>
   );
 }
