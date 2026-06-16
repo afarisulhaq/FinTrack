@@ -1,3 +1,6 @@
+import fs from "fs";
+import path from "path";
+
 type YahooChartResult = {
   chart?: {
     result?: Array<{
@@ -72,6 +75,28 @@ export type MarketSearchResult = {
 
 const YAHOO_CHART_URL = "https://query1.finance.yahoo.com/v8/finance/chart";
 const YAHOO_SEARCH_URL = "https://query2.finance.yahoo.com/v1/finance/search";
+// Yahoo runs two frontends (query1 / query2). One of them is usually
+// reachable even when the other is throttling or 401-gating a
+// datacenter IP. We try them in order and use whichever answers first.
+const YAHOO_CHART_HOSTS = [
+  "https://query2.finance.yahoo.com",
+  "https://query1.finance.yahoo.com",
+];
+// Optional authenticated session. Get these once by visiting
+// https://finance.yahoo.com in a browser, opening DevTools → Network,
+// and copying the `Cookie` request header and the `crumb` value from
+// /v1/test/getcrumb. Without them, the public endpoints are often
+// blocked from VPS IPs. See README for a one-shot fetch script.
+const YAHOO_COOKIE = process.env.YAHOO_COOKIE?.trim();
+const YAHOO_CRUMB = process.env.YAHOO_CRUMB?.trim();
+const yahooAuthHeaders: Record<string, string> = {};
+if (YAHOO_COOKIE) yahooAuthHeaders["Cookie"] = YAHOO_COOKIE;
+if (YAHOO_CRUMB) {
+  yahooAuthHeaders["X-Yahoo-Crumb"] = YAHOO_CRUMB;
+  // Some endpoints take the crumb as a query param instead of a header.
+  // The chart endpoint is fine with the header alone, so this is just
+  // a safety net if Yahoo rotates the contract.
+}
 const BAREKSA_FUND_LIST_URL =
   "https://www.bareksa.com/id/data/reksadana/daftar-reksadana";
 const BAREKSA_EMAS_URL = "https://www.bareksa.com/bareksaemas";
@@ -146,6 +171,89 @@ function tripYahooCooldown() {
   console.warn(
     `[market-price] Yahoo Finance rate-limited; cooling down for ${YAHOO_COOLDOWN_MS / 1000}s`,
   );
+}
+
+// ── Persistent disk-backed cache ──────────────────────────────────
+// In-memory cache is wiped on every container restart. The VPS that
+// hosts production often can't reach Yahoo at all (Yahoo soft-blocks
+// datacenter IPs), so a fresh deploy would otherwise show "Quote
+// market tidak ditemukan" for every symbol until something
+// eventually succeeds. The persistent cache writes every successful
+// fetch to a JSON file in `./data/yahoo-cache.json`, so on boot we
+// re-hydrate the in-memory cache from the last known good values.
+//
+// Set YAHOO_PERSISTENT_CACHE_PATH to override the file location
+// (useful when mounting a volume in Docker).
+const PERSISTENT_CACHE_PATH =
+  process.env.YAHOO_PERSISTENT_CACHE_PATH ??
+  path.join(process.cwd(), "data", "yahoo-cache.json");
+
+// We only persist "real" results, not the null/stale entries — a
+// null would just mask a real failure and the user would rather know.
+const persistentQuoteCache = new Map<string, CacheEntry<MarketQuote>>();
+const persistentPriceCache = new Map<string, CacheEntry<YahooPriceResult>>();
+let persistentCacheLoaded = false;
+let persistentCacheDirty = false;
+let persistentWriteTimer: ReturnType<typeof setTimeout> | null = null;
+
+function loadPersistentCache() {
+  if (persistentCacheLoaded) return;
+  persistentCacheLoaded = true;
+  try {
+    if (!fs.existsSync(PERSISTENT_CACHE_PATH)) return;
+    const raw = fs.readFileSync(PERSISTENT_CACHE_PATH, "utf-8");
+    const parsed = JSON.parse(raw) as {
+      quotes?: Record<string, CacheEntry<MarketQuote>>;
+      prices?: Record<string, CacheEntry<YahooPriceResult>>;
+    };
+    if (parsed.quotes) {
+      for (const [k, v] of Object.entries(parsed.quotes)) {
+        persistentQuoteCache.set(k, v);
+      }
+    }
+    if (parsed.prices) {
+      for (const [k, v] of Object.entries(parsed.prices)) {
+        persistentPriceCache.set(k, v);
+      }
+    }
+    console.log(
+      `[market-price] loaded ${persistentQuoteCache.size} quotes, ${persistentPriceCache.size} prices from persistent cache at ${PERSISTENT_CACHE_PATH}`,
+    );
+  } catch (err) {
+    console.warn(
+      "[market-price] failed to load persistent cache:",
+      err instanceof Error ? err.message : err,
+    );
+  }
+}
+
+function schedulePersistentWrite() {
+  persistentCacheDirty = true;
+  if (persistentWriteTimer) return;
+  // Debounce — a busy page can produce dozens of writes per second.
+  persistentWriteTimer = setTimeout(() => {
+    persistentWriteTimer = null;
+    if (!persistentCacheDirty) return;
+    persistentCacheDirty = false;
+    const snapshot = {
+      quotes: Object.fromEntries(persistentQuoteCache),
+      prices: Object.fromEntries(persistentPriceCache),
+    };
+    try {
+      const dir = path.dirname(PERSISTENT_CACHE_PATH);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(
+        PERSISTENT_CACHE_PATH,
+        JSON.stringify(snapshot),
+        "utf-8",
+      );
+    } catch (err) {
+      console.warn(
+        "[market-price] failed to write persistent cache:",
+        err instanceof Error ? err.message : err,
+      );
+    }
+  }, 2000);
 }
 
 export const GOLD_PRODUCTS: Record<
@@ -515,6 +623,54 @@ export type MarketQuote = {
   fiftyTwoWeekLow: number | null;
 };
 
+// Issue one Yahoo chart request, falling through the list of hosts
+// until one answers. Returns the raw Response on the first 2xx, or
+// null if every host is unreachable. Non-2xx responses (401, 403,
+// 429) are returned as-is so the caller can decide what to do —
+// 401/403 trigger the next host, 429 trips the global cooldown.
+async function fetchYahooChart(
+  symbol: string,
+  range: string,
+): Promise<{ host: string; response: Response } | null> {
+  const lastAttemptStatus: number[] = [];
+  for (const host of YAHOO_CHART_HOSTS) {
+    const url = `${host}/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=${range}`;
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        headers: {
+          Accept: "application/json",
+          "User-Agent": "Mozilla/5.0 FinTrack/1.0",
+          ...yahooAuthHeaders,
+        },
+        signal: AbortSignal.timeout(YAHOO_FETCH_TIMEOUT_MS),
+      });
+    } catch (err) {
+      console.warn(
+        `[market-price] fetch error from ${host} for ${symbol}:`,
+        err instanceof Error ? err.message : err,
+      );
+      continue;
+    }
+    if (response.ok) return { host, response };
+    lastAttemptStatus.push(response.status);
+    // 401/403 means the host is up but won't talk to us. Try the
+    // next host — query2 often has looser datacenter rules than
+    // query1.
+    // 429 trips the global cooldown and stops further attempts; the
+    // caller will short-circuit and reuse the cache.
+    if (response.status === 429) {
+      return { host, response };
+    }
+  }
+  if (lastAttemptStatus.length > 0) {
+    console.warn(
+      `[market-price] all Yahoo hosts failed for ${symbol}; last statuses: ${lastAttemptStatus.join(",")}`,
+    );
+  }
+  return null;
+}
+
 export async function getYahooFinanceQuote(
   symbol: string,
   assetClass = "stock",
@@ -522,91 +678,130 @@ export async function getYahooFinanceQuote(
   const normalized = normalizeMarketSymbol(symbol, assetClass);
   if (!normalized) return null;
 
+  // Hydrate the persistent cache lazily so the very first call after
+  // boot already sees the last known good values from the JSON file.
+  loadPersistentCache();
+
   const cacheKey = `${assetClass}:${normalized}`;
   const cached = readCache(quoteCache, cacheKey);
   if (cached && !cached.stale) return cached.value;
 
   // Don't even attempt the network if Yahoo just rate-limited us.
-  // The stale cache (if any) is the best we can do.
+  // The stale in-memory cache (if any) is the best we can do.
   if (inYahooCooldown()) {
-    return cached?.value ?? null;
+    if (cached) return cached.value;
+    // Fall back to whatever the persistent cache has — even if it's
+    // hours old, the user still sees a number rather than a 404.
+    const persisted = persistentQuoteCache.get(cacheKey);
+    if (persisted) return persisted.value;
+    return null;
   }
 
-  try {
-    const response = await fetch(
-      `${YAHOO_CHART_URL}/${encodeURIComponent(normalized)}?interval=1d&range=1d`,
-      {
-        headers: {
-          Accept: "application/json",
-          "User-Agent": "Mozilla/5.0 FinTrack/1.0",
-        },
-        signal: AbortSignal.timeout(YAHOO_FETCH_TIMEOUT_MS),
-      },
-    );
-
-    if (response.status === 429) {
-      tripYahooCooldown();
-      if (cached) return cached.value;
-      // No cache to fall back on. Returning null (rather than throwing)
-      // makes the route respond with a clean 404 "Quote market tidak
-      // ditemukan" instead of a 502 carrying the raw upstream error,
-      // which is what was spamming the user during persistent rate
-      // limits.
-      console.warn(
-        `[market-price] quote fetch 429 for ${cacheKey}; no cache, returning null`,
-      );
-      return null;
-    }
-
-    if (!response.ok) {
-      throw new Error(`Yahoo Finance request failed: ${response.status}`);
-    }
-
-    const data = (await response.json()) as YahooChartResult;
-    const meta = data.chart?.result?.[0]?.meta;
-    if (!meta) {
-      writeCache(quoteCache, cacheKey, null, QUOTE_TTL_MS);
-      return null;
-    }
-
-    const price = meta.regularMarketPrice ?? meta.chartPreviousClose;
-    if (!price) {
-      writeCache(quoteCache, cacheKey, null, QUOTE_TTL_MS);
-      return null;
-    }
-
-    const previousClose =
-      meta.previousClose ?? meta.chartPreviousClose ?? price;
-    const change = price - previousClose;
-    const changePercent = previousClose ? (change / previousClose) * 100 : 0;
-
-    const result: MarketQuote = {
-      symbol: normalized,
-      name: meta.longName ?? meta.shortName ?? meta.symbol ?? normalized,
-      currency: meta.currency ?? "IDR",
-      price,
-      previousClose,
-      change,
-      changePercent,
-      dayHigh: meta.regularMarketDayHigh ?? null,
-      dayLow: meta.regularMarketDayLow ?? null,
-      fiftyTwoWeekHigh: meta.fiftyTwoWeekHigh ?? null,
-      fiftyTwoWeekLow: meta.fiftyTwoWeekLow ?? null,
-    };
-    writeCache(quoteCache, cacheKey, result, QUOTE_TTL_MS);
-    return result;
-  } catch (err) {
-    // On any error (network blip, 5xx, parse failure), serve the stale
-    // cached value if we have one. Better to show a slightly old
-    // price than nothing.
+  const attempt = await fetchYahooChart(normalized, "1d");
+  if (!attempt) {
+    // Network/parse errors from every host. Serve stale cache if we
+    // have one, otherwise try the persistent cache.
     if (cached) {
       console.warn(
-        `[market-price] quote fetch failed for ${cacheKey}; serving stale cache`,
+        `[market-price] quote fetch failed for ${cacheKey}; serving stale in-memory cache`,
       );
       return cached.value;
     }
+    const persisted = persistentQuoteCache.get(cacheKey);
+    if (persisted) {
+      console.warn(
+        `[market-price] quote fetch failed for ${cacheKey}; serving persistent cache`,
+      );
+      return persisted.value;
+    }
+    return null;
+  }
+
+  const { host, response } = attempt;
+
+  if (response.status === 429) {
+    tripYahooCooldown();
+    if (cached) return cached.value;
+    const persisted = persistentQuoteCache.get(cacheKey);
+    if (persisted) return persisted.value;
+    // No cache to fall back on. Returning null (rather than throwing)
+    // makes the route respond with a clean 404 "Quote market tidak
+    // ditemukan" instead of a 502 carrying the raw upstream error.
+    console.warn(
+      `[market-price] quote fetch 429 for ${cacheKey} from ${host}; no cache, returning null`,
+    );
+    return null;
+  }
+
+  // 401/403 — the host refused us, but `fetchYahooChart` already
+  // tried the next host. If we got here, every host refused.
+  if (response.status === 401 || response.status === 403) {
+    if (cached) return cached.value;
+    const persisted = persistentQuoteCache.get(cacheKey);
+    if (persisted) {
+      console.warn(
+        `[market-price] quote fetch ${response.status} for ${cacheKey} from ${host}; serving persistent cache (set YAHOO_COOKIE + YAHOO_CRUMB to authenticate)`,
+      );
+      return persisted.value;
+    }
+    return null;
+  }
+
+  if (!response.ok) {
+    if (cached) return cached.value;
+    const persisted = persistentQuoteCache.get(cacheKey);
+    if (persisted) return persisted.value;
+    throw new Error(`Yahoo Finance request failed: ${response.status}`);
+  }
+
+  let data: YahooChartResult;
+  try {
+    data = (await response.json()) as YahooChartResult;
+  } catch (err) {
+    if (cached) return cached.value;
+    const persisted = persistentQuoteCache.get(cacheKey);
+    if (persisted) return persisted.value;
     throw err;
   }
+  const meta = data.chart?.result?.[0]?.meta;
+  if (!meta) {
+    writeCache(quoteCache, cacheKey, null, QUOTE_TTL_MS);
+    return null;
+  }
+
+  const price = meta.regularMarketPrice ?? meta.chartPreviousClose;
+  if (!price) {
+    writeCache(quoteCache, cacheKey, null, QUOTE_TTL_MS);
+    return null;
+  }
+
+  const previousClose = meta.previousClose ?? meta.chartPreviousClose ?? price;
+  const change = price - previousClose;
+  const changePercent = previousClose ? (change / previousClose) * 100 : 0;
+
+  const result: MarketQuote = {
+    symbol: normalized,
+    name: meta.longName ?? meta.shortName ?? meta.symbol ?? normalized,
+    currency: meta.currency ?? "IDR",
+    price,
+    previousClose,
+    change,
+    changePercent,
+    dayHigh: meta.regularMarketDayHigh ?? null,
+    dayLow: meta.regularMarketDayLow ?? null,
+    fiftyTwoWeekHigh: meta.fiftyTwoWeekHigh ?? null,
+    fiftyTwoWeekLow: meta.fiftyTwoWeekLow ?? null,
+  };
+  writeCache(quoteCache, cacheKey, result, QUOTE_TTL_MS);
+  // Mirror successful results to the persistent cache (without the
+  // short TTL — persistent entries are just "last known good"). We
+  // give them a long expiry so they survive cooldown windows.
+  persistentQuoteCache.set(cacheKey, {
+    value: result,
+    expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
+  });
+  schedulePersistentWrite();
+  return result;
 }
 
 export async function getYahooFinancePrice(
@@ -624,67 +819,156 @@ export async function getYahooFinancePrice(
   const normalized = normalizeMarketSymbol(symbol, assetClass);
   if (!normalized) return null;
 
+  loadPersistentCache();
+
   const cacheKey = `${assetClass}:${normalized}`;
   const cached = readCache(priceCache, cacheKey);
   if (cached && !cached.stale) return cached.value;
 
   if (inYahooCooldown()) {
-    return cached?.value ?? null;
+    if (cached) return cached.value;
+    const persisted = persistentPriceCache.get(cacheKey);
+    if (persisted) return persisted.value;
+    return null;
   }
 
-  try {
-    const response = await fetch(
-      `${YAHOO_CHART_URL}/${encodeURIComponent(normalized)}?interval=1d&range=5d`,
-      {
-        headers: {
-          Accept: "application/json",
-          "User-Agent": "Mozilla/5.0 FinTrack/1.0",
-        },
-        signal: AbortSignal.timeout(YAHOO_FETCH_TIMEOUT_MS),
-      },
-    );
-
-    if (response.status === 429) {
-      tripYahooCooldown();
-      if (cached) return cached.value;
-      console.warn(
-        `[market-price] price fetch 429 for ${cacheKey}; no cache, returning null`,
-      );
-      return null;
-    }
-
-    if (!response.ok) {
-      throw new Error(`Yahoo Finance request failed: ${response.status}`);
-    }
-
-    const data = (await response.json()) as YahooChartResult;
-    const meta = data.chart?.result?.[0]?.meta;
-    if (!meta) {
-      writeCache(priceCache, cacheKey, null, PRICE_TTL_MS);
-      return null;
-    }
-
-    const price = meta.regularMarketPrice ?? meta.chartPreviousClose;
-    if (!price) {
-      writeCache(priceCache, cacheKey, null, PRICE_TTL_MS);
-      return null;
-    }
-
-    const result: YahooPriceResult = {
-      symbol: normalized,
-      price,
-      currency: meta.currency ?? "IDR",
-      name: meta.longName ?? meta.shortName ?? meta.symbol ?? normalized,
-    };
-    writeCache(priceCache, cacheKey, result, PRICE_TTL_MS);
-    return result;
-  } catch (err) {
+  const attempt = await fetchYahooChart(normalized, "5d");
+  if (!attempt) {
     if (cached) {
       console.warn(
-        `[market-price] price fetch failed for ${cacheKey}; serving stale cache`,
+        `[market-price] price fetch failed for ${cacheKey}; serving stale in-memory cache`,
       );
       return cached.value;
     }
+    const persisted = persistentPriceCache.get(cacheKey);
+    if (persisted) {
+      console.warn(
+        `[market-price] price fetch failed for ${cacheKey}; serving persistent cache`,
+      );
+      return persisted.value;
+    }
+    return null;
+  }
+
+  const { host, response } = attempt;
+
+  if (response.status === 429) {
+    tripYahooCooldown();
+    if (cached) return cached.value;
+    const persisted = persistentPriceCache.get(cacheKey);
+    if (persisted) return persisted.value;
+    console.warn(
+      `[market-price] price fetch 429 for ${cacheKey} from ${host}; no cache, returning null`,
+    );
+    return null;
+  }
+
+  if (response.status === 401 || response.status === 403) {
+    if (cached) return cached.value;
+    const persisted = persistentPriceCache.get(cacheKey);
+    if (persisted) return persisted.value;
+    return null;
+  }
+
+  if (!response.ok) {
+    if (cached) return cached.value;
+    const persisted = persistentPriceCache.get(cacheKey);
+    if (persisted) return persisted.value;
+    throw new Error(`Yahoo Finance request failed: ${response.status}`);
+  }
+
+  let data: YahooChartResult;
+  try {
+    data = (await response.json()) as YahooChartResult;
+  } catch (err) {
+    if (cached) return cached.value;
+    const persisted = persistentPriceCache.get(cacheKey);
+    if (persisted) return persisted.value;
     throw err;
   }
+  const meta = data.chart?.result?.[0]?.meta;
+  if (!meta) {
+    writeCache(priceCache, cacheKey, null, PRICE_TTL_MS);
+    return null;
+  }
+
+  const price = meta.regularMarketPrice ?? meta.chartPreviousClose;
+  if (!price) {
+    writeCache(priceCache, cacheKey, null, PRICE_TTL_MS);
+    return null;
+  }
+
+  const result: YahooPriceResult = {
+    symbol: normalized,
+    price,
+    currency: meta.currency ?? "IDR",
+    name: meta.longName ?? meta.shortName ?? meta.symbol ?? normalized,
+  };
+  writeCache(priceCache, cacheKey, result, PRICE_TTL_MS);
+  persistentPriceCache.set(cacheKey, {
+    value: result,
+    expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
+  });
+  schedulePersistentWrite();
+  return result;
+}
+
+// ── Startup pre-warm for common IDX symbols ────────────────────────
+// Calling this once at server boot does a background sweep over a
+// short list of the most-watched IDX tickers. If Yahoo is reachable
+// (or the operator has set YAHOO_COOKIE + YAHOO_CRUMB), the
+// persistent cache is seeded with fresh data so the first browser
+// request resolves instantly. If Yahoo is blocked, the sweep silently
+// fails and the next request will fall through to whatever the
+// previous boot left in the persistent cache.
+const IDX_DEFAULT_SYMBOLS: Array<{ symbol: string; assetClass: string }> = [
+  { symbol: "BBCA.JK", assetClass: "stock" },
+  { symbol: "BBRI.JK", assetClass: "stock" },
+  { symbol: "BMRI.JK", assetClass: "stock" },
+  { symbol: "BBNI.JK", assetClass: "stock" },
+  { symbol: "TLKM.JK", assetClass: "stock" },
+  { symbol: "ASII.JK", assetClass: "stock" },
+  { symbol: "UNVR.JK", assetClass: "stock" },
+  { symbol: "ICBP.JK", assetClass: "stock" },
+  { symbol: "INDF.JK", assetClass: "stock" },
+  { symbol: "KLBF.JK", assetClass: "stock" },
+  { symbol: "ANTM.JK", assetClass: "stock" },
+  { symbol: "MDKA.JK", assetClass: "stock" },
+  { symbol: "PTBA.JK", assetClass: "stock" },
+  { symbol: "AMMN.JK", assetClass: "stock" },
+  { symbol: "BRPT.JK", assetClass: "stock" },
+  { symbol: "^JKSE", assetClass: "index" },
+];
+
+let prewarmStarted = false;
+export async function prewarmCommonSymbols(): Promise<void> {
+  if (prewarmStarted) return;
+  prewarmStarted = true;
+
+  loadPersistentCache();
+  if (inYahooCooldown()) {
+    console.log(
+      "[market-price] prewarm skipped: Yahoo is in cooldown, using existing persistent cache",
+    );
+    return;
+  }
+  if (IDX_DEFAULT_SYMBOLS.length === 0) return;
+
+  console.log(
+    `[market-price] prewarming ${IDX_DEFAULT_SYMBOLS.length} common symbols...`,
+  );
+  let ok = 0;
+  let failed = 0;
+  await Promise.allSettled(
+    IDX_DEFAULT_SYMBOLS.map(async ({ symbol, assetClass }) => {
+      const result = await getYahooFinanceQuote(symbol, assetClass).catch(
+        () => null,
+      );
+      if (result) ok++;
+      else failed++;
+    }),
+  );
+  console.log(
+    `[market-price] prewarm complete: ${ok} ok, ${failed} failed (persistent cache now has ${persistentQuoteCache.size} quotes)`,
+  );
 }

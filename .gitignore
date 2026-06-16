@@ -39,6 +39,13 @@ yarn-error.log*
 # vercel
 .vercel
 
+# Persistent Yahoo Finance cache written by the backend at runtime.
+# The compose deploy mounts a named volume on top of this, so the
+# cache survives `docker compose up --build`. The directory still
+# exists in the image (for the very first boot) so ignore its
+# contents.
+/data/
+
 # typescript
 *.tsbuildinfo
 

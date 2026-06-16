@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   AlertCircle,
   CheckCircle2,
+  Clock,
   Eye,
   EyeOff,
   Lock,
@@ -13,8 +14,10 @@ import {
   User,
 } from "lucide-react";
 import { Button } from "~/components/ui/button";
-import { useAuthStore } from "~/store/useAuthStore";
+import { Turnstile, resetTurnstile } from "~/components/auth/turnstile";
+import { useAuthStore, type RegisterResult } from "~/store/useAuthStore";
 import { useAppConfigStore } from "~/store/useAppConfigStore";
+import { env } from "~/env";
 
 interface FormErrors {
   name?: string;
@@ -22,6 +25,7 @@ interface FormErrors {
   password?: string;
   confirm?: string;
   terms?: string;
+  turnstile?: string;
 }
 
 function strength(password: string) {
@@ -50,7 +54,12 @@ export default function RegisterPage() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [formErrors, setFormErrors] = useState<FormErrors>({});
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [pendingApproval, setPendingApproval] = useState<RegisterResult | null>(
+    null,
+  );
   const passStrength = strength(password);
+  const turnstileSiteKey = env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim();
 
   function validate() {
     const errors: FormErrors = {};
@@ -62,6 +71,10 @@ export default function RegisterPage() {
     if (!confirm) errors.confirm = "Konfirmasi password wajib diisi";
     else if (confirm !== password) errors.confirm = "Password tidak cocok";
     if (!agreed) errors.terms = "Kamu harus menyetujui syarat & ketentuan";
+    // Only require the Turnstile token when a site key is configured
+    // (i.e. the widget is actually rendered). Dev / no-key mode skips it.
+    if (turnstileSiteKey && !turnstileToken)
+      errors.turnstile = "Selesaikan verifikasi CAPTCHA dulu";
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   }
@@ -70,15 +83,53 @@ export default function RegisterPage() {
     event.preventDefault();
     clearError();
     if (!validate()) return;
-    const success = await register(name, email, password);
-    if (success) router.push("/dashboard");
+    const result = await register(
+      name,
+      email,
+      password,
+      turnstileSiteKey ? turnstileToken ?? undefined : undefined,
+    );
+    if (result === true) {
+      // Active registration (shouldn't happen with admin approval on,
+      // but kept for dev-fallback path).
+      router.push("/dashboard");
+      return;
+    }
+    if (result && typeof result === "object" && !result.token) {
+      // Admin approval required. Stay on the page and show the
+      // "waiting for admin" card instead of navigating.
+      setPendingApproval(result);
+    } else {
+      // Server rejected (e.g. 409 Email sudah terdaftar). Force the
+      // user to redo the Turnstile challenge on next submit.
+      if (turnstileSiteKey) resetTurnstile();
+    }
   }
 
   return (
-    <div
-      className="relative z-50 w-full max-w-md rounded-2xl border border-[#2d3148] bg-[#1a1d27] p-6 shadow-[0_20px_60px_-20px_rgba(0,0,0,0.7)] sm:p-8"
-      style={{ opacity: 1, visibility: "visible" }}
-    >
+    <>
+      {pendingApproval ? (
+        <PendingApprovalCard
+          result={pendingApproval}
+          onBackToLogin={() => {
+            setPendingApproval(null);
+            setName("");
+            setEmail("");
+            setPassword("");
+            setConfirm("");
+            setAgreed(false);
+            setTurnstileToken(null);
+          }}
+        />
+      ) : (
+        <div
+          className="border-border bg-bg-surface relative z-50 w-full max-w-md rounded-2xl border p-6 sm:p-8"
+          style={{
+            boxShadow: "var(--auth-card-shadow)",
+            opacity: 1,
+            visibility: "visible",
+          }}
+        >
       <div className="mb-7">
         <h1 className="text-text-primary mb-1.5 text-2xl font-bold">
           Buat akun baru 🚀
@@ -158,7 +209,7 @@ export default function RegisterPage() {
                       background:
                         passStrength.level >= level
                           ? passStrength.color
-                          : "#22263a",
+                          : "var(--auth-strength-meter-bg)",
                     }}
                   />
                 ))}
@@ -207,7 +258,7 @@ export default function RegisterPage() {
               type="checkbox"
               checked={agreed}
               onChange={(event) => setAgreed(event.target.checked)}
-              className="mt-1 h-4 w-4 accent-[#6366f1]"
+              className="mt-1 h-4 w-4 accent-primary"
             />
             <span className="text-text-secondary text-sm leading-snug">
               Saya setuju dengan Syarat & Ketentuan {config.appName}
@@ -222,6 +273,19 @@ export default function RegisterPage() {
           <div className="border-danger/25 bg-danger/10 flex items-center gap-2.5 rounded-xl border px-3.5 py-3">
             <AlertCircle className="text-danger h-4 w-4 shrink-0" />
             <p className="text-danger text-sm">{error}</p>
+          </div>
+        )}
+
+        {turnstileSiteKey && (
+          <div className="space-y-1">
+            <Turnstile
+              siteKey={turnstileSiteKey}
+              onVerify={setTurnstileToken}
+              onExpire={() => setTurnstileToken(null)}
+            />
+            {formErrors.turnstile && (
+              <p className="text-danger text-xs">{formErrors.turnstile}</p>
+            )}
           </div>
         )}
 
@@ -250,23 +314,26 @@ export default function RegisterPage() {
           height: 48px;
           width: 100%;
           border-radius: 12px;
-          border: 1px solid #2d3148;
-          background: #0f1117;
+          border: 1px solid var(--auth-input-border);
+          background: var(--auth-input-bg);
           padding-left: 40px;
           padding-right: 12px;
-          color: #f1f5f9;
+          color: var(--auth-input-color);
           font-size: 14px;
           outline: none;
+          transition: border-color 0.15s ease, box-shadow 0.15s ease;
         }
         .login-input::placeholder {
-          color: #475569;
+          color: var(--auth-input-placeholder);
         }
         .login-input:focus {
-          border-color: #6366f1;
-          box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.35);
+          border-color: var(--primary);
+          box-shadow: 0 0 0 2px var(--primary-glow);
         }
       `}</style>
-    </div>
+        </div>
+      )}
+    </>
   );
 }
 

@@ -30,13 +30,11 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
   const { config } = useAppConfigStore();
 
   return (
-    <div className="relative flex min-h-screen overflow-hidden bg-[#0f1117]">
-      {/* ── Left decorative panel ────────────────────────────────────── */}
+    <div className="bg-bg-base relative flex min-h-screen overflow-hidden">
+      {/* ── Left decorative panel ───────────────────────────────── */}
       <div
         className="relative hidden flex-col items-start justify-center overflow-hidden px-16 py-12 lg:flex lg:w-[45%]"
-        style={{
-          background: "linear-gradient(135deg, #1a1d27 0%, #0f1117 100%)",
-        }}
+        style={{ background: "var(--auth-panel-gradient)" }}
       >
         {/* Ambient blobs */}
         <div
@@ -48,7 +46,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
             width: "480px",
             height: "480px",
             background:
-              "radial-gradient(circle, rgba(99,102,241,0.28) 0%, transparent 70%)",
+              "radial-gradient(circle, var(--auth-blob-1) 0%, transparent 70%)",
             borderRadius: "50%",
             filter: "blur(60px)",
             pointerEvents: "none",
@@ -63,7 +61,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
             width: "420px",
             height: "420px",
             background:
-              "radial-gradient(circle, rgba(139,92,246,0.22) 0%, transparent 70%)",
+              "radial-gradient(circle, var(--auth-blob-2) 0%, transparent 70%)",
             borderRadius: "50%",
             filter: "blur(60px)",
             pointerEvents: "none",
@@ -78,7 +76,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
             width: "220px",
             height: "220px",
             background:
-              "radial-gradient(circle, rgba(99,102,241,0.18) 0%, transparent 70%)",
+              "radial-gradient(circle, var(--auth-blob-3) 0%, transparent 70%)",
             borderRadius: "50%",
             filter: "blur(40px)",
             pointerEvents: "none",
@@ -93,7 +91,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
             width: "160px",
             height: "160px",
             background:
-              "radial-gradient(circle, rgba(167,139,250,0.15) 0%, transparent 70%)",
+              "radial-gradient(circle, var(--auth-blob-4) 0%, transparent 70%)",
             borderRadius: "50%",
             filter: "blur(30px)",
             pointerEvents: "none",
@@ -108,12 +106,12 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
               style={{
                 width: "48px",
                 height: "48px",
-                background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+                background: "var(--gradient-primary)",
                 borderRadius: "14px",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                boxShadow: "0 0 24px rgba(99,102,241,0.4)",
+                boxShadow: "0 0 24px var(--primary-glow)",
               }}
             >
               <BarChart3 className="h-6 w-6 text-white" />
@@ -121,8 +119,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
             <span
               className="text-3xl font-extrabold tracking-tight"
               style={{
-                background:
-                  "linear-gradient(135deg, #818cf8 0%, #a78bfa 50%, #6366f1 100%)",
+                background: "var(--gradient-primary)",
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
                 backgroundClip: "text",
@@ -137,7 +134,8 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
             {config.tagline}{" "}
             <span
               style={{
-                background: "linear-gradient(135deg, #6366f1 0%, #a78bfa 100%)",
+                background:
+                  "linear-gradient(135deg, #6366f1 0%, #a78bfa 100%)",
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
                 backgroundClip: "text",
@@ -161,15 +159,18 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
                     width: "42px",
                     height: "42px",
                     minWidth: "42px",
-                    background: "rgba(99,102,241,0.12)",
-                    border: "1px solid rgba(99,102,241,0.25)",
+                    background: "var(--auth-tile-bg)",
+                    border: "1px solid var(--auth-tile-border)",
                     borderRadius: "11px",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                   }}
                 >
-                  <Icon className="h-5 w-5" style={{ color: "#818cf8" }} />
+                  <Icon
+                    className="h-5 w-5"
+                    style={{ color: "var(--auth-icon-color)" }}
+                  />
                 </div>
                 <div>
                   <p className="text-text-primary text-sm leading-snug font-semibold">
@@ -193,13 +194,16 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
               <div
                 key={label}
                 style={{
-                  background: "rgba(99,102,241,0.08)",
-                  border: "1px solid rgba(99,102,241,0.2)",
+                  background: "var(--auth-stat-bg)",
+                  border: "1px solid var(--auth-stat-border)",
                   borderRadius: "10px",
                   padding: "8px 14px",
                 }}
               >
-                <p className="text-sm font-bold" style={{ color: "#818cf8" }}>
+                <p
+                  className="text-sm font-bold"
+                  style={{ color: "var(--auth-icon-color)" }}
+                >
                   {value}
                 </p>
                 <p className="text-text-muted text-xs">{label}</p>
@@ -217,14 +221,13 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
             top: 0,
             bottom: 0,
             width: "1px",
-            background:
-              "linear-gradient(to bottom, transparent 0%, rgba(99,102,241,0.35) 30%, rgba(99,102,241,0.35) 70%, transparent 100%)",
+            background: "var(--auth-panel-divider)",
           }}
         />
       </div>
 
-      {/* ── Right panel — form area ──────────────────────────────────── */}
-      <div className="relative z-20 flex min-h-screen flex-1 items-center justify-center bg-[#0f1117] p-6 sm:p-10 lg:p-12">
+      {/* ── Right panel — form area ────────────────────────────── */}
+      <div className="bg-bg-base relative z-20 flex min-h-screen flex-1 items-center justify-center p-6 sm:p-10 lg:p-12">
         {children}
       </div>
     </div>

@@ -6,7 +6,7 @@ export interface User {
   email: string;
   password: string;
   role: Role;
-  status: "active" | "inactive";
+  status: "active" | "inactive" | "pending";
   createdAt: string;
 }
 
@@ -15,7 +15,7 @@ export interface PublicUser {
   name: string;
   email: string;
   role: Role;
-  status: "active" | "inactive";
+  status: "active" | "inactive" | "pending";
   createdAt: string;
 }
 

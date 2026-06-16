@@ -38,6 +38,11 @@ services:
       # Persist the WhatsApp pairing session so `docker compose up
       # --build` doesn't force you to re-scan the QR code every time.
       - whatsapp-session:/app/.baileys-session
+      # Persist the disk-backed Yahoo Finance cache. Without this, a
+      # fresh image wipes the last known good quotes and the user
+      # has to wait for Yahoo to answer again — which often never
+      # happens from a VPS IP.
+      - fintrack-data:/app/data
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--spider", "http://localhost:3000/"]
       interval: 30s
@@ -56,3 +61,4 @@ services:
 
 volumes:
   whatsapp-session:
+  fintrack-data:

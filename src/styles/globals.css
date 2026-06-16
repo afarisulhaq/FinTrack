@@ -68,6 +68,36 @@
   --scrollbar-thumb: #2d3148;
   --scrollbar-thumb-hover: #4f46e5;
 
+  /* ── Auth layout dark-mode palette ──────────────────────────── */
+  --auth-panel-gradient: linear-gradient(
+    135deg,
+    #1a1d27 0%,
+    #0f1117 100%
+  );
+  --auth-panel-divider: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(99, 102, 241, 0.35) 30%,
+    rgba(99, 102, 241, 0.35) 70%,
+    transparent 100%
+  );
+  --auth-blob-1: rgba(99, 102, 241, 0.28);
+  --auth-blob-2: rgba(139, 92, 246, 0.22);
+  --auth-blob-3: rgba(99, 102, 241, 0.18);
+  --auth-blob-4: rgba(167, 139, 250, 0.15);
+  --auth-tile-bg: rgba(99, 102, 241, 0.12);
+  --auth-tile-border: rgba(99, 102, 241, 0.25);
+  --auth-stat-bg: rgba(99, 102, 241, 0.08);
+  --auth-stat-border: rgba(99, 102, 241, 0.2);
+  --auth-icon-color: #818cf8;
+  --auth-card-shadow: 0 20px 60px -20px rgba(0, 0, 0, 0.7);
+  --auth-strength-meter-bg: #22263a;
+  --auth-input-bg: #0f1117;
+  --auth-input-border: #2d3148;
+  --auth-input-color: #f1f5f9;
+  --auth-input-placeholder: #475569;
+  --auth-divider-color: #2d3148;
+
   color-scheme: dark;
 }
 
@@ -93,6 +123,41 @@
   --scrollbar-track: #f1f5f9;
   --scrollbar-thumb: #cbd5e1;
   --scrollbar-thumb-hover: #6366f1;
+
+  /* ── Auth layout light-mode palette ─────────────────────────── */
+  /* The (auth)/layout.tsx brand panel uses a dark gradient + glow
+     blobs in dark mode. These are the light-mode counterparts so the
+     login/register pages look right when the rest of the app is in
+     light mode. */
+  --auth-panel-gradient: linear-gradient(
+    135deg,
+    #ffffff 0%,
+    #f1f5f9 60%,
+    #e0e7ff 100%
+  );
+  --auth-panel-divider: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(99, 102, 241, 0.18) 30%,
+    rgba(99, 102, 241, 0.18) 70%,
+    transparent 100%
+  );
+  --auth-blob-1: rgba(99, 102, 241, 0.18);
+  --auth-blob-2: rgba(139, 92, 246, 0.14);
+  --auth-blob-3: rgba(99, 102, 241, 0.1);
+  --auth-blob-4: rgba(167, 139, 250, 0.08);
+  --auth-tile-bg: rgba(99, 102, 241, 0.06);
+  --auth-tile-border: rgba(99, 102, 241, 0.18);
+  --auth-stat-bg: rgba(99, 102, 241, 0.04);
+  --auth-stat-border: rgba(99, 102, 241, 0.14);
+  --auth-icon-color: #6366f1;
+  --auth-card-shadow: 0 20px 60px -20px rgba(15, 23, 42, 0.18);
+  --auth-strength-meter-bg: #e2e8f0;
+  --auth-input-bg: #ffffff;
+  --auth-input-border: #e2e8f0;
+  --auth-input-color: #0f172a;
+  --auth-input-placeholder: #94a3b8;
+  --auth-divider-color: #e2e8f0;
 
   color-scheme: light;
 }

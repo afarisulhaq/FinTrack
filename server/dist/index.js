@@ -13,6 +13,7 @@ import { financeRoutes, resourceRoutes } from "./routes/finance.js";
 import { botRoutes } from "./routes/bot.js";
 import { publicMarketRoutes } from "./routes/public-market.js";
 import { publicSplitBillRoutes } from "./routes/public-split-bills.js";
+import { prewarmCommonSymbols } from "./services/market-price.js";
 import { startWhatsAppBot } from "./services/whatsapp.js";
 import { ok } from "./utils.js";
 const port = Number(process.env.PORT ?? 4000);
@@ -52,6 +53,13 @@ const app = new Elysia({ adapter: node() })
     hostname: "0.0.0.0",
 });
 console.log(`FinTrack backend (Elysia) running on http://0.0.0.0:${port}`);
+// Background warmup of the Yahoo Finance cache. Runs in the
+// background so server startup isn't blocked. If the VPS IP is
+// blocked by Yahoo, this silently fails and the persistent cache
+// from a previous successful boot takes over.
+prewarmCommonSymbols().catch((err) => {
+    console.warn("[market-price] prewarm threw:", err instanceof Error ? err.message : err);
+});
 // Auto-start WhatsApp bot only when a saved session exists.
 // Without this guard, a fresh server boot opens a QR flow before the user
 // chooses QR vs pairing code, which can create stale QR/login timeouts.

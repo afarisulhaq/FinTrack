@@ -65,6 +65,10 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 # WhatsApp bot session (Baileys) lives outside the image so re-builds
 # don't wipe the pairing creds. Mount a volume here in compose.
 RUN mkdir -p /app/.baileys-session
+# Disk-backed Yahoo Finance cache (see server/services/market-price.ts).
+# Compose mounts a named volume on top of this so the JSON file
+# survives `docker compose up --build`.
+RUN mkdir -p /app/data
 
 EXPOSE 3000
 

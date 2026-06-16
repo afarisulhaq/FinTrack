@@ -49,10 +49,15 @@ export const api = {
       body: JSON.stringify({ email, password }),
     });
   },
-  register(name: string, email: string, password: string) {
+  register(
+    name: string,
+    email: string,
+    password: string,
+    turnstileToken?: string,
+  ) {
     return request<AuthResult>("/auth/register", {
       method: "POST",
-      body: JSON.stringify({ name, email, password }),
+      body: JSON.stringify({ name, email, password, turnstileToken }),
     });
   },
   me(token: string) {

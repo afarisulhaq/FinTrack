@@ -9,9 +9,21 @@ export interface AuthUser {
   name: string;
   email: string;
   role: "admin" | "owner" | "member";
-  status?: "active" | "inactive";
+  status?: "active" | "pending" | "inactive";
   avatar?: string;
   createdAt: string;
+}
+
+/**
+ * Result of a registration attempt. When the server requires admin
+ * approval (the default), `token` is null and `awaitingApproval` is
+ * true. The frontend uses this to show the "waiting for admin" state
+ * instead of redirecting to the dashboard.
+ */
+export interface RegisterResult {
+  token: string | null;
+  user: AuthUser;
+  awaitingApproval?: boolean;
 }
 
 interface AuthStore {
@@ -22,7 +34,7 @@ interface AuthStore {
   hasHydrated: boolean;
   error: string | null;
   login: (email: string, password: string) => Promise<boolean>;
-  register: (name: string, email: string, password: string) => Promise<boolean>;
+  register: (name: string, email: string, password: string, turnstileToken?: string) => Promise<RegisterResult | true>;
   logout: () => void;
   clearError: () => void;
   setHasHydrated: (value: boolean) => void;
@@ -112,7 +124,7 @@ export const useAuthStore = create<AuthStore>()(
         }
       },
 
-      register: async (name, email, password) => {
+      register: async (name, email, password, turnstileToken) => {
         set({ isLoading: true, error: null });
         const normalizedEmail = email.trim().toLowerCase();
         if (!name.trim()) {
@@ -133,7 +145,22 @@ export const useAuthStore = create<AuthStore>()(
             name.trim(),
             normalizedEmail,
             password,
+            turnstileToken,
           );
+          // Admin-approval flow: no token is issued for `pending`
+          // users. Surface the "waiting for admin" result to the
+          // caller so the register page can show the right message.
+          if (!result.token) {
+            set({
+              user: result.user,
+              token: null,
+              isAuthenticated: false,
+              isLoading: false,
+              hasHydrated: true,
+              error: null,
+            });
+            return result;
+          }
           set({
             user: result.user,
             token: result.token,
@@ -144,11 +171,13 @@ export const useAuthStore = create<AuthStore>()(
           });
           return true;
         } catch (error) {
+          // Dev fallback so frontend remains usable if backend server is not running yet.
           await wait(300);
           const user = {
             ...fallbackUser(normalizedEmail),
             name: name.trim(),
             role: "owner" as const,
+            status: "active" as const,
           };
           set({
             user,

@@ -1,4 +1,4 @@
-import { Elysia } from "elysia";
+import { Elysia, t } from "elysia";
 import { appConfig, db, setAppConfig, users } from "../data.js";
 import { extractToken, verifyToken } from "../auth.js";
 import { requireAdmin, requireAuth } from "../auth-middleware.js";
@@ -2119,6 +2119,59 @@ export const financeRoutes = new Elysia({ prefix: "/api" })
     }
     return ok(users.map(publicUser));
   })
+  // Approve / reject / suspend a user. Used by /admin/users to flip
+  // a freshly-registered `pending` account to `active` (or back to
+  // `inactive` to revoke access). Admins themselves cannot be
+  // demoted/inactivated via this endpoint — that would let one
+  // admin lock the others out.
+  .patch(
+    "/admin/users/:id/status",
+    async ({ params, body, set }) => {
+      const { id } = params;
+      const { status } = body as { status?: string };
+      if (
+        status !== "active" &&
+        status !== "inactive" &&
+        status !== "pending"
+      ) {
+        set.status = 400;
+        return fail("Status tidak valid");
+      }
+
+      if (await canUseDatabase()) {
+        const existing = await prisma.user.findUnique({ where: { id } });
+        if (!existing) {
+          set.status = 404;
+          return fail("Pengguna tidak ditemukan");
+        }
+        if (existing.role === "admin" && status !== "active") {
+          set.status = 403;
+          return fail("Tidak bisa mengubah status admin lain");
+        }
+        const updated = await prisma.user.update({
+          where: { id },
+          data: { status },
+        });
+        return ok(publicDbUser(updated));
+      }
+
+      const idx = users.findIndex((u) => u.id === id);
+      if (idx < 0) {
+        set.status = 404;
+        return fail("Pengguna tidak ditemukan");
+      }
+      if (users[idx]!.role === "admin" && status !== "active") {
+        set.status = 403;
+        return fail("Tidak bisa mengubah status admin lain");
+      }
+      users[idx] = { ...users[idx]!, status: status as "active" | "inactive" | "pending" };
+      return ok(publicUser(users[idx]!));
+    },
+    {
+      params: t.Object({ id: t.String() }),
+      body: t.Object({ status: t.String() }),
+    },
+  )
   .get("/admin/app-settings", async () => {
     if (await canUseDatabase()) {
       const setting =

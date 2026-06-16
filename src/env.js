@@ -16,6 +16,12 @@ export const env = createEnv({
     TELEGRAM_BOT_TOKEN: z.string().optional(),
     TELEGRAM_DEFAULT_CHAT_ID: z.string().optional(),
     /**
+     * Cloudflare Turnstile server-side secret. When set, `/api/auth/register`
+     * will reject any submission whose `turnstileToken` doesn't pass
+     * Cloudflare's siteverify check. Leave unset in dev to skip the check.
+     */
+    TURNSTILE_SECRET_KEY: z.string().optional(),
+    /**
      * Brand name baked into server-rendered metadata (browser tab, SEO
      * tags, OpenGraph). The runtime in-app brand name is owned by
      * `useAppConfigStore` and can be overridden per-tenant by admins.
@@ -39,6 +45,13 @@ export const env = createEnv({
      * in `.env.production` so the login form is the only way in.
      */
     NEXT_PUBLIC_ENABLE_DEMO_LOGIN: z.enum(["true", "false"]).default("false"),
+    /**
+     * Cloudflare Turnstile site key. When set, the register page renders
+     * the Turnstile widget and the registration only succeeds after
+     * the user passes the challenge. Leave unset in dev to skip the
+     * widget entirely (form submits with no token).
+     */
+    NEXT_PUBLIC_TURNSTILE_SITE_KEY: z.string().optional(),
   },
 
   /**
@@ -52,9 +65,11 @@ export const env = createEnv({
     WHATSAPP_SESSION_DIR: process.env.WHATSAPP_SESSION_DIR,
     TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN,
     TELEGRAM_DEFAULT_CHAT_ID: process.env.TELEGRAM_DEFAULT_CHAT_ID,
+    TURNSTILE_SECRET_KEY: process.env.TURNSTILE_SECRET_KEY,
     APP_NAME: process.env.APP_NAME,
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
     NEXT_PUBLIC_ENABLE_DEMO_LOGIN: process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN,
+    NEXT_PUBLIC_TURNSTILE_SITE_KEY: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially

@@ -81,8 +81,12 @@ export default function LoginPage() {
 
   return (
     <div
-      className="relative z-50 w-full max-w-md rounded-2xl border border-[#2d3148] bg-[#1a1d27] p-6 shadow-[0_20px_60px_-20px_rgba(0,0,0,0.7)] sm:p-8"
-      style={{ opacity: 1, visibility: "visible" }}
+      className="border-border bg-bg-surface relative z-50 w-full max-w-md rounded-2xl border p-6 sm:p-8"
+      style={{
+        boxShadow: "var(--auth-card-shadow)",
+        opacity: 1,
+        visibility: "visible",
+      }}
     >
       <div className="mb-8">
         <h1 className="text-text-primary mb-1.5 text-2xl font-bold">
