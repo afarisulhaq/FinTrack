@@ -41,8 +41,12 @@ BACKEND_PID=$!
 sleep 1
 
 echo "[entrypoint] starting Next.js frontend on :3000..."
-# `output: "standalone"` produces server.js at the project root
-node server.js &
+# `output: "standalone"` produces server.js at the project root.
+# Override PORT to 3000 because the Dockerfile sets PORT=4000 for the
+# Elysia backend, and Next.js's server.js also reads PORT from the env —
+# without this override it would try to bind to 4000 and fail with
+# EADDRINUSE.
+PORT=3000 node server.js &
 FRONTEND_PID=$!
 
 # Block until tini signals us (e.g. docker stop). When that happens,
