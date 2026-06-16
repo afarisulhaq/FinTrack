@@ -92,15 +92,20 @@ let bareksaGoldCache: {
 // We cache quotes for 1 minute, prices for 5 minutes, and search
 // results for 30 seconds. On any fetch error — especially a 429 —
 // we fall back to the stale cached value if one exists, so the UI
-// keeps working through a rate-limit window. A global 60-second
+// keeps working through a rate-limit window. A global 5-minute
 // cooldown after a 429 prevents us from retrying the dead endpoint
-// over and over from concurrent requests.
+// over and over from concurrent requests (a 60s cooldown was too
+// short and produced a tight retry loop while the rate-limit window
+// was still active).
 type CacheEntry<T> = { value: T; expiresAt: number };
 
 const QUOTE_TTL_MS = 60 * 1000;
 const PRICE_TTL_MS = 5 * 60 * 1000;
 const SEARCH_TTL_MS = 30 * 1000;
-const YAHOO_COOLDOWN_MS = 60 * 1000;
+const YAHOO_COOLDOWN_MS = 5 * 60 * 1000;
+// Hard cap on a single Yahoo request — without this, a hung socket
+// or slow DNS could leave the user staring at a spinner indefinitely.
+const YAHOO_FETCH_TIMEOUT_MS = 10 * 1000;
 
 const quoteCache = new Map<string, CacheEntry<MarketQuote | null>>();
 type YahooPriceResult = {
@@ -535,13 +540,22 @@ export async function getYahooFinanceQuote(
           Accept: "application/json",
           "User-Agent": "Mozilla/5.0 FinTrack/1.0",
         },
+        signal: AbortSignal.timeout(YAHOO_FETCH_TIMEOUT_MS),
       },
     );
 
     if (response.status === 429) {
       tripYahooCooldown();
       if (cached) return cached.value;
-      throw new Error(`Yahoo Finance request failed: 429`);
+      // No cache to fall back on. Returning null (rather than throwing)
+      // makes the route respond with a clean 404 "Quote market tidak
+      // ditemukan" instead of a 502 carrying the raw upstream error,
+      // which is what was spamming the user during persistent rate
+      // limits.
+      console.warn(
+        `[market-price] quote fetch 429 for ${cacheKey}; no cache, returning null`,
+      );
+      return null;
     }
 
     if (!response.ok) {
@@ -626,13 +640,17 @@ export async function getYahooFinancePrice(
           Accept: "application/json",
           "User-Agent": "Mozilla/5.0 FinTrack/1.0",
         },
+        signal: AbortSignal.timeout(YAHOO_FETCH_TIMEOUT_MS),
       },
     );
 
     if (response.status === 429) {
       tripYahooCooldown();
       if (cached) return cached.value;
-      throw new Error(`Yahoo Finance request failed: 429`);
+      console.warn(
+        `[market-price] price fetch 429 for ${cacheKey}; no cache, returning null`,
+      );
+      return null;
     }
 
     if (!response.ok) {
