@@ -27,10 +27,11 @@ interface ManagedUser {
   name: string;
   email: string;
   role: "admin" | "owner" | "member";
-  status: "active" | "inactive";
+  status: "active" | "inactive" | "pending";
   joinedAt: string;
   transactions: number;
   wallets: number;
+  createdAt?: string;
 }
 
 const emptyForm = {
@@ -159,55 +160,125 @@ export default function AdminUsersPage() {
   function saveUser(event: React.FormEvent) {
     event.preventDefault();
     if (!form.name.trim() || !form.email.trim()) return;
-    if (editing)
-      setUsers((list) =>
-        list.map((user) =>
-          user.id === editing.id
-            ? {
-                ...user,
-                name: form.name,
-                email: form.email,
-                role: form.role,
-                status: form.status,
-              }
-            : user,
-        ),
-      );
-    else
-      setUsers((list) => [
-        {
-          id: String(Date.now()),
-          name: form.name,
-          email: form.email,
-          role: form.role,
-          status: form.status,
-          joinedAt: new Date().toLocaleDateString("id-ID"),
-          transactions: 0,
-          wallets: 0,
-        },
-        ...list,
-      ]);
-    setModalOpen(false);
+    if (editing) {
+      // Edit existing — PUT /users/:id
+      void (async () => {
+        if (!token) return;
+        try {
+          const updated = await api.put<ManagedUser>(
+            `/users/${editing.id}`,
+            token,
+            {
+              name: form.name,
+              email: form.email,
+              role: form.role,
+              status: form.status,
+              ...(form.password ? { password: form.password } : {}),
+            },
+          );
+          setUsers((list) =>
+            list.map((u) =>
+              u.id === editing.id
+                ? {
+                    ...u,
+                    name: updated.name,
+                    email: updated.email,
+                    role: updated.role,
+                    status: updated.status,
+                  }
+                : u,
+            ),
+          );
+          toast.success("Pengguna diperbarui");
+          setModalOpen(false);
+        } catch (err) {
+          toast.error(
+            "Gagal memperbarui",
+            err instanceof Error ? err.message : "Unknown error",
+          );
+        }
+      })();
+    } else {
+      // Create new — POST /users
+      if (!form.password) {
+        toast.error("Password wajib diisi untuk pengguna baru");
+        return;
+      }
+      void (async () => {
+        if (!token) return;
+        try {
+          const created = await api.post<ManagedUser>("/users", token, {
+            name: form.name,
+            email: form.email,
+            password: form.password,
+            role: form.role,
+            status: form.status,
+          });
+          setUsers((list) => [
+            {
+              id: created.id,
+              name: created.name,
+              email: created.email,
+              role: created.role,
+              status: created.status,
+              joinedAt: formatJoinedAt(created.createdAt ?? new Date().toISOString()),
+              transactions: 0,
+              wallets: 0,
+            },
+            ...list,
+          ]);
+          toast.success("Pengguna ditambahkan");
+          setModalOpen(false);
+        } catch (err) {
+          toast.error(
+            "Gagal menambah",
+            err instanceof Error ? err.message : "Unknown error",
+          );
+        }
+      })();
+    }
   }
   async function removeUser(id: string) {
     const ok = await confirm({
       title: "Hapus pengguna ini?",
-      message: "Tindakan ini tidak bisa dibatalkan.",
+      message:
+        "Tindakan ini tidak bisa dibatalkan. Semua data milik pengguna (dompet, transaksi, dll) akan ikut terhapus.",
       variant: "danger",
     });
-    if (ok) setUsers((list) => list.filter((user) => user.id !== id));
+    if (!ok || !token) return;
+    try {
+      await api.delete<{ id: string }>(`/users/${id}`, token);
+      setUsers((list) => list.filter((user) => user.id !== id));
+      toast.success("Pengguna dihapus");
+    } catch (err) {
+      toast.error(
+        "Gagal menghapus",
+        err instanceof Error ? err.message : "Unknown error",
+      );
+    }
   }
   function toggleStatus(id: string) {
+    const target = users.find((u) => u.id === id);
+    if (!target || !token) return;
+    const next: ManagedUser["status"] =
+      target.status === "active" ? "inactive" : "active";
+    // Optimistic update so the table feels instant; revert on error.
     setUsers((list) =>
-      list.map((user) =>
-        user.id === id
-          ? {
-              ...user,
-              status: user.status === "active" ? "inactive" : "active",
-            }
-          : user,
-      ),
+      list.map((u) => (u.id === id ? { ...u, status: next } : u)),
     );
+    void api
+      .put<ManagedUser>(`/users/${id}`, token, { status: next })
+      .catch((err) => {
+        setUsers((list) =>
+          list.map((u) =>
+            u.id === id ? { ...u, status: target.status } : u,
+          ),
+        );
+        toast.error(
+          "Gagal mengubah status",
+          err instanceof Error ? err.message : "Unknown error",
+        );
+      });
   }
 
   return (
@@ -236,24 +307,10 @@ export default function AdminUsersPage() {
           <Button
             onClick={openAdd}
             leftIcon={<Plus className="h-4 w-4" />}
-            disabled
-            title="Tambah pengguna belum tersinkronisasi ke server"
           >
             Tambah Pengguna
           </Button>
         </div>
-      </div>
-      <div className="bg-warning/5 border-warning/30 text-text-secondary flex items-start gap-2 rounded-xl border px-4 py-2.5 text-xs">
-        <AlertCircle className="text-warning mt-0.5 h-4 w-4 shrink-0" />
-        <span>
-          Tambah, edit, dan hapus saat ini hanya bersifat lokal — perubahan
-          tidak akan tersimpan ke server sampai endpoint
-          <code className="bg-bg-elevated mx-1 rounded px-1.5 py-0.5 text-[11px]">
-            POST/PUT/DELETE /api/users
-          </code>
-          ditambahkan di backend. Refresh halaman akan mengembalikan data asli
-          dari database.
-        </span>
       </div>
       <div className="border-border bg-bg-surface flex flex-col gap-3 rounded-xl border p-4 lg:flex-row">
         <div className="flex-1">

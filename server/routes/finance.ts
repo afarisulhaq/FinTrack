@@ -1,4 +1,5 @@
 import { Elysia, t } from "elysia";
+import bcrypt from "bcryptjs";
 import { appConfig, db, setAppConfig, users } from "../data.js";
 import { extractToken, verifyToken } from "../auth.js";
 import { requireAdmin, requireAuth } from "../auth-middleware.js";
@@ -1961,6 +1962,243 @@ export const financeRoutes = new Elysia({ prefix: "/api" })
     }
     return ok(users.map(publicUser));
   })
+  // Admin CRUD for users. The GET endpoint is the legacy list
+  // route above; the POST/PUT/DELETE here are what the /admin/users
+  // page needs to actually persist add/edit/remove. Without these,
+  // the page falls back to a local-only state and refresh wipes
+  // every change — that's the bug the previous code was papering
+  // over with a yellow warning banner.
+  .post(
+    "/users",
+    async ({ request, body, set }) => {
+      // Only admins can create users from the dashboard. (Public
+      // registration still goes through /auth/register.)
+      const token = extractToken(request.headers.get("authorization") ?? undefined);
+      const auth = token ? verifyToken(token) : null;
+      if (!auth || auth.role !== "admin") {
+        set.status = 401;
+        return fail("Unauthorized");
+      }
+      const { name, email, password, role, status } = body as {
+        name?: string;
+        email?: string;
+        password?: string;
+        role?: "admin" | "owner" | "member";
+        status?: "active" | "inactive" | "pending";
+      };
+      if (!name?.trim() || !email?.trim() || !password) {
+        set.status = 400;
+        return fail("Nama, email, dan password wajib diisi");
+      }
+      if (password.length < 6) {
+        set.status = 400;
+        return fail("Password minimal 6 karakter");
+      }
+      const normalizedEmail = email.toLowerCase().trim();
+
+      if (await canUseDatabase()) {
+        const existing = await prisma.user.findUnique({
+          where: { email: normalizedEmail },
+        });
+        if (existing) {
+          set.status = 409;
+          return fail("Email sudah terdaftar");
+        }
+        const hashed = await bcrypt.hash(password, 10);
+        const created = await prisma.user.create({
+          data: {
+            name: name.trim(),
+            email: normalizedEmail,
+            password: hashed,
+            role: role ?? "owner",
+            status: status ?? "active",
+          },
+        });
+        return ok(publicDbUser(created));
+      }
+
+      if (users.some((u) => u.email === normalizedEmail)) {
+        set.status = 409;
+        return fail("Email sudah terdaftar");
+      }
+      const created = {
+        id: id("usr"),
+        name: name.trim(),
+        email: normalizedEmail,
+        password: await bcrypt.hash(password, 10),
+        role: (role ?? "owner") as "admin" | "owner" | "member",
+        status: (status ?? "active") as "active" | "inactive" | "pending",
+        createdAt: new Date().toISOString(),
+      };
+      users.push(created);
+      return ok(publicUser(created));
+    },
+    {
+      body: t.Object({
+        name: t.String({ minLength: 2 }),
+        email: t.String(),
+        password: t.String({ minLength: 6 }),
+        role: t.Optional(
+          t.Union([
+            t.Literal("admin"),
+            t.Literal("owner"),
+            t.Literal("member"),
+          ]),
+        ),
+        status: t.Optional(
+          t.Union([
+            t.Literal("active"),
+            t.Literal("inactive"),
+            t.Literal("pending"),
+          ]),
+        ),
+      }),
+    },
+  )
+  .put(
+    "/users/:id",
+    async ({ request, params, body, set }) => {
+      const token = extractToken(request.headers.get("authorization") ?? undefined);
+      const auth = token ? verifyToken(token) : null;
+      if (!auth || auth.role !== "admin") {
+        set.status = 401;
+        return fail("Unauthorized");
+      }
+      const { name, email, role, status, password } = body as {
+        name?: string;
+        email?: string;
+        role?: "admin" | "owner" | "member";
+        status?: "active" | "inactive" | "pending";
+        password?: string;
+      };
+      if (await canUseDatabase()) {
+        const existing = await prisma.user.findUnique({
+          where: { id: params.id },
+        });
+        if (!existing) {
+          set.status = 404;
+          return fail("Pengguna tidak ditemukan");
+        }
+        // Don't let admins demote themselves via this endpoint —
+        // it would let an admin lock the others out of the panel.
+        if (existing.role === "admin" && role && role !== "admin") {
+          set.status = 403;
+          return fail("Tidak bisa menurunkan role admin lain");
+        }
+        if (existing.role === "admin" && status === "inactive") {
+          set.status = 403;
+          return fail("Tidak bisa menonaktifkan admin lain");
+        }
+        const data: Record<string, unknown> = {};
+        if (name !== undefined) data.name = name.trim();
+        if (email !== undefined) data.email = email.toLowerCase().trim();
+        if (role !== undefined) data.role = role;
+        if (status !== undefined) data.status = status;
+        if (password) {
+          if (password.length < 6) {
+            set.status = 400;
+            return fail("Password minimal 6 karakter");
+          }
+          data.password = await bcrypt.hash(password, 10);
+        }
+        const updated = await prisma.user.update({
+          where: { id: params.id },
+          data,
+        });
+        return ok(publicDbUser(updated));
+      }
+
+      const idx = users.findIndex((u) => u.id === params.id);
+      if (idx < 0) {
+        set.status = 404;
+        return fail("Pengguna tidak ditemukan");
+      }
+      if (users[idx]!.role === "admin" && role && role !== "admin") {
+        set.status = 403;
+        return fail("Tidak bisa menurunkan role admin lain");
+      }
+      if (users[idx]!.role === "admin" && status === "inactive") {
+        set.status = 403;
+        return fail("Tidak bisa menonaktifkan admin lain");
+      }
+      const updated = {
+        ...users[idx]!,
+        ...(name !== undefined ? { name: name.trim() } : {}),
+        ...(email !== undefined ? { email: email.toLowerCase().trim() } : {}),
+        ...(role !== undefined ? { role } : {}),
+        ...(status !== undefined ? { status } : {}),
+        ...(password
+          ? { password: await bcrypt.hash(password, 10) }
+          : {}),
+      };
+      users[idx] = updated;
+      return ok(publicUser(updated));
+    },
+    {
+      params: t.Object({ id: t.String() }),
+      body: t.Object({
+        name: t.Optional(t.String({ minLength: 2 })),
+        email: t.Optional(t.String()),
+        role: t.Optional(
+          t.Union([
+            t.Literal("admin"),
+            t.Literal("owner"),
+            t.Literal("member"),
+          ]),
+        ),
+        status: t.Optional(
+          t.Union([
+            t.Literal("active"),
+            t.Literal("inactive"),
+            t.Literal("pending"),
+          ]),
+        ),
+        password: t.Optional(t.String({ minLength: 6 })),
+      }),
+    },
+  )
+  .delete(
+    "/users/:id",
+    async ({ request, params, set }) => {
+      const token = extractToken(request.headers.get("authorization") ?? undefined);
+      const auth = token ? verifyToken(token) : null;
+      if (!auth || auth.role !== "admin") {
+        set.status = 401;
+        return fail("Unauthorized");
+      }
+      if (await canUseDatabase()) {
+        const existing = await prisma.user.findUnique({
+          where: { id: params.id },
+        });
+        if (!existing) {
+          set.status = 404;
+          return fail("Pengguna tidak ditemukan");
+        }
+        if (existing.role === "admin") {
+          set.status = 403;
+          return fail("Tidak bisa menghapus admin lain");
+        }
+        // Schema's onDelete: Cascade on the userId FK in every
+        // user-data table sweeps their wallets, transactions, etc.
+        await prisma.user.delete({ where: { id: params.id } });
+        return ok({ id: params.id });
+      }
+      const idx = users.findIndex((u) => u.id === params.id);
+      if (idx < 0) {
+        set.status = 404;
+        return fail("Pengguna tidak ditemukan");
+      }
+      if (users[idx]!.role === "admin") {
+        set.status = 403;
+        return fail("Tidak bisa menghapus admin lain");
+      }
+      users.splice(idx, 1);
+      return ok({ id: params.id });
+    },
+    {
+      params: t.Object({ id: t.String() }),
+    },
+  )
   // App settings
   .get("/app-config", async () => {
     if (await canUseDatabase()) {
