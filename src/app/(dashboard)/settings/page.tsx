@@ -1711,32 +1711,327 @@ function KeamananTab() {
   );
 }
 
-// ─── Tab 5: Data & Ekspor ─────────────────────────────────────────────────────
+// ─── Tab 5: Data & Ekspor ─────────────────────────────────────────────────
 
 type ExportKey = "pdf" | "csv" | "json";
+type ImportKind = "csv" | "json";
+
+import type { Transaction } from "~/lib/types";
+import type { BackupBundle, ImportResult } from "~/lib/import-export";
+
+interface PendingImport {
+  kind: ImportKind;
+  fileName: string;
+  fileSize: number;
+  csvPreview?: ImportResult<
+    Omit<Transaction, "categoryIcon" | "walletName" | "id">
+  >;
+  jsonPreview?: {
+    bundle: BackupBundle | null;
+    error: string | null;
+  };
+}
 
 function DataEksporTab() {
+  const {
+    transactions,
+    wallets,
+    budgets,
+    investments,
+    bills,
+    savingGoals,
+    debts,
+    cards,
+    wishlist,
+    reimbursements,
+    notes,
+    recurringTransactions,
+    splitBills,
+    addTransaction,
+    deleteTransaction,
+    deleteWallet,
+    deleteBudget,
+    deleteInvestment,
+    deleteBill,
+    deleteSavingGoal,
+    deleteDebt,
+    deleteCard,
+    deleteWishlistItem,
+    deleteReimbursement,
+    deleteNote,
+    deleteRecurringTransaction,
+    deleteSplitBill,
+    hydrateFromBackend,
+    refreshAll,
+  } = useFinanceStore();
+
+  const { config } = useAppConfigStore();
+  const appName = config.appName;
+
   const [exporting, setExporting] = useState<Record<ExportKey, boolean>>({
     pdf: false,
     csv: false,
     json: false,
   });
-  const [selectedMonth, setSelectedMonth] = useState("2026-06");
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
   const [isDragging, setIsDragging] = useState(false);
-  const [importedFile, setImportedFile] = useState<string | null>(null);
+  const [pendingImport, setPendingImport] = useState<PendingImport | null>(
+    null,
+  );
+  const [importing, setImporting] = useState(false);
+  const [resetting, setResetting] = useState<"transactions" | "all" | null>(
+    null,
+  );
 
-  function handleExport(key: ExportKey) {
-    setExporting((e) => ({ ...e, [key]: true }));
-    setTimeout(() => {
-      setExporting((e) => ({ ...e, [key]: false }));
-    }, 1500);
+  function setExportingKey(key: ExportKey, value: boolean) {
+    setExporting((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function runExport(key: ExportKey) {
+    setExportingKey(key, true);
+    try {
+      if (key === "pdf") {
+        openMonthlyReportPrint(
+          transactions,
+          wallets,
+          selectedMonth,
+          appName,
+        );
+        toast.success(
+          "Laporan dibuka",
+          "Gunakan ‘Save as PDF’ di dialog print browser.",
+        );
+      } else if (key === "csv") {
+        downloadTransactionsCSV(transactions, wallets, {
+          month: selectedMonth,
+        });
+        toast.success("CSV diunduh", `transaksi-${selectedMonth}.csv`);
+      } else {
+        downloadFullBackup({
+          wallets,
+          transactions,
+          budgets,
+          investments,
+          bills,
+          savingGoals,
+          debts,
+          cards,
+          wishlist,
+          reimbursements,
+          notes,
+          recurringTransactions,
+          splitBills,
+          categories: [],
+          subCategories: [],
+          appName,
+        });
+        toast.success("Backup JSON diunduh");
+      }
+    } catch (err) {
+      toast.error(
+        "Ekspor gagal",
+        err instanceof Error ? err.message : "Unknown error",
+      );
+    } finally {
+      setExportingKey(key, false);
+    }
+  }
+
+  function downloadTemplate(kind: "csv" | "json") {
+    if (kind === "csv") {
+      downloadTransactionsCSVTemplate();
+      toast.success("Template CSV diunduh", "template-transaksi.csv");
+    } else {
+      downloadBackupJSONTemplate(appName);
+      toast.success("Template JSON diunduh", "template-backup.json");
+    }
+  }
+
+  async function readFileText(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result ?? ""));
+      reader.onerror = () => reject(reader.error ?? new Error("Read failed"));
+      reader.readAsText(file, "utf-8");
+    });
+  }
+
+  async function handleSelectedFile(file: File) {
+    const ext = file.name.toLowerCase().split(".").pop() ?? "";
+    if (ext === "csv") {
+      try {
+        const text = await readFileText(file);
+        const result = importTransactionsFromCSV(text, wallets);
+        setPendingImport({
+          kind: "csv",
+          fileName: file.name,
+          fileSize: file.size,
+          csvPreview: result,
+        });
+      } catch (err) {
+        toast.error(
+          "Gagal membaca file",
+          err instanceof Error ? err.message : "Unknown error",
+        );
+      }
+    } else if (ext === "json") {
+      try {
+        const text = await readFileText(file);
+        const { bundle, error } = importBackupFromJSON(text);
+        setPendingImport({
+          kind: "json",
+          fileName: file.name,
+          fileSize: file.size,
+          jsonPreview: { bundle, error },
+        });
+      } catch (err) {
+        toast.error(
+          "Gagal membaca file",
+          err instanceof Error ? err.message : "Unknown error",
+        );
+      }
+    } else {
+      toast.error(
+        "Format tidak didukung",
+        `File .${ext} belum bisa diimpor. Gunakan CSV atau JSON.`,
+      );
+    }
   }
 
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
     setIsDragging(false);
     const file = e.dataTransfer.files[0];
-    if (file) setImportedFile(file.name);
+    if (file) void handleSelectedFile(file);
+  }
+
+  async function confirmImport() {
+    if (!pendingImport) return;
+    setImporting(true);
+    try {
+      if (pendingImport.kind === "csv" && pendingImport.csvPreview) {
+        const { items, issues } = pendingImport.csvPreview;
+        for (const tx of items) {
+          const wallet = wallets.find((w) => w.id === tx.walletId);
+          addTransaction({
+            ...tx,
+            categoryIcon: "📦",
+            walletName: wallet?.name ?? "",
+          } as Parameters<typeof addTransaction>[0]);
+        }
+        toast.success(
+          "Import selesai",
+          `${items.length} transaksi ditambahkan${
+            issues.length
+              ? `, ${issues.length} baris dilewati (lihat console)`
+              : ""
+          }`,
+        );
+        if (issues.length) console.warn("[import] issues:", issues);
+      } else if (
+        pendingImport.kind === "json" &&
+        pendingImport.jsonPreview?.bundle
+      ) {
+        const bundle = pendingImport.jsonPreview.bundle;
+        // Merge-import via hydrateFromBackend so the server-side
+        // merge-by-id strategy applies. Wallets / transactions / etc.
+        // with the same id are left untouched on the server.
+        hydrateFromBackend({
+          wallets: bundle.wallets,
+          transactions: bundle.transactions,
+          budgets: bundle.budgets,
+          investments: bundle.investments,
+          bills: bundle.bills,
+          savingGoals: bundle.savingGoals,
+          debts: bundle.debts,
+          cards: bundle.cards,
+          wishlist: bundle.wishlist,
+          reimbursements: bundle.reimbursements,
+          notes: bundle.notes,
+          recurringTransactions: bundle.recurringTransactions,
+          splitBills: bundle.splitBills,
+          categories: bundle.categories,
+          subCategories: bundle.subCategories,
+        });
+        toast.success(
+          "Restore selesai",
+          "Data backup sudah digabung ke workspace. Refresh untuk sinkron ke server.",
+        );
+        // Fire-and-forget: pull the canonical state back from server
+        // so the UI reflects the merge, not the optimistic store.
+        void refreshAll();
+      }
+      setPendingImport(null);
+    } catch (err) {
+      toast.error(
+        "Import gagal",
+        err instanceof Error ? err.message : "Unknown error",
+      );
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  async function resetTransactions() {
+    const ok = await confirm({
+      title: "Reset semua transaksi?",
+      message: `Menghapus ${transactions.length} transaksi. Dompet, anggaran, dan data lain tetap. Tindakan ini tidak bisa dibatalkan.`,
+      variant: "warning",
+      confirmText: "Reset",
+    });
+    if (!ok) return;
+    setResetting("transactions");
+    try {
+      for (const tx of [...transactions]) deleteTransaction(tx.id);
+      toast.success("Semua transaksi dihapus");
+    } catch (err) {
+      toast.error(
+        "Reset gagal",
+        err instanceof Error ? err.message : "Unknown error",
+      );
+    } finally {
+      setResetting(null);
+    }
+  }
+
+  async function resetAll() {
+    const ok = await confirm({
+      title: "Reset SEMUA data?",
+      message:
+        "Menghapus dompet, transaksi, anggaran, investasi, tagihan, tabungan, utang, kartu, wishlist, reimbursement, catatan, transaksi berulang, dan split bill. Tindakan ini TIDAK BISA dibatalkan.",
+      variant: "danger",
+      confirmText: "Reset Semua",
+    });
+    if (!ok) return;
+    setResetting("all");
+    try {
+      for (const id of transactions.map((t) => t.id)) deleteTransaction(id);
+      for (const id of wallets.map((w) => w.id)) deleteWallet(id);
+      for (const id of budgets.map((b) => b.id)) deleteBudget(id);
+      for (const id of investments.map((i) => i.id)) deleteInvestment(id);
+      for (const id of bills.map((b) => b.id)) deleteBill(id);
+      for (const id of savingGoals.map((s) => s.id)) deleteSavingGoal(id);
+      for (const id of debts.map((d) => d.id)) deleteDebt(id);
+      for (const id of cards.map((c) => c.id)) deleteCard(id);
+      for (const id of wishlist.map((w) => w.id)) deleteWishlistItem(id);
+      for (const id of reimbursements.map((r) => r.id))
+        deleteReimbursement(id);
+      for (const id of notes.map((n) => n.id)) deleteNote(id);
+      for (const id of recurringTransactions.map((r) => r.id))
+        deleteRecurringTransaction(id);
+      for (const b of [...splitBills]) await deleteSplitBill(b.id);
+      toast.success("Semua data dihapus");
+    } catch (err) {
+      toast.error(
+        "Reset gagal",
+        err instanceof Error ? err.message : "Unknown error",
+      );
+    } finally {
+      setResetting(null);
+    }
   }
 
   const EXPORT_CARDS = [
@@ -1745,38 +2040,26 @@ function DataEksporTab() {
       icon: <FileText className="h-6 w-6" />,
       title: "Laporan Bulanan PDF",
       description:
-        "Laporan lengkap termasuk transaksi, anggaran, dan ringkasan",
+        "Buka laporan bulanan di tab baru. Pilih ‘Save as PDF’ di dialog print browser.",
       color: "text-red-400 bg-red-500/15",
-      action: "Unduh PDF",
-      extra: null,
+      action: "Cetak / PDF",
     },
     {
       key: "csv" as ExportKey,
       icon: <FileSpreadsheet className="h-6 w-6" />,
       title: "Data Excel / CSV",
-      description: "Export semua transaksi dalam format spreadsheet",
+      description:
+        "Export transaksi bulan terpilih dalam format spreadsheet (Excel-compatible).",
       color: "text-green-400 bg-green-500/15",
       action: "Unduh CSV",
-      extra: (
-        <input
-          type="month"
-          value={selectedMonth}
-          onChange={(e) => setSelectedMonth(e.target.value)}
-          className={cn(
-            "border-border bg-bg-surface text-text-primary h-9 rounded-lg border px-3 text-sm",
-            "focus:ring-primary/50 focus:ring-2 focus:outline-none",
-          )}
-        />
-      ),
     },
     {
       key: "json" as ExportKey,
       icon: <FileJson className="h-6 w-6" />,
       title: "Backup Lengkap JSON",
-      description: "Backup seluruh data keuangan kamu",
+      description: "Backup seluruh data keuangan (semua resource) dalam satu file.",
       color: "text-yellow-400 bg-yellow-500/15",
       action: "Unduh Backup",
-      extra: null,
     },
   ];
 
@@ -1807,7 +2090,17 @@ function DataEksporTab() {
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-3">
-                    {card.extra}
+                    {card.key === "csv" && (
+                      <input
+                        type="month"
+                        value={selectedMonth}
+                        onChange={(e) => setSelectedMonth(e.target.value)}
+                        className={cn(
+                          "border-border bg-bg-surface text-text-primary h-9 rounded-lg border px-3 text-sm",
+                          "focus:ring-primary/50 focus:ring-2 focus:outline-none",
+                        )}
+                      />
+                    )}
                     <Button
                       variant="outline"
                       size="sm"
@@ -1817,7 +2110,7 @@ function DataEksporTab() {
                           <Download className="h-4 w-4" />
                         ) : undefined
                       }
-                      onClick={() => handleExport(card.key)}
+                      onClick={() => runExport(card.key)}
                     >
                       {exporting[card.key] ? "Memproses..." : card.action}
                     </Button>
@@ -1862,20 +2155,22 @@ function DataEksporTab() {
                 <p className="text-text-primary text-sm font-medium">
                   {isDragging
                     ? "Lepas file di sini"
-                    : "Seret & lepas file di sini"}
+                    : "Seret & lepas file CSV / JSON di sini"}
                 </p>
                 <p className="text-text-muted mt-0.5 text-xs">
-                  Format didukung: CSV, XLS, XLSX
+                  Format didukung: CSV (transaksi) atau JSON (backup lengkap)
                 </p>
               </div>
               <label>
                 <input
                   type="file"
-                  accept=".csv,.xls,.xlsx"
+                  accept=".csv,.json"
                   className="hidden"
                   onChange={(e) => {
                     const file = e.target.files?.[0];
-                    if (file) setImportedFile(file.name);
+                    if (file) void handleSelectedFile(file);
+                    // Allow re-picking the same file later
+                    e.target.value = "";
                   }}
                 />
                 <span className="border-border bg-bg-elevated text-text-primary hover:bg-bg-surface inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg border px-4 text-sm font-medium transition-colors">
@@ -1885,34 +2180,159 @@ function DataEksporTab() {
               </label>
             </div>
 
-            {importedFile && (
-              <motion.div
-                initial={{ opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="border-success/20 bg-success/10 flex items-center justify-between rounded-lg border px-3 py-2.5"
+            <div className="flex flex-wrap items-center gap-3 border-t pt-3">
+              <span className="text-text-muted text-xs">Template:</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => downloadTemplate("csv")}
+                leftIcon={<FileSpreadsheet className="h-3.5 w-3.5" />}
               >
-                <div className="flex items-center gap-2">
-                  <Check className="text-success h-4 w-4" />
-                  <span className="text-success text-sm">{importedFile}</span>
-                </div>
-                <button
-                  onClick={() => setImportedFile(null)}
-                  className="text-text-muted hover:text-text-primary"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </motion.div>
-            )}
-
-            <p className="text-text-muted text-xs">
-              Format template dapat diunduh{" "}
-              <span className="text-primary cursor-pointer underline underline-offset-2">
-                di sini
-              </span>
-            </p>
+                Unduh template CSV
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => downloadTemplate("json")}
+                leftIcon={<FileJson className="h-3.5 w-3.5" />}
+              >
+                Unduh template JSON
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => downloadWalletsCSVTemplate()}
+                leftIcon={<FileSpreadsheet className="h-3.5 w-3.5" />}
+              >
+                Template dompet
+              </Button>
+            </div>
           </CardBody>
         </Card>
       </div>
+
+      {/* Import preview modal */}
+      <Modal
+        open={pendingImport !== null}
+        onClose={() => (importing ? null : setPendingImport(null))}
+        title={
+          pendingImport?.kind === "csv"
+            ? "Pratinjau Import CSV"
+            : "Pratinjau Restore Backup"
+        }
+      >
+        {pendingImport && (
+          <div className="space-y-4">
+            <div className="border-border bg-bg-elevated rounded-lg border px-3 py-2 text-xs">
+              <p>
+                <span className="text-text-muted">File: </span>
+                <span className="text-text-primary font-medium">
+                  {pendingImport.fileName}
+                </span>
+                <span className="text-text-muted">
+                  {" "}
+                  ({(pendingImport.fileSize / 1024).toFixed(1)} KB)
+                </span>
+              </p>
+            </div>
+
+            {pendingImport.kind === "csv" && pendingImport.csvPreview && (
+              <>
+                {pendingImport.csvPreview.issues.length > 0 && (
+                  <div className="border-warning/30 bg-warning/10 text-text-secondary rounded-lg border px-3 py-2 text-xs">
+                    <p className="mb-1 font-semibold">
+                      {pendingImport.csvPreview.issues.length} baris dilewati:
+                    </p>
+                    <ul className="list-disc space-y-0.5 pl-5">
+                      {pendingImport.csvPreview.issues
+                        .slice(0, 5)
+                        .map((issue, i) => (
+                          <li key={i}>
+                            Baris {issue.row}: {issue.message}
+                          </li>
+                        ))}
+                      {pendingImport.csvPreview.issues.length > 5 && (
+                        <li>
+                          …dan{" "}
+                          {pendingImport.csvPreview.issues.length - 5} lainnya
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+                )}
+                <p className="text-text-secondary text-sm">
+                  <span className="text-text-primary font-semibold">
+                    {pendingImport.csvPreview.items.length}
+                  </span>{" "}
+                  transaksi akan ditambahkan ke workspace kamu.
+                </p>
+              </>
+            )}
+
+            {pendingImport.kind === "json" && pendingImport.jsonPreview && (
+              <>
+                {pendingImport.jsonPreview.error && (
+                  <div className="border-danger/30 bg-danger/10 text-danger rounded-lg border px-3 py-2 text-sm">
+                    {pendingImport.jsonPreview.error}
+                  </div>
+                )}
+                {pendingImport.jsonPreview.bundle && (
+                  <div className="text-text-secondary grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
+                    {(
+                      [
+                        ["Dompet", pendingImport.jsonPreview.bundle.wallets.length],
+                        ["Transaksi", pendingImport.jsonPreview.bundle.transactions.length],
+                        ["Anggaran", pendingImport.jsonPreview.bundle.budgets.length],
+                        ["Investasi", pendingImport.jsonPreview.bundle.investments.length],
+                        ["Tagihan", pendingImport.jsonPreview.bundle.bills.length],
+                        ["Tabungan", pendingImport.jsonPreview.bundle.savingGoals.length],
+                        ["Utang", pendingImport.jsonPreview.bundle.debts.length],
+                        ["Catatan", pendingImport.jsonPreview.bundle.notes.length],
+                      ] as Array<[string, number]>
+                    ).map(([label, n]) => (
+                      <div
+                        key={label}
+                        className="border-border bg-bg-elevated rounded-lg border px-3 py-2"
+                      >
+                        <p className="text-text-muted text-xs">{label}</p>
+                        <p className="text-text-primary font-semibold">{n}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <p className="text-text-muted text-xs">
+                  Restore = merge. Record dengan id yang sama dibiarkan, sisanya
+                  ditambahkan. Refresh setelah import untuk sinkron ke server.
+                </p>
+              </>
+            )}
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPendingImport(null)}
+                disabled={importing}
+              >
+                Batal
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => void confirmImport()}
+                loading={importing}
+                disabled={
+                  pendingImport.kind === "json" &&
+                  (!pendingImport.jsonPreview?.bundle ||
+                    !!pendingImport.jsonPreview.error)
+                }
+              >
+                {pendingImport.kind === "csv" ? "Import" : "Restore"}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
 
       {/* Danger zone */}
       <div>
@@ -1931,17 +2351,9 @@ function DataEksporTab() {
               <Button
                 variant="danger"
                 size="sm"
-                onClick={async () => {
-                  const ok = await confirm({
-                    title: "Reset semua transaksi?",
-                    message: "Tindakan ini tidak bisa dibatalkan.",
-                    variant: "warning",
-                    confirmText: "Reset",
-                  });
-                  if (ok) {
-                    // UI only — no real action
-                  }
-                }}
+                loading={resetting === "transactions"}
+                onClick={() => void resetTransactions()}
+                disabled={transactions.length === 0}
               >
                 Reset Transaksi
               </Button>
@@ -1960,18 +2372,8 @@ function DataEksporTab() {
                 <Button
                   size="sm"
                   className="bg-red-950 text-red-200 hover:bg-red-900"
-                  onClick={async () => {
-                    const ok = await confirm({
-                      title: "Reset SEMUA data?",
-                      message:
-                        "Ini akan menghapus dompet, transaksi, anggaran, dan semua data lainnya. Tindakan ini TIDAK BISA dibatalkan.",
-                      variant: "danger",
-                      confirmText: "Reset Semua",
-                    });
-                    if (ok) {
-                      // UI only — no real action
-                    }
-                  }}
+                  loading={resetting === "all"}
+                  onClick={() => void resetAll()}
                 >
                   Reset Semua Data
                 </Button>

@@ -30,6 +30,7 @@ import type {
   WishlistItem,
   Card,
   Reimbursement,
+  SplitBill,
 } from "./types";
 
 export const EXPORT_FORMAT_VERSION = 1;
@@ -247,6 +248,7 @@ export interface BackupBundle {
   reimbursements: Reimbursement[];
   notes: Note[];
   recurringTransactions: RecurringTransaction[];
+  splitBills: SplitBill[];
   categories: Category[];
   subCategories: SubCategory[];
 }
@@ -264,6 +266,7 @@ export interface BackupSnapshot {
   reimbursements: Reimbursement[];
   notes: Note[];
   recurringTransactions: RecurringTransaction[];
+  splitBills: SplitBill[];
   categories: Category[];
   subCategories: SubCategory[];
   appName?: string;
@@ -286,6 +289,7 @@ export function backupToJSON(snapshot: BackupSnapshot): string {
     reimbursements: snapshot.reimbursements,
     notes: snapshot.notes,
     recurringTransactions: snapshot.recurringTransactions,
+    splitBills: snapshot.splitBills,
     categories: snapshot.categories,
     subCategories: snapshot.subCategories,
   };
@@ -509,6 +513,7 @@ export function getBackupJSONTemplate(appName = "FinTrack"): string {
     reimbursements: [],
     notes: [],
     recurringTransactions: [],
+    splitBills: [],
     categories: [],
     subCategories: [],
   };
