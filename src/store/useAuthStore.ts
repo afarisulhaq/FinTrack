@@ -34,7 +34,12 @@ interface AuthStore {
   hasHydrated: boolean;
   error: string | null;
   login: (email: string, password: string) => Promise<boolean>;
-  register: (name: string, email: string, password: string, turnstileToken?: string) => Promise<RegisterResult | true>;
+  register: (
+    name: string,
+    email: string,
+    password: string,
+    turnstileToken?: string,
+  ) => Promise<RegisterResult | true | false>;
   logout: () => void;
   clearError: () => void;
   setHasHydrated: (value: boolean) => void;

@@ -14,6 +14,7 @@ import {
   User,
 } from "lucide-react";
 import { Button } from "~/components/ui/button";
+import { PendingApprovalCard } from "~/components/auth/pending-approval-card";
 import { Turnstile, resetTurnstile } from "~/components/auth/turnstile";
 import { useAuthStore, type RegisterResult } from "~/store/useAuthStore";
 import { useAppConfigStore } from "~/store/useAppConfigStore";
