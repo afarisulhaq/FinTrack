@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Plus,
   Search,
@@ -10,12 +10,17 @@ import {
   CheckCircle2,
   Eye,
   Users,
+  AlertCircle,
+  RefreshCw,
 } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Modal } from "~/components/ui/modal";
 import { Badge } from "~/components/ui/badge";
 import { confirm } from "~/components/ui/confirm-dialog";
+import { toast } from "~/components/ui/toast";
+import { api } from "~/lib/api";
+import { useAuthStore } from "~/store/useAuthStore";
 
 interface ManagedUser {
   id: string;
@@ -27,119 +32,6 @@ interface ManagedUser {
   transactions: number;
   wallets: number;
 }
-
-const initialUsers: ManagedUser[] = [
-  {
-    id: "1",
-    name: "Admin FinTrack",
-    email: "admin@fintrack.app",
-    role: "admin",
-    status: "active",
-    joinedAt: "01 Jan 2026",
-    transactions: 0,
-    wallets: 0,
-  },
-  {
-    id: "2",
-    name: "Andi Pratama",
-    email: "demo@fintrack.app",
-    role: "owner",
-    status: "active",
-    joinedAt: "08 Jan 2026",
-    transactions: 184,
-    wallets: 5,
-  },
-  {
-    id: "3",
-    name: "Sari Dewi",
-    email: "sari@email.com",
-    role: "member",
-    status: "active",
-    joinedAt: "14 Jan 2026",
-    transactions: 67,
-    wallets: 2,
-  },
-  {
-    id: "4",
-    name: "Budi Santoso",
-    email: "budi@email.com",
-    role: "owner",
-    status: "active",
-    joinedAt: "22 Jan 2026",
-    transactions: 223,
-    wallets: 8,
-  },
-  {
-    id: "5",
-    name: "Rina Maharani",
-    email: "rina@email.com",
-    role: "owner",
-    status: "active",
-    joinedAt: "05 Feb 2026",
-    transactions: 91,
-    wallets: 4,
-  },
-  {
-    id: "6",
-    name: "Fajar Nugroho",
-    email: "fajar@email.com",
-    role: "member",
-    status: "inactive",
-    joinedAt: "15 Feb 2026",
-    transactions: 28,
-    wallets: 1,
-  },
-  {
-    id: "7",
-    name: "Dewi Anggraini",
-    email: "dewi@email.com",
-    role: "owner",
-    status: "active",
-    joinedAt: "01 Mar 2026",
-    transactions: 144,
-    wallets: 6,
-  },
-  {
-    id: "8",
-    name: "Agus Saputra",
-    email: "agus@email.com",
-    role: "member",
-    status: "inactive",
-    joinedAt: "17 Mar 2026",
-    transactions: 13,
-    wallets: 1,
-  },
-  {
-    id: "9",
-    name: "Maya Lestari",
-    email: "maya@email.com",
-    role: "owner",
-    status: "active",
-    joinedAt: "10 Apr 2026",
-    transactions: 72,
-    wallets: 3,
-  },
-  {
-    id: "10",
-    name: "Rizky Ramadhan",
-    email: "rizky@email.com",
-    role: "member",
-    status: "active",
-    joinedAt: "29 Apr 2026",
-    transactions: 41,
-    wallets: 2,
-  },
-  {
-    id: "11",
-    name: "Nadia Putri",
-    email: "nadia@email.com",
-    role: "owner",
-    status: "active",
-    joinedAt: "12 Mei 2026",
-    transactions: 53,
-    wallets: 3,
-  },
-];
 
 const emptyForm = {
   name: "",
@@ -158,8 +50,21 @@ function initials(name: string) {
     .toUpperCase();
 }
 
+function formatJoinedAt(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  return date.toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 export default function AdminUsersPage() {
-  const [users, setUsers] = useState(initialUsers);
+  const token = useAuthStore((state) => state.token);
+  const [users, setUsers] = useState<ManagedUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [role, setRole] = useState("all");
   const [status, setStatus] = useState("all");
@@ -167,6 +72,58 @@ export default function AdminUsersPage() {
   const [detail, setDetail] = useState<ManagedUser | null>(null);
   const [editing, setEditing] = useState<ManagedUser | null>(null);
   const [form, setForm] = useState(emptyForm);
+
+  // ── Fetch real users from the backend ────────────────────────────
+  // The previous version of this page shipped with 11 hardcoded
+  // `initialUsers` so the table looked populated, which made any
+  // delete/refresh round-trip confusing (the rows came right back).
+  // Now we hit `GET /api/users` on mount and show whatever's actually
+  // in the database. Add / edit / delete are not yet wired to the
+  // backend, so changes stay local until the matching POST/PUT/DELETE
+  // endpoints are added.
+  const loadUsers = useCallback(async () => {
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const rows = await api.get<
+        Array<{
+          id: string;
+          name: string;
+          email: string;
+          role: string;
+          status: string;
+          createdAt: string;
+        }>
+      >("/users", token);
+      setUsers(
+        rows.map((u) => ({
+          id: u.id,
+          name: u.name,
+          email: u.email,
+          role: u.role as ManagedUser["role"],
+          status: u.status as ManagedUser["status"],
+          joinedAt: formatJoinedAt(u.createdAt),
+          transactions: 0,
+          wallets: 0,
+        })),
+      );
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Gagal memuat daftar pengguna";
+      setLoadError(message);
+      toast.error("Gagal memuat pengguna", message);
+    } finally {
+      setLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    void loadUsers();
+  }, [loadUsers]);
 
   const filtered = useMemo(
     () =>
@@ -262,9 +219,41 @@ export default function AdminUsersPage() {
             Kelola akun, akses, role, dan status pengguna.
           </p>
         </div>
-        <Button onClick={openAdd} leftIcon={<Plus className="h-4 w-4" />}>
-          Tambah Pengguna
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void loadUsers()}
+            disabled={loading}
+            leftIcon={
+              <RefreshCw
+                className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+              />
+            }
+          >
+            Refresh
+          </Button>
+          <Button
+            onClick={openAdd}
+            leftIcon={<Plus className="h-4 w-4" />}
+            disabled
+            title="Tambah pengguna belum tersinkronisasi ke server"
+          >
+            Tambah Pengguna
+          </Button>
+        </div>
+      </div>
+      <div className="bg-warning/5 border-warning/30 text-text-secondary flex items-start gap-2 rounded-xl border px-4 py-2.5 text-xs">
+        <AlertCircle className="text-warning mt-0.5 h-4 w-4 shrink-0" />
+        <span>
+          Tambah, edit, dan hapus saat ini hanya bersifat lokal — perubahan
+          tidak akan tersimpan ke server sampai endpoint
+          <code className="bg-bg-elevated mx-1 rounded px-1.5 py-0.5 text-[11px]">
+            POST/PUT/DELETE /api/users
+          </code>
+          ditambahkan di backend. Refresh halaman akan mengembalikan data asli
+          dari database.
+        </span>
       </div>
       <div className="border-border bg-bg-surface flex flex-col gap-3 rounded-xl border p-4 lg:flex-row">
         <div className="flex-1">
@@ -384,12 +373,35 @@ export default function AdminUsersPage() {
             </tbody>
           </table>
         </div>
-        {filtered.length === 0 && (
-          <div className="text-text-muted py-16 text-center">
-            <Users className="mx-auto mb-2 h-8 w-8" />
-            Tidak ada pengguna ditemukan.
+        {loading ? (
+          <div className="text-text-muted flex flex-col items-center gap-2 py-16 text-center">
+            <RefreshCw className="h-6 w-6 animate-spin" />
+            <p className="text-sm">Memuat daftar pengguna…</p>
           </div>
-        )}
+        ) : loadError ? (
+          <div className="text-danger flex flex-col items-center gap-2 py-16 text-center">
+            <AlertCircle className="h-8 w-8" />
+            <p className="text-sm font-semibold">Gagal memuat pengguna</p>
+            <p className="text-text-muted text-xs">{loadError}</p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void loadUsers()}
+              className="mt-2"
+            >
+              Coba lagi
+            </Button>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="text-text-muted flex flex-col items-center gap-2 py-16 text-center">
+            <Users className="h-8 w-8" />
+            <p className="text-sm">
+              {search || role !== "all" || status !== "all"
+                ? "Tidak ada pengguna yang cocok dengan filter."
+                : "Belum ada pengguna lain di database."}
+            </p>
+          </div>
+        ) : null}
       </div>
 
       <Modal
