@@ -12,9 +12,19 @@ export interface AuthResult {
 }
 
 export function getApiBaseUrl() {
+  // Explicit override wins (e.g. self-hosted dev where you want the
+  // browser to bypass the Next.js rewrite and hit the backend directly).
   if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
-  if (typeof window !== "undefined")
-    return `${window.location.protocol}//${window.location.hostname}:4000/api`;
+  // Browser: use a same-origin URL. The browser fetches go to
+  // `${window.location.origin}/api/...` and Next.js's `rewrites()` in
+  // next.config.mjs proxies them to the internal Elysia backend on
+  // port 4000. The previous version hard-coded port 4000 here, which
+  // is intentionally not published in docker-compose.yml and therefore
+  // unreachable from the public internet (`ERR_CONNECTION_REFUSED`).
+  if (typeof window !== "undefined") return `${window.location.origin}/api`;
+  // SSR / build-time: rewrites only apply to browser traffic, so
+  // server-side fetch() calls must reach the backend directly on the
+  // container's loopback.
   return "http://localhost:4000/api";
 }
 
