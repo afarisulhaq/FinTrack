@@ -162,15 +162,30 @@ model Investment {
     symbol       String
     assetClass   String
     broker       String
+    /// Number of lots currently held. Starts equal to the buy amount;
+    /// decreases on each sell. The "is this position open?" check is
+    /// `quantity > 0` — never look at sellPrice to decide that, since
+    /// a partial sell leaves sellPrice set with quantity still > 0.
     quantity     Decimal
+    /// Number of lots cumulatively sold across every sell event on
+    /// this position. Zero for never-sold. For a full sell, equals
+    /// the original buy amount (and quantity drops to 0). For a
+    /// partial sell, the difference between buy total and this is
+    /// what's still held. Used to compute realized P/L on the
+    /// "Terjual" tab.
+    soldQuantity Decimal  @default(0)
     avgBuyPrice  Decimal
     currentPrice Decimal
     currency     String   @default("IDR")
     color        String   @default("#6366f1")
+    /// Details of the most recent sell event. Stays set even after
+    /// a partial sell so the row can still show "you sold at Rp X
+    /// on date Y". When the position is fully closed (quantity = 0)
+    /// this is the only sell event.
     sellPrice    Decimal?
     soldAt       DateTime?
-    buyFee       Decimal?  @default(0)
-    sellFee      Decimal?  @default(0)
+    buyFee       Decimal? @default(0)
+    sellFee      Decimal? @default(0)
     userId       String?
     createdAt    DateTime @default(now())
     updatedAt    DateTime @updatedAt

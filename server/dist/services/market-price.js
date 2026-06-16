@@ -43,6 +43,60 @@ const BAREKSA_EMAS_URL = "https://www.bareksa.com/bareksaemas";
 const BAREKSA_CACHE_TTL_MS = 5 * 60 * 1000;
 let bareksaFundCache = null;
 let bareksaGoldCache = null;
+// ── USD/IDR exchange rate ───────────────────────────────────────────────
+// Yahoo's crypto quotes come back in USD (BTC-USD, ETH-USD, etc.). The
+// investments page is overwhelmingly IDR-denominated, so we convert at
+// display time. The rate itself is a Yahoo quote ("USDIDR=X") cached
+// for an hour — FX moves slowly relative to crypto, and re-fetching
+// every quote would double our Yahoo request rate.
+let usdIdrCache = null;
+const USDIDR_TTL_MS = 60 * 60 * 1000;
+const USDIDR_FALLBACK = 16_000; // last-resort if Yahoo is fully down
+async function getUsdIdrRate() {
+    if (usdIdrCache && usdIdrCache.expiresAt > Date.now()) {
+        return usdIdrCache.value;
+    }
+    try {
+        const result = await getYahooFinanceQuote("USDIDR=X", "stock");
+        const rate = result?.price;
+        if (rate && rate > 1_000 && rate < 1_000_000) {
+            usdIdrCache = {
+                value: rate,
+                expiresAt: Date.now() + USDIDR_TTL_MS,
+            };
+            return rate;
+        }
+    }
+    catch {
+        // fall through to fallback
+    }
+    // Serve stale if we have one, otherwise the hardcoded fallback.
+    if (usdIdrCache)
+        return usdIdrCache.value;
+    return USDIDR_FALLBACK;
+}
+// Convert a USD-denominated quote to IDR. Only applied for asset
+// classes that Yahoo reports in USD. We also re-base previousClose /
+// change / highs / lows against the converted price so the UI shows
+// a consistent IDR picture (no "USD high vs IDR current" mismatch).
+function usdQuoteToIdr(quote, rate) {
+    return {
+        ...quote,
+        currency: "IDR",
+        price: quote.price * rate,
+        previousClose: quote.previousClose * rate,
+        change: quote.change * rate,
+        changePercent: quote.changePercent, // percentages don't change with FX
+        dayHigh: quote.dayHigh != null ? quote.dayHigh * rate : null,
+        dayLow: quote.dayLow != null ? quote.dayLow * rate : null,
+        fiftyTwoWeekHigh: quote.fiftyTwoWeekHigh != null
+            ? quote.fiftyTwoWeekHigh * rate
+            : null,
+        fiftyTwoWeekLow: quote.fiftyTwoWeekLow != null
+            ? quote.fiftyTwoWeekLow * rate
+            : null,
+    };
+}
 const QUOTE_TTL_MS = 60 * 1000;
 const PRICE_TTL_MS = 5 * 60 * 1000;
 const SEARCH_TTL_MS = 30 * 1000;
@@ -625,16 +679,25 @@ export async function getYahooFinanceQuote(symbol, assetClass = "stock") {
         fiftyTwoWeekHigh: meta.fiftyTwoWeekHigh ?? null,
         fiftyTwoWeekLow: meta.fiftyTwoWeekLow ?? null,
     };
-    writeCache(quoteCache, cacheKey, result, QUOTE_TTL_MS);
+    // Crypto comes back in USD from Yahoo. Convert to IDR before
+    // caching so the persistent cache stays in IDR — otherwise a
+    // rate change after a restart would corrupt the on-disk values.
+    // Done at the end so the rest of the function still treats the
+    // response as USD (math, validation, fall-through to persistent
+    // cache) and only the API-facing number changes.
+    const finalResult = assetClass === "crypto"
+        ? usdQuoteToIdr(result, await getUsdIdrRate())
+        : result;
+    writeCache(quoteCache, cacheKey, finalResult, QUOTE_TTL_MS);
     // Mirror successful results to the persistent cache (without the
     // short TTL — persistent entries are just "last known good"). We
     // give them a long expiry so they survive cooldown windows.
     persistentQuoteCache.set(cacheKey, {
-        value: result,
+        value: finalResult,
         expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
     });
     schedulePersistentWrite();
-    return result;
+    return finalResult;
 }
 export async function getYahooFinancePrice(symbol, assetClass = "stock") {
     if (assetClass === "mutual-fund" && /^BAREKSA:/i.test(symbol)) {
@@ -739,13 +802,19 @@ export async function getYahooFinancePrice(symbol, assetClass = "stock") {
         currency: meta.currency ?? "IDR",
         name: meta.longName ?? meta.shortName ?? meta.symbol ?? normalized,
     };
-    writeCache(priceCache, cacheKey, result, PRICE_TTL_MS);
+    // Same USD→IDR conversion as the quote path. Only crypto flips;
+    // stocks / mutual funds / gold are already in IDR (or their
+    // own native currency, which we leave alone for now).
+    const finalResult = assetClass === "crypto"
+        ? { ...result, price: result.price * (await getUsdIdrRate()), currency: "IDR" }
+        : result;
+    writeCache(priceCache, cacheKey, finalResult, PRICE_TTL_MS);
     persistentPriceCache.set(cacheKey, {
-        value: result,
+        value: finalResult,
         expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
     });
     schedulePersistentWrite();
-    return result;
+    return finalResult;
 }
 // ── Startup pre-warm for common IDX symbols ────────────────────────
 // Calling this once at server boot does a background sweep over a
