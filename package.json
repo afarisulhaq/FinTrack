@@ -25,6 +25,7 @@
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
     "db:clean-sample": "tsx prisma/clean-sample-data.ts",
+    "db:fix-investments": "tsx prisma/fix-investment-positions.ts",
     "postinstall": "prisma generate"
   },
   "prisma": {

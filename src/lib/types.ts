@@ -102,13 +102,29 @@ export interface Investment {
   symbol: string;
   assetClass: AssetClass;
   broker: string;
+  /// Lots currently held. The "is this position open?" check is
+  /// `quantity > 0`. A position with sellPrice set and quantity > 0
+  /// is *partially* sold, not closed.
   quantity: number;
+  /// Lots cumulatively sold across every sell event on this
+  /// position. Zero for never-sold; equals the original buy
+  /// amount when fully sold. Used to compute realized P/L on
+  /// the "Terjual" tab.
+  soldQuantity: number;
   avgBuyPrice: number;
   currentPrice: number;
   currency: string;
   color: string;
+  /// Details of the most recent sell event (price, fee, date).
+  /// Stays set after a partial sell so the row can still show
+  /// "you sold at Rp X on date Y".
   sellPrice: number | null;
   soldAt: string | null;
+  /// Server-only field for the sell action. The frontend sends
+  /// this on the update call; the backend reads it, reduces
+  /// `quantity` and bumps `soldQuantity` accordingly, then ignores
+  /// it on subsequent reads. Optional everywhere else.
+  sellQuantity?: number;
   buyFee: number | null;
   sellFee: number | null;
 }

@@ -126,6 +126,7 @@ export default function InvestmentsPage() {
   }>({ open: false, investment: null });
   const [sellPrice, setSellPrice] = useState("");
   const [sellFee, setSellFee] = useState("");
+  const [sellQuantity, setSellQuantity] = useState("");
 
   // Broker filter
   const brokers = useMemo(() => {
@@ -142,16 +143,22 @@ export default function InvestmentsPage() {
         ? investments
         : investments.filter((i) => i.broker === activeBroker);
 
+    // A position is "open" if it has any lots still held
+    // (quantity > 0). A position is "sold" if the user has sold
+    // every lot (quantity = 0). The sellPrice field is just the
+    // *last* sell event's price, so checking it for "is this sold?"
+    // is wrong: a partial sell leaves sellPrice set with quantity
+    // still > 0, and that row should stay in the "Aktif" tab.
     if (showSold) {
-      return byBroker.filter((i) => i.sellPrice != null);
+      return byBroker.filter((i) => i.quantity === 0);
     } else {
-      return byBroker.filter((i) => i.sellPrice == null);
+      return byBroker.filter((i) => i.quantity > 0);
     }
   }, [investments, activeBroker, showSold]);
 
   // Summary stats
   const { totalValue, totalPL, totalCost, totalRealizedPL } = useMemo(() => {
-    const active = investments.filter((i) => i.sellPrice == null);
+    const active = investments.filter((i) => i.quantity > 0);
     let totalValue = 0;
     let totalPL = 0;
     let totalCost = 0;
@@ -165,10 +172,15 @@ export default function InvestmentsPage() {
       totalCost += cost;
     }
 
+    // Realized P/L uses the cumulative-sold counter, not the
+    // (now possibly non-zero) remaining quantity. For a fully
+    // closed position these are equal; for a partial sell we
+    // only credit the lots the user actually sold.
     for (const inv of investments) {
-      if (inv.sellPrice != null) {
-        const cost = inv.quantity * inv.avgBuyPrice + (inv.buyFee ?? 0);
-        const proceeds = inv.quantity * inv.sellPrice - (inv.sellFee ?? 0);
+      if (inv.sellPrice != null && inv.soldQuantity > 0) {
+        const cost = inv.soldQuantity * inv.avgBuyPrice;
+        const proceeds =
+          inv.soldQuantity * inv.sellPrice - (inv.sellFee ?? 0);
         totalRealizedPL += proceeds - cost;
       }
     }
@@ -470,6 +482,7 @@ export default function InvestmentsPage() {
       assetClass: form.assetClass,
       broker: form.broker,
       quantity,
+      soldQuantity: 0,
       avgBuyPrice: Number(form.avgBuyPrice),
       currentPrice: marketPrice,
       currency: "IDR",
@@ -495,21 +508,33 @@ export default function InvestmentsPage() {
   // ─── Sell / Undo handlers ──────────────────────────────────────────────
   const openSellModal = (inv: Investment) => {
     setSellModal({ open: true, investment: inv });
-    setSellPrice(String(inv.avgBuyPrice));
+    // Default the sell price to the current live price so the
+    // user just has to confirm. Default the sell quantity to
+    // the entire holding (full sell) — the most common case.
+    setSellPrice(String(inv.currentPrice || inv.avgBuyPrice));
     setSellFee(String(inv.sellFee ?? ""));
+    setSellQuantity(String(inv.quantity));
   };
 
   const confirmSell = () => {
     const inv = sellModal.investment;
     if (!inv || !sellPrice) return;
+    const qty = Number(sellQuantity);
+    if (!Number.isFinite(qty) || qty <= 0) return;
+    if (qty > inv.quantity) return; // server will also reject, but keep UI in sync
     updateInvestment(inv.id, {
       sellPrice: Number(sellPrice),
       sellFee: Number(sellFee) || 0,
       soldAt: new Date().toISOString(),
+      // Quantity here is the number of lots to sell. The server
+      // reduces the held quantity and bumps the cumulative
+      // soldQuantity; if qty === inv.quantity this is a full sell.
+      sellQuantity: qty,
     });
     setSellModal({ open: false, investment: null });
     setSellPrice("");
     setSellFee("");
+    setSellQuantity("");
   };
 
   const undo = (inv: Investment) => {
@@ -593,7 +618,7 @@ export default function InvestmentsPage() {
         <StatCard
           title="Jumlah Aset"
           value={investments.length}
-          subtitle={`${investments.filter((i) => i.sellPrice == null).length} aktif, ${investments.filter((i) => i.sellPrice != null).length} terjual`}
+          subtitle={`${investments.filter((i) => i.quantity > 0).length} aktif, ${investments.filter((i) => i.quantity === 0).length} terjual`}
           icon={<BarChart2 />}
           iconColor="#38bdf8"
         />
@@ -776,7 +801,16 @@ export default function InvestmentsPage() {
                             {ASSET_CLASS_LABELS[inv.assetClass] ||
                               inv.assetClass}
                           </Badge>
-                          {inv.sellPrice != null && (
+                          {inv.sellPrice != null && inv.quantity > 0 && (
+                            <Badge
+                              variant="warning"
+                              size="sm"
+                              className="border-warning text-warning"
+                            >
+                              Sebagian
+                            </Badge>
+                          )}
+                          {inv.sellPrice != null && inv.quantity === 0 && (
                             <Badge
                               variant="danger"
                               size="sm"
@@ -787,10 +821,15 @@ export default function InvestmentsPage() {
                           )}
                         </div>
                       </td>
-                      <td className="text-text-secondary px-4 py-3 text-xs tabular-nums">
+                      <td className="text-text-secondary px-4 py-3 text-xs whitespace-nowrap tabular-nums">
                         {inv.assetClass === "stock"
                           ? `${(inv.quantity / 100).toLocaleString("id-ID")} lot`
                           : inv.quantity.toLocaleString("id-ID")}
+                        {inv.soldQuantity > 0 && inv.quantity > 0 && (
+                          <p className="text-text-muted text-[10px]">
+                            {inv.soldQuantity.toLocaleString("id-ID")} terjual
+                          </p>
+                        )}
                       </td>
                       <td className="text-text-secondary px-4 py-3 text-xs whitespace-nowrap tabular-nums">
                         {formatCurrency(inv.avgBuyPrice)}
@@ -823,7 +862,7 @@ export default function InvestmentsPage() {
                       </td>
                       <td className="px-4 py-3 text-right opacity-0 transition-opacity group-hover:opacity-100">
                         <div className="flex justify-end gap-2">
-                          {!inv.sellPrice && (
+                          {inv.quantity > 0 && (
                             <button
                               onClick={() => openSellModal(inv)}
                               className="text-text-muted hover:text-success text-xs font-medium transition-colors"
@@ -857,7 +896,7 @@ export default function InvestmentsPage() {
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
-                          {inv.sellPrice != null && (
+                          {inv.sellPrice != null && inv.quantity === 0 && (
                             <button
                               onClick={() => undo(inv)}
                               className="text-text-muted hover:text-warning text-xs font-medium transition-colors"
@@ -1122,6 +1161,7 @@ export default function InvestmentsPage() {
           setSellModal({ open: false, investment: null });
           setSellPrice("");
           setSellFee("");
+          setSellQuantity("");
         }}
         title="Jual Aset"
         size="sm"
@@ -1172,6 +1212,42 @@ export default function InvestmentsPage() {
               </div>
             </div>
 
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-text-primary text-xs font-medium">
+                  Jumlah Lot
+                </label>
+                {sellModal.investment.quantity > 0 && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSellQuantity(String(sellModal.investment!.quantity))
+                    }
+                    className="text-primary text-[11px] font-medium hover:underline"
+                  >
+                    Jual semua ({sellModal.investment.quantity})
+                  </button>
+                )}
+              </div>
+              <div className="relative">
+                <input
+                  type="number"
+                  step="any"
+                  min={0}
+                  max={sellModal.investment.quantity}
+                  placeholder="0"
+                  value={sellQuantity}
+                  onChange={(e) => setSellQuantity(e.target.value)}
+                  className="bg-bg-surface border-border text-text-primary focus:ring-primary/50 h-10 w-full rounded-lg border px-3 text-sm focus:ring-2 focus:outline-none"
+                />
+              </div>
+              {Number(sellQuantity) > sellModal.investment.quantity && (
+                <p className="text-danger text-[11px]">
+                  Maksimal {sellModal.investment.quantity} lot (jumlah dimiliki)
+                </p>
+              )}
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <label className="text-text-primary text-xs font-medium">
@@ -1205,14 +1281,12 @@ export default function InvestmentsPage() {
               </div>
             </div>
 
-            {sellPrice && Number(sellPrice) > 0 && (
+            {sellPrice && Number(sellPrice) > 0 && Number(sellQuantity) > 0 && (
               <div className="bg-bg-elevated rounded-lg border p-3 text-xs">
                 <div className="text-text-muted mb-1 flex justify-between">
-                  <span>Nilai Jual</span>
+                  <span>Nilai Jual ({Number(sellQuantity).toLocaleString("id-ID")} lot)</span>
                   <span>
-                    {formatCurrency(
-                      Number(sellPrice) * sellModal.investment.quantity,
-                    )}
+                    {formatCurrency(Number(sellPrice) * Number(sellQuantity))}
                   </span>
                 </div>
                 <div className="text-text-muted mb-1 flex justify-between">
@@ -1226,8 +1300,10 @@ export default function InvestmentsPage() {
                   <span
                     className={
                       (Number(sellPrice) - sellModal.investment.avgBuyPrice) *
-                        sellModal.investment.quantity -
-                        (sellModal.investment.buyFee ?? 0) -
+                        Number(sellQuantity) -
+                        (sellModal.investment.buyFee ?? 0) *
+                          (Number(sellQuantity) /
+                            Math.max(sellModal.investment.quantity, 1)) -
                         Number(sellFee || 0) >=
                       0
                         ? "text-success font-medium"
@@ -1236,8 +1312,10 @@ export default function InvestmentsPage() {
                   >
                     {formatCurrency(
                       (Number(sellPrice) - sellModal.investment.avgBuyPrice) *
-                        sellModal.investment.quantity -
-                        (sellModal.investment.buyFee ?? 0) -
+                        Number(sellQuantity) -
+                        (sellModal.investment.buyFee ?? 0) *
+                          (Number(sellQuantity) /
+                            Math.max(sellModal.investment.quantity, 1)) -
                         Number(sellFee || 0),
                     )}
                   </span>
@@ -1253,6 +1331,7 @@ export default function InvestmentsPage() {
                   setSellModal({ open: false, investment: null });
                   setSellPrice("");
                   setSellFee("");
+                  setSellQuantity("");
                 }}
               >
                 Batal
@@ -1260,7 +1339,13 @@ export default function InvestmentsPage() {
               <Button
                 type="button"
                 onClick={confirmSell}
-                disabled={!sellPrice || Number(sellPrice) <= 0}
+                disabled={
+                  !sellPrice ||
+                  Number(sellPrice) <= 0 ||
+                  !sellQuantity ||
+                  Number(sellQuantity) <= 0 ||
+                  Number(sellQuantity) > sellModal.investment.quantity
+                }
               >
                 Konfirmasi Jual
               </Button>
