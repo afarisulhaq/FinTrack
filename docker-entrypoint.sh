@@ -28,6 +28,19 @@ if [ -n "$DATABASE_URL" ] && [ "$SKIP_PRISMA_PUSH" != "1" ]; then
   else
     echo "[entrypoint] WARN: prisma db push failed, continuing — backend will retry on first request"
   fi
+
+  # ── Seed (admin user + sample data) ──────────────────────────────
+  # The seed is idempotent (uses upsert), so running it on every boot
+  # is safe and ensures the env-var admin user actually exists in the
+  # DB. Without this, a fresh deploy ends up with an empty User table
+  # and login returns "Email atau password salah" because prisma db
+  # push only syncs the schema, it does not run the seed.
+  echo "[entrypoint] seeding database (admin user + sample data)..."
+  if npx prisma db seed 2>&1; then
+    echo "[entrypoint] seed ok"
+  else
+    echo "[entrypoint] WARN: prisma db seed failed, continuing — admin user may be missing"
+  fi
 else
   echo "[entrypoint] skipping prisma db push (no DATABASE_URL or SKIP_PRISMA_PUSH=1)"
 fi
