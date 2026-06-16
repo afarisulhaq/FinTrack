@@ -1,0 +1,11 @@
+name = "fintrack-yahoo-proxy"
+main = "yahoo-proxy.js"
+compatibility_date = "2024-09-01"
+
+# Free tier covers 100k requests/day, which is plenty for a
+# single-tenant FinTrack deployment. If you outgrow it, attach a
+# paid Workers plan in the Cloudflare dashboard — no code change
+# needed.
+
+[observability]
+enabled = true

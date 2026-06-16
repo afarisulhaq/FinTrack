@@ -73,15 +73,33 @@ export type MarketSearchResult = {
   currency: string;
 };
 
-const YAHOO_CHART_URL = "https://query1.finance.yahoo.com/v8/finance/chart";
-const YAHOO_SEARCH_URL = "https://query2.finance.yahoo.com/v1/finance/search";
 // Yahoo runs two frontends (query1 / query2). One of them is usually
 // reachable even when the other is throttling or 401-gating a
 // datacenter IP. We try them in order and use whichever answers first.
-const YAHOO_CHART_HOSTS = [
+const DIRECT_YAHOO_CHART_HOSTS = [
   "https://query2.finance.yahoo.com",
   "https://query1.finance.yahoo.com",
 ];
+const DIRECT_YAHOO_SEARCH_URL =
+  "https://query2.finance.yahoo.com/v1/finance/search";
+
+// Optional: when the VPS can't reach Yahoo directly (rate-limited
+// datacenter IP), set YAHOO_PROXY_URL to a Cloudflare Worker that
+// forwards requests through Cloudflare's IP range. The worker is
+// a path-based proxy (not open), see infra/worker/. When set, we
+// put the proxy first in the list and keep the direct hosts as a
+// fallback in case the worker is down. When unset, behaviour is
+// unchanged — we just talk to Yahoo directly.
+const YAHOO_PROXY_URL = process.env.YAHOO_PROXY_URL?.trim().replace(
+  /\/$/,
+  "",
+);
+const YAHOO_CHART_HOSTS = YAHOO_PROXY_URL
+  ? [YAHOO_PROXY_URL, ...DIRECT_YAHOO_CHART_HOSTS]
+  : DIRECT_YAHOO_CHART_HOSTS;
+const YAHOO_SEARCH_URL = YAHOO_PROXY_URL
+  ? `${YAHOO_PROXY_URL}/v1/finance/search`
+  : DIRECT_YAHOO_SEARCH_URL;
 // Optional authenticated session. Get these once by visiting
 // https://finance.yahoo.com in a browser, opening DevTools → Network,
 // and copying the `Cookie` request header and the `crumb` value from
@@ -765,12 +783,32 @@ export async function getYahooFinanceQuote(
   }
   const meta = data.chart?.result?.[0]?.meta;
   if (!meta) {
+    // Yahoo returned 200 but with no meta block (often the VPS is
+    // getting a throttled/cached empty payload). Don't 404 if the
+    // persistent cache has a real value — serve that instead and
+    // only return null if we have nothing at all.
+    const persisted = persistentQuoteCache.get(cacheKey);
+    if (persisted) {
+      console.warn(
+        `[market-price] quote response had no meta for ${cacheKey}; serving persistent cache`,
+      );
+      return persisted.value;
+    }
     writeCache(quoteCache, cacheKey, null, QUOTE_TTL_MS);
     return null;
   }
 
   const price = meta.regularMarketPrice ?? meta.chartPreviousClose;
   if (!price) {
+    // Meta exists but the price fields are missing (same root cause
+    // as above: Yahoo's 200-OK-with-nothing case). Same fallback.
+    const persisted = persistentQuoteCache.get(cacheKey);
+    if (persisted) {
+      console.warn(
+        `[market-price] quote response had no price for ${cacheKey}; serving persistent cache`,
+      );
+      return persisted.value;
+    }
     writeCache(quoteCache, cacheKey, null, QUOTE_TTL_MS);
     return null;
   }
@@ -888,12 +926,28 @@ export async function getYahooFinancePrice(
   }
   const meta = data.chart?.result?.[0]?.meta;
   if (!meta) {
+    // Same as the quote path: a 200-OK-with-no-meta response from
+    // Yahoo should fall back to the persistent cache before 404-ing.
+    const persisted = persistentPriceCache.get(cacheKey);
+    if (persisted) {
+      console.warn(
+        `[market-price] price response had no meta for ${cacheKey}; serving persistent cache`,
+      );
+      return persisted.value;
+    }
     writeCache(priceCache, cacheKey, null, PRICE_TTL_MS);
     return null;
   }
 
   const price = meta.regularMarketPrice ?? meta.chartPreviousClose;
   if (!price) {
+    const persisted = persistentPriceCache.get(cacheKey);
+    if (persisted) {
+      console.warn(
+        `[market-price] price response had no price for ${cacheKey}; serving persistent cache`,
+      );
+      return persisted.value;
+    }
     writeCache(priceCache, cacheKey, null, PRICE_TTL_MS);
     return null;
   }
