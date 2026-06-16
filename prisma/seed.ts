@@ -50,8 +50,14 @@ async function main() {
           status: "active",
         },
       });
-      primaryUser = admin;
-      console.log(`✅ Admin user ensured: ${admin.email}`);
+      // Note: do NOT set `primaryUser` here. The sample-data block below
+      // is gated on `primaryUser` being non-null, and a production admin
+      // should start with an empty workspace — not the demo wallets,
+      // transactions, budgets, etc. The admin row itself is still
+      // upserted above, so login works on the very next request.
+      console.log(
+        `✅ Admin user ensured: ${admin.email} (workspace left empty)`,
+      );
     } else {
       console.warn(
         "⚠️  ADMIN_EMAIL and ADMIN_PASSWORD are not set. " +
@@ -60,8 +66,6 @@ async function main() {
           "and promote them to admin with `prisma studio`).",
       );
     }
-    // Production: skip the demo data block below entirely. The new
-    // admin starts with an empty workspace and builds their own data.
   } else {
     // Dev: default admin + demo user with the familiar credentials.
     const admin = await prisma.user.upsert({
