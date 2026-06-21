@@ -772,7 +772,7 @@ export default function InvestmentsPage() {
                   // lots the user actually sold). The held quantity is 0
                   // after a full sell, so using it would make all values Rp 0.
                   const qty = showSold
-                    ? inv.soldQuantity || inv.quantity
+                    ? (inv.soldQuantity ?? inv.quantity)
                     : inv.quantity;
                   const price = showSold
                     ? (inv.sellPrice ?? inv.currentPrice)

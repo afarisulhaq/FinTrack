@@ -1442,9 +1442,7 @@ async function updatePrismaResource(
       } = {};
       if (body.sellPrice !== undefined && body.sellPrice !== null) {
         const explicitSellQty =
-          body.sellQuantity !== undefined
-            ? Number(body.sellQuantity)
-            : null;
+          body.sellQuantity !== undefined ? Number(body.sellQuantity) : null;
         if (explicitSellQty !== null) {
           if (explicitSellQty <= 0) {
             throw new Error("Jumlah jual harus lebih dari 0");
@@ -1968,7 +1966,7 @@ export const financeRoutes = new Elysia({ prefix: "/api" })
         return fail("Database belum tersedia");
       }
       const data = body as Record<string, unknown>;
-      const updated = await (db as any).splitBillParticipant.update({
+      const updated = await (prisma as any).splitBillParticipant.update({
         where: { id: params.participantId },
         data: {
           paid: data.paid === undefined ? undefined : Boolean(data.paid),
@@ -1987,7 +1985,7 @@ export const financeRoutes = new Elysia({ prefix: "/api" })
       // last participant is marked paid, then snap back on refresh
       // (because the server still has the bill as "active").
       try {
-        const bill = await (db as any).splitBill.findUnique({
+        const bill = await (prisma as any).splitBill.findUnique({
           where: { id: params.id },
           include: { participants: true },
         });
@@ -2010,7 +2008,7 @@ export const financeRoutes = new Elysia({ prefix: "/api" })
             nextStatus = "active";
           }
           if (nextStatus) {
-            await (db as any).splitBill.update({
+            await (prisma as any).splitBill.update({
               where: { id: bill.id },
               data: { status: nextStatus },
             });
@@ -2052,7 +2050,9 @@ export const financeRoutes = new Elysia({ prefix: "/api" })
     async ({ request, body, set }) => {
       // Only admins can create users from the dashboard. (Public
       // registration still goes through /auth/register.)
-      const token = extractToken(request.headers.get("authorization") ?? undefined);
+      const token = extractToken(
+        request.headers.get("authorization") ?? undefined,
+      );
       const auth = token ? verifyToken(token) : null;
       if (!auth || auth.role !== "admin") {
         set.status = 401;
@@ -2137,7 +2137,9 @@ export const financeRoutes = new Elysia({ prefix: "/api" })
   .put(
     "/users/:id",
     async ({ request, params, body, set }) => {
-      const token = extractToken(request.headers.get("authorization") ?? undefined);
+      const token = extractToken(
+        request.headers.get("authorization") ?? undefined,
+      );
       const auth = token ? verifyToken(token) : null;
       if (!auth || auth.role !== "admin") {
         set.status = 401;
@@ -2206,9 +2208,7 @@ export const financeRoutes = new Elysia({ prefix: "/api" })
         ...(email !== undefined ? { email: email.toLowerCase().trim() } : {}),
         ...(role !== undefined ? { role } : {}),
         ...(status !== undefined ? { status } : {}),
-        ...(password
-          ? { password: await bcrypt.hash(password, 10) }
-          : {}),
+        ...(password ? { password: await bcrypt.hash(password, 10) } : {}),
       };
       users[idx] = updated;
       return ok(publicUser(updated));
@@ -2239,7 +2239,9 @@ export const financeRoutes = new Elysia({ prefix: "/api" })
   .delete(
     "/users/:id",
     async ({ request, params, set }) => {
-      const token = extractToken(request.headers.get("authorization") ?? undefined);
+      const token = extractToken(
+        request.headers.get("authorization") ?? undefined,
+      );
       const auth = token ? verifyToken(token) : null;
       if (!auth || auth.role !== "admin") {
         set.status = 401;
@@ -2481,7 +2483,10 @@ export const financeRoutes = new Elysia({ prefix: "/api" })
         set.status = 403;
         return fail("Tidak bisa mengubah status admin lain");
       }
-      users[idx] = { ...users[idx]!, status: status as "active" | "inactive" | "pending" };
+      users[idx] = {
+        ...users[idx]!,
+        status: status as "active" | "inactive" | "pending",
+      };
       return ok(publicUser(users[idx]!));
     },
     {
