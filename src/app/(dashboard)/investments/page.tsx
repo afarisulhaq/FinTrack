@@ -179,8 +179,7 @@ export default function InvestmentsPage() {
     for (const inv of investments) {
       if (inv.sellPrice != null && inv.soldQuantity > 0) {
         const cost = inv.soldQuantity * inv.avgBuyPrice;
-        const proceeds =
-          inv.soldQuantity * inv.sellPrice - (inv.sellFee ?? 0);
+        const proceeds = inv.soldQuantity * inv.sellPrice - (inv.sellFee ?? 0);
         totalRealizedPL += proceeds - cost;
       }
     }
@@ -530,6 +529,12 @@ export default function InvestmentsPage() {
       // reduces the held quantity and bumps the cumulative
       // soldQuantity; if qty === inv.quantity this is a full sell.
       sellQuantity: qty,
+      // Optimistic update: mirror the server-side computation so
+      // the local state reflects the new quantity immediately.
+      // Without this the "Aktif" / "Terjual" tab won't refresh
+      // until a manual reload.
+      quantity: inv.quantity - qty,
+      soldQuantity: (inv.soldQuantity ?? 0) + qty,
     });
     setSellModal({ open: false, investment: null });
     setSellPrice("");
@@ -1284,7 +1289,10 @@ export default function InvestmentsPage() {
             {sellPrice && Number(sellPrice) > 0 && Number(sellQuantity) > 0 && (
               <div className="bg-bg-elevated rounded-lg border p-3 text-xs">
                 <div className="text-text-muted mb-1 flex justify-between">
-                  <span>Nilai Jual ({Number(sellQuantity).toLocaleString("id-ID")} lot)</span>
+                  <span>
+                    Nilai Jual ({Number(sellQuantity).toLocaleString("id-ID")}{" "}
+                    lot)
+                  </span>
                   <span>
                     {formatCurrency(Number(sellPrice) * Number(sellQuantity))}
                   </span>

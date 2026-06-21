@@ -16,9 +16,12 @@
  */
 import { Elysia } from "elysia";
 import { appConfig } from "../data.js";
-import { db } from "../prisma-client.js";
+import { canUseDatabase, db } from "../prisma-client.js";
 import { fail, ok } from "../utils.js";
 async function loadPublicBill(billId, token) {
+    if (!(await canUseDatabase())) {
+        return { error: "Database tidak tersedia", status: 503 };
+    }
     const bill = await db.splitBill.findUnique({
         where: { id: billId },
         include: { participants: true },
@@ -103,6 +106,10 @@ export const publicSplitBillRoutes = new Elysia({
     // Public toggle — anyone with the URL can mark THIS participant as paid
     // (or unmark). Idempotent.
     .put("/:id/:token/pay", async ({ params, body, set }) => {
+    if (!(await canUseDatabase())) {
+        set.status = 503;
+        return fail("Database tidak tersedia");
+    }
     const bill = await db.splitBill.findUnique({
         where: { id: params.id },
         include: { participants: true },
