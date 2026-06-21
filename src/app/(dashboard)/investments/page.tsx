@@ -547,6 +547,11 @@ export default function InvestmentsPage() {
       sellPrice: null,
       soldAt: null,
       sellFee: null,
+      // Undo restores the held quantity from the cumulative sold counter.
+      // This optimistic update mirrors the server-side logic in
+      // updatePrismaResource so the item instantly moves back to "Aktif".
+      quantity: inv.quantity + (inv.soldQuantity ?? 0),
+      soldQuantity: 0,
     });
   };
 
@@ -763,17 +768,22 @@ export default function InvestmentsPage() {
               </thead>
               <tbody className="divide-border divide-y">
                 {filtered.map((inv) => {
-                  // Use sellPrice for sold assets, currentPrice for active
+                  // For sold assets, use the cumulative soldQuantity (the
+                  // lots the user actually sold). The held quantity is 0
+                  // after a full sell, so using it would make all values Rp 0.
+                  const qty = showSold
+                    ? inv.soldQuantity || inv.quantity
+                    : inv.quantity;
                   const price = showSold
                     ? (inv.sellPrice ?? inv.currentPrice)
                     : inv.currentPrice;
                   const buyFee = inv.buyFee ?? 0;
                   const sellFee = inv.sellFee ?? 0;
-                  const costBasis = inv.quantity * inv.avgBuyPrice + buyFee;
+                  const costBasis = qty * inv.avgBuyPrice + buyFee;
                   const proceeds = showSold
-                    ? inv.quantity * inv.sellPrice! - sellFee
+                    ? qty * inv.sellPrice! - sellFee
                     : 0;
-                  const value = inv.quantity * price;
+                  const value = qty * price;
                   const pl = showSold
                     ? proceeds - costBasis
                     : value - costBasis;
@@ -828,9 +838,9 @@ export default function InvestmentsPage() {
                       </td>
                       <td className="text-text-secondary px-4 py-3 text-xs whitespace-nowrap tabular-nums">
                         {inv.assetClass === "stock"
-                          ? `${(inv.quantity / 100).toLocaleString("id-ID")} lot`
-                          : inv.quantity.toLocaleString("id-ID")}
-                        {inv.soldQuantity > 0 && inv.quantity > 0 && (
+                          ? `${(qty / 100).toLocaleString("id-ID")} lot`
+                          : qty.toLocaleString("id-ID")}
+                        {!showSold && inv.soldQuantity > 0 && (
                           <p className="text-text-muted text-[10px]">
                             {inv.soldQuantity.toLocaleString("id-ID")} terjual
                           </p>
