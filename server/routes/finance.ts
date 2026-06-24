@@ -1965,60 +1965,68 @@ export const financeRoutes = new Elysia({ prefix: "/api" })
         set.status = 503;
         return fail("Database belum tersedia");
       }
-      const data = body as Record<string, unknown>;
-      const updated = await (prisma as any).splitBillParticipant.update({
-        where: { id: params.participantId },
-        data: {
-          paid: data.paid === undefined ? undefined : Boolean(data.paid),
-          paidAt:
-            data.paid === false
-              ? null
-              : data.paid === true
-                ? new Date()
-                : undefined,
-        },
-      });
-
-      // Auto-settle / un-settle the parent bill so the server state
-      // matches what the client store does locally. Without this, the
-      // summary card "Sudah Diterima" would jump to 0 the moment the
-      // last participant is marked paid, then snap back on refresh
-      // (because the server still has the bill as "active").
       try {
-        const bill = await (prisma as any).splitBill.findUnique({
-          where: { id: params.id },
-          include: { participants: true },
+        const data = body as Record<string, unknown>;
+        const updated = await (prisma as any).splitBillParticipant.update({
+          where: { id: params.participantId },
+          data: {
+            paid: data.paid === undefined ? undefined : Boolean(data.paid),
+            paidAt:
+              data.paid === false
+                ? null
+                : data.paid === true
+                  ? new Date()
+                  : undefined,
+          },
         });
-        if (
-          bill &&
-          Array.isArray(bill.participants) &&
-          bill.participants.length > 0
-        ) {
-          const allPaid = bill.participants.every((p: any) => p.paid);
-          const anyUnpaid = bill.participants.some((p: any) => !p.paid);
-          let nextStatus: string | undefined;
-          if (allPaid && bill.status !== "settled") {
-            nextStatus = "settled";
-          } else if (
-            anyUnpaid &&
-            bill.status === "settled" &&
-            data.paid === false
-          ) {
-            // Someone was just unmarked — re-open the bill.
-            nextStatus = "active";
-          }
-          if (nextStatus) {
-            await (prisma as any).splitBill.update({
-              where: { id: bill.id },
-              data: { status: nextStatus },
-            });
-          }
-        }
-      } catch (e) {
-        console.warn("[split-bills] auto-settle failed", e);
-      }
 
-      return ok(serializeSplitBillParticipant(updated));
+        // Auto-settle / un-settle the parent bill so the server state
+        // matches what the client store does locally. Without this, the
+        // summary card "Sudah Diterima" would jump to 0 the moment the
+        // last participant is marked paid, then snap back on refresh
+        // (because the server still has the bill as "active").
+        try {
+          const bill = await (prisma as any).splitBill.findUnique({
+            where: { id: params.id },
+            include: { participants: true },
+          });
+          if (
+            bill &&
+            Array.isArray(bill.participants) &&
+            bill.participants.length > 0
+          ) {
+            const allPaid = bill.participants.every((p: any) => p.paid);
+            const anyUnpaid = bill.participants.some((p: any) => !p.paid);
+            let nextStatus: string | undefined;
+            if (allPaid && bill.status !== "settled") {
+              nextStatus = "settled";
+            } else if (
+              anyUnpaid &&
+              bill.status === "settled" &&
+              data.paid === false
+            ) {
+              // Someone was just unmarked — re-open the bill.
+              nextStatus = "active";
+            }
+            if (nextStatus) {
+              await (prisma as any).splitBill.update({
+                where: { id: bill.id },
+                data: { status: nextStatus },
+              });
+            }
+          }
+        } catch (e) {
+          console.warn("[split-bills] auto-settle failed", e);
+        }
+
+        return ok(serializeSplitBillParticipant(updated));
+      } catch (error) {
+        console.error("[split-bills] participant update error", error);
+        set.status = 500;
+        return fail(
+          error instanceof Error ? error.message : "Gagal memperbarui peserta",
+        );
+      }
     },
   )
   .delete("/split-bills/:id", async ({ params, set }) => {

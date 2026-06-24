@@ -177,9 +177,10 @@ export default function InvestmentsPage() {
     // closed position these are equal; for a partial sell we
     // only credit the lots the user actually sold.
     for (const inv of investments) {
-      if (inv.sellPrice != null && inv.soldQuantity > 0) {
-        const cost = inv.soldQuantity * inv.avgBuyPrice;
-        const proceeds = inv.soldQuantity * inv.sellPrice - (inv.sellFee ?? 0);
+      if (inv.sellPrice != null && (inv.soldQuantity > 0 || inv.quantity > 0)) {
+        const soldQty = inv.soldQuantity > 0 ? inv.soldQuantity : inv.quantity;
+        const cost = soldQty * inv.avgBuyPrice;
+        const proceeds = soldQty * inv.sellPrice - (inv.sellFee ?? 0);
         totalRealizedPL += proceeds - cost;
       }
     }
@@ -772,7 +773,7 @@ export default function InvestmentsPage() {
                   // lots the user actually sold). The held quantity is 0
                   // after a full sell, so using it would make all values Rp 0.
                   const qty = showSold
-                    ? (inv.soldQuantity ?? inv.quantity)
+                    ? (inv.soldQuantity ?? 0) || inv.quantity
                     : inv.quantity;
                   const price = showSold
                     ? (inv.sellPrice ?? inv.currentPrice)
