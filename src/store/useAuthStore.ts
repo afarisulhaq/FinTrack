@@ -33,7 +33,11 @@ interface AuthStore {
   isLoading: boolean;
   hasHydrated: boolean;
   error: string | null;
-  login: (email: string, password: string) => Promise<boolean>;
+  login: (
+    email: string,
+    password: string,
+    turnstileToken?: string,
+  ) => Promise<boolean>;
   register: (
     name: string,
     email: string,
@@ -79,7 +83,7 @@ export const useAuthStore = create<AuthStore>()(
       hasHydrated: false,
       error: null,
 
-      login: async (email, password) => {
+      login: async (email, password, turnstileToken) => {
         set({ isLoading: true, error: null });
         const normalizedEmail = email.trim().toLowerCase();
         if (!normalizedEmail) {
@@ -92,7 +96,11 @@ export const useAuthStore = create<AuthStore>()(
         }
 
         try {
-          const result = await api.login(normalizedEmail, password);
+          const result = await api.login(
+            normalizedEmail,
+            password,
+            turnstileToken,
+          );
           set({
             user: result.user,
             token: result.token,

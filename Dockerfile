@@ -31,6 +31,12 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV SKIP_ENV_VALIDATION=1
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+
+# Build-time env for Cloudflare Turnstile (NEXT_PUBLIC_* must be present
+# at build time — they are inlined into the client bundle).
+ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY
+ENV NEXT_PUBLIC_TURNSTILE_SITE_KEY=$NEXT_PUBLIC_TURNSTILE_SITE_KEY
+
 RUN npm run build:server
 RUN npm run build:web
 

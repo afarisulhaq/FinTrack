@@ -9,6 +9,7 @@ import { fail, id, ok, publicUser } from "../utils.js";
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
+  turnstileToken: z.string().optional(),
 });
 
 const registerSchema = z.object({
@@ -105,8 +106,17 @@ export const authRoutes = new Elysia({ prefix: "/api/auth" })
         set.status = 400;
         return fail("Email/password tidak valid");
       }
-      const { email, password } = parsed.data;
+      const { email, password, turnstileToken } = parsed.data;
       const normalizedEmail = email.toLowerCase();
+
+      // Verify Cloudflare Turnstile challenge if the server is
+      // configured for it. Skipped (returns true) when no secret is
+      // set so local dev still works without a Turnstile account.
+      const turnstileOk = await verifyTurnstileToken(turnstileToken);
+      if (!turnstileOk) {
+        set.status = 400;
+        return fail("Verifikasi CAPTCHA gagal. Coba lagi.");
+      }
 
       if (await canUseDatabase()) {
         const user = await prisma.user.findUnique({
@@ -160,6 +170,7 @@ export const authRoutes = new Elysia({ prefix: "/api/auth" })
       body: t.Object({
         email: t.String(),
         password: t.String({ minLength: 6 }),
+        turnstileToken: t.Optional(t.String()),
       }),
     },
   )
@@ -246,36 +257,35 @@ export const authRoutes = new Elysia({ prefix: "/api/auth" })
       }),
     },
   )
-  .get(
-    "/me",
-    async ({ request, set }) => {
-      const token = extractToken(request.headers.get("authorization") ?? undefined);
-      if (!token) {
-        set.status = 401;
-        return fail("Unauthorized");
-      }
-      const payload = verifyToken(token);
-      if (!payload) {
-        set.status = 401;
-        return fail("Invalid token");
-      }
+  .get("/me", async ({ request, set }) => {
+    const token = extractToken(
+      request.headers.get("authorization") ?? undefined,
+    );
+    if (!token) {
+      set.status = 401;
+      return fail("Unauthorized");
+    }
+    const payload = verifyToken(token);
+    if (!payload) {
+      set.status = 401;
+      return fail("Invalid token");
+    }
 
-      if (await canUseDatabase()) {
-        const user = await prisma.user.findUnique({
-          where: { id: payload.sub },
-        });
-        if (!user) {
-          set.status = 404;
-          return fail("User tidak ditemukan");
-        }
-        return ok(publicPrismaUser(user));
-      }
-
-      const user = users.find((u) => u.id === payload.sub);
+    if (await canUseDatabase()) {
+      const user = await prisma.user.findUnique({
+        where: { id: payload.sub },
+      });
       if (!user) {
         set.status = 404;
         return fail("User tidak ditemukan");
       }
-      return ok(publicUser(user));
-    },
-  );
+      return ok(publicPrismaUser(user));
+    }
+
+    const user = users.find((u) => u.id === payload.sub);
+    if (!user) {
+      set.status = 404;
+      return fail("User tidak ditemukan");
+    }
+    return ok(publicUser(user));
+  });

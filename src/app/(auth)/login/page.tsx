@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AlertCircle, Eye, EyeOff, Lock, Mail, Zap } from "lucide-react";
 import { Button } from "~/components/ui/button";
+import { Turnstile, resetTurnstile } from "~/components/auth/turnstile";
 import { useAuthStore } from "~/store/useAuthStore";
 import { useAppConfigStore } from "~/store/useAppConfigStore";
 import { env } from "~/env";
@@ -11,6 +12,7 @@ import { env } from "~/env";
 interface FormErrors {
   email?: string;
   password?: string;
+  turnstile?: string;
 }
 
 export default function LoginPage() {
@@ -24,17 +26,29 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [formErrors, setFormErrors] = useState<FormErrors>({});
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const turnstileSiteKey = env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim();
 
   function validate() {
     const errors: FormErrors = {};
     if (!email.trim()) errors.email = "Email wajib diisi";
     if (!password) errors.password = "Password wajib diisi";
+    if (turnstileSiteKey && !turnstileToken)
+      errors.turnstile = "Selesaikan verifikasi CAPTCHA dulu";
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   }
 
-  async function submitLogin(nextEmail = email, nextPassword = password) {
-    const success = await login(nextEmail, nextPassword);
+  async function submitLogin(
+    nextEmail = email,
+    nextPassword = password,
+    turnstileTokenOverride?: string,
+  ) {
+    const success = await login(
+      nextEmail,
+      nextPassword,
+      turnstileTokenOverride ?? turnstileToken ?? undefined,
+    );
     if (success) {
       const { user, token } = useAuthStore.getState();
       if (!user) return;
@@ -47,6 +61,8 @@ export default function LoginPage() {
       );
       const destination = user.role === "admin" ? "/admin" : "/dashboard";
       window.location.href = destination;
+    } else {
+      if (turnstileSiteKey) resetTurnstile();
     }
   }
 
@@ -76,7 +92,7 @@ export default function LoginPage() {
     setPassword(nextPassword);
     setFormErrors({});
     clearError();
-    void submitLogin(nextEmail, nextPassword);
+    void submitLogin(nextEmail, nextPassword, undefined);
   }
 
   return (
@@ -189,6 +205,19 @@ export default function LoginPage() {
           <div className="border-danger/25 bg-danger/10 flex items-center gap-2.5 rounded-xl border px-3.5 py-3">
             <AlertCircle className="text-danger h-4 w-4 shrink-0" />
             <p className="text-danger text-sm">{error}</p>
+          </div>
+        )}
+
+        {turnstileSiteKey && (
+          <div className="space-y-1">
+            <Turnstile
+              siteKey={turnstileSiteKey}
+              onVerify={setTurnstileToken}
+              onExpire={() => setTurnstileToken(null)}
+            />
+            {formErrors.turnstile && (
+              <p className="text-danger text-xs">{formErrors.turnstile}</p>
+            )}
           </div>
         )}
 
