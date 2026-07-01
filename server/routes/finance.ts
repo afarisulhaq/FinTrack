@@ -1803,6 +1803,11 @@ async function getBootstrapFromDb(userId: string | null) {
   const setting =
     (await prisma.appSetting.findFirst()) ??
     (await prisma.appSetting.create({ data: {} }));
+  // Notification settings are per-user; skip for admin (userId=null)
+  const notifSetting = userId
+    ? ((await prisma.notificationSetting.findUnique({ where: { userId } })) ??
+      (await prisma.notificationSetting.create({ data: { userId } })))
+    : null;
   return {
     wallets: nestWallets(wallets.map(serializeWallet)),
     transactions: transactions.map(serializeTransaction),
@@ -1820,6 +1825,9 @@ async function getBootstrapFromDb(userId: string | null) {
     splitBills: splitBills.map(serializeSplitBill),
     categories: categories.map(serializeCategory),
     subCategories: subCategories.map(serializeSubCategory),
+    ...(notifSetting
+      ? { notificationSettings: serializeNotificationSetting(notifSetting) }
+      : {}),
     appConfig: serializeAppSetting(setting),
   };
 }

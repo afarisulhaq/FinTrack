@@ -231,6 +231,7 @@ interface BootstrapData {
   splitBills?: SplitBill[];
   categories?: Category[];
   subCategories?: SubCategory[];
+  notificationSettings?: NotificationSettings;
   appConfig?: Partial<AppConfig>;
 }
 
@@ -485,6 +486,9 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
           ({ ...a, ...b, subCategories: b.subCategories ?? a.subCategories }),
         ),
         subCategories: mergeById(state.subCategories, data.subCategories),
+        notificationSettings: data.notificationSettings
+          ? { ...state.notificationSettings, ...data.notificationSettings }
+          : state.notificationSettings,
         lastSyncedAt: Date.now(),
       };
     });
@@ -812,24 +816,27 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
         inv.id === id ? { ...inv, ...updates } : inv,
       ),
     }));
+    const isSell = "sellPrice" in updates || "soldAt" in updates;
     void withPersist<Investment>(`/investments/${id}`, "PUT", updates, {
-      onSuccess: (serverItem) => {
-        if (!serverItem) return;
-        set((state) => ({
-          investments: state.investments.map((inv) =>
-            inv.id === id
-              ? {
-                  ...inv,
-                  ...serverItem,
-                  symbol: (serverItem.symbol ?? inv.symbol).replace(
-                    /\.JK$/,
-                    "",
-                  ),
-                }
-              : inv,
-          ),
-        }));
-      },
+      onSuccess: isSell
+        ? (serverItem) => {
+            if (!serverItem) return;
+            set((state) => ({
+              investments: state.investments.map((inv) =>
+                inv.id === id
+                  ? {
+                      ...inv,
+                      ...serverItem,
+                      symbol: (serverItem.symbol ?? inv.symbol).replace(
+                        /\.JK$/,
+                        "",
+                      ),
+                    }
+                  : inv,
+              ),
+            }));
+          }
+        : undefined,
       onError: () => {
         if (!previous) return;
         set((state) => ({
