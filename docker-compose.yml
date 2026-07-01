@@ -20,7 +20,9 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        - NEXT_PUBLIC_TURNSTILE_SITE_KEY=${NEXT_PUBLIC_TURNSTILE_SITE_KEY:-}
+        # Public key — aman dihardcode karena dikirim ke browser.
+        # Ganti dengan key asli dari Cloudflare dashboard setelah testing.
+        - NEXT_PUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000AA
     image: fintrack:latest
     container_name: fintrack
     restart: unless-stopped
