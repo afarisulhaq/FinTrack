@@ -57,6 +57,13 @@ import {
 } from "~/lib/import-export";
 import { toast } from "~/components/ui/toast";
 import type { NotificationSettings, TeamMember, UserRole } from "~/lib/types";
+import {
+  getPushPermission,
+  requestPushPermission,
+  subscribeToPush,
+  unsubscribeFromPush,
+} from "~/lib/push-notifications";
+import { useAuthStore } from "~/store/useAuthStore";
 
 // ─── Reusable micro-components ────────────────────────────────────────────────
 
@@ -1007,6 +1014,7 @@ function NotifikasiTab() {
   });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const authToken = useAuthStore((s) => s.token);
 
   function handleSave() {
     setSaving(true);
@@ -1082,7 +1090,46 @@ function NotifikasiTab() {
       label: "Push Notification",
       icon: "🔔",
       color: "text-purple-400 bg-purple-500/15",
-      extraField: null,
+      extraField: (
+        <div className="space-y-2">
+          <p className="text-text-muted text-xs">
+            Terima notifikasi langsung di perangkat, bahkan saat browser
+            ditutup.
+            {typeof window !== "undefined" &&
+              "Notification" in window &&
+              Notification.permission === "denied" && (
+                <span className="text-danger ml-1">
+                  Izin diblokir — ubah di pengaturan browser.
+                </span>
+              )}
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              try {
+                const res = await fetch(`${getApiBaseUrl()}/push/test`, {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${authToken}`,
+                  },
+                });
+                const json = await res.json();
+                if (json.success) {
+                  toast.success("Test push terkirim!");
+                } else {
+                  toast.error("Test Push", json.error ?? "Gagal");
+                }
+              } catch {
+                toast.error("Test Push", "Gagal mengirim test push");
+              }
+            }}
+          >
+            <Send className="mr-1 h-3 w-3" /> Test Push
+          </Button>
+        </div>
+      ),
     },
   ];
 
@@ -1108,7 +1155,49 @@ function NotifikasiTab() {
 
             function toggleChannel(v: boolean) {
               if (ch.key === "push") {
-                setChannels((c) => ({ ...c, push: { enabled: v } }));
+                if (v) {
+                  // Request permission + subscribe
+                  void (async () => {
+                    const perm = getPushPermission();
+                    if (perm === "unsupported") {
+                      toast.error(
+                        "Push Notification",
+                        "Browser tidak mendukung push notification",
+                      );
+                      return;
+                    }
+                    if (perm === "denied") {
+                      toast.error(
+                        "Push Notification",
+                        "Izin notifikasi diblokir. Ubah di pengaturan browser.",
+                      );
+                      return;
+                    }
+                    const result = await requestPushPermission();
+                    if (result !== "granted") {
+                      toast.error(
+                        "Push Notification",
+                        "Izin notifikasi tidak diberikan",
+                      );
+                      return;
+                    }
+                    if (authToken) {
+                      const ok = await subscribeToPush(authToken);
+                      if (ok) {
+                        setChannels((c) => ({ ...c, push: { enabled: true } }));
+                        toast.success("Push Notification aktif");
+                      } else {
+                        toast.error(
+                          "Push Notification",
+                          "Gagal subscribe push notification",
+                        );
+                      }
+                    }
+                  })();
+                } else {
+                  if (authToken) void unsubscribeFromPush(authToken);
+                  setChannels((c) => ({ ...c, push: { enabled: false } }));
+                }
               } else {
                 setChannels((c) => ({
                   ...c,
@@ -1794,12 +1883,7 @@ function DataEksporTab() {
     setExportingKey(key, true);
     try {
       if (key === "pdf") {
-        openMonthlyReportPrint(
-          transactions,
-          wallets,
-          selectedMonth,
-          appName,
-        );
+        openMonthlyReportPrint(transactions, wallets, selectedMonth, appName);
         toast.success(
           "Laporan dibuka",
           "Gunakan ‘Save as PDF’ di dialog print browser.",
@@ -2017,8 +2101,7 @@ function DataEksporTab() {
       for (const id of debts.map((d) => d.id)) deleteDebt(id);
       for (const id of cards.map((c) => c.id)) deleteCard(id);
       for (const id of wishlist.map((w) => w.id)) deleteWishlistItem(id);
-      for (const id of reimbursements.map((r) => r.id))
-        deleteReimbursement(id);
+      for (const id of reimbursements.map((r) => r.id)) deleteReimbursement(id);
       for (const id of notes.map((n) => n.id)) deleteNote(id);
       for (const id of recurringTransactions.map((r) => r.id))
         deleteRecurringTransaction(id);
@@ -2057,7 +2140,8 @@ function DataEksporTab() {
       key: "json" as ExportKey,
       icon: <FileJson className="h-6 w-6" />,
       title: "Backup Lengkap JSON",
-      description: "Backup seluruh data keuangan (semua resource) dalam satu file.",
+      description:
+        "Backup seluruh data keuangan (semua resource) dalam satu file.",
       color: "text-yellow-400 bg-yellow-500/15",
       action: "Unduh Backup",
     },
@@ -2253,8 +2337,8 @@ function DataEksporTab() {
                         ))}
                       {pendingImport.csvPreview.issues.length > 5 && (
                         <li>
-                          …dan{" "}
-                          {pendingImport.csvPreview.issues.length - 5} lainnya
+                          …dan {pendingImport.csvPreview.issues.length - 5}{" "}
+                          lainnya
                         </li>
                       )}
                     </ul>
@@ -2280,14 +2364,38 @@ function DataEksporTab() {
                   <div className="text-text-secondary grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
                     {(
                       [
-                        ["Dompet", pendingImport.jsonPreview.bundle.wallets.length],
-                        ["Transaksi", pendingImport.jsonPreview.bundle.transactions.length],
-                        ["Anggaran", pendingImport.jsonPreview.bundle.budgets.length],
-                        ["Investasi", pendingImport.jsonPreview.bundle.investments.length],
-                        ["Tagihan", pendingImport.jsonPreview.bundle.bills.length],
-                        ["Tabungan", pendingImport.jsonPreview.bundle.savingGoals.length],
-                        ["Utang", pendingImport.jsonPreview.bundle.debts.length],
-                        ["Catatan", pendingImport.jsonPreview.bundle.notes.length],
+                        [
+                          "Dompet",
+                          pendingImport.jsonPreview.bundle.wallets.length,
+                        ],
+                        [
+                          "Transaksi",
+                          pendingImport.jsonPreview.bundle.transactions.length,
+                        ],
+                        [
+                          "Anggaran",
+                          pendingImport.jsonPreview.bundle.budgets.length,
+                        ],
+                        [
+                          "Investasi",
+                          pendingImport.jsonPreview.bundle.investments.length,
+                        ],
+                        [
+                          "Tagihan",
+                          pendingImport.jsonPreview.bundle.bills.length,
+                        ],
+                        [
+                          "Tabungan",
+                          pendingImport.jsonPreview.bundle.savingGoals.length,
+                        ],
+                        [
+                          "Utang",
+                          pendingImport.jsonPreview.bundle.debts.length,
+                        ],
+                        [
+                          "Catatan",
+                          pendingImport.jsonPreview.bundle.notes.length,
+                        ],
                       ] as Array<[string, number]>
                     ).map(([label, n]) => (
                       <div
@@ -2332,7 +2440,6 @@ function DataEksporTab() {
           </div>
         )}
       </Modal>
-
 
       {/* Danger zone */}
       <div>

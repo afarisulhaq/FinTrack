@@ -13,6 +13,7 @@ import { financeRoutes, resourceRoutes } from "./routes/finance.js";
 import { botRoutes } from "./routes/bot.js";
 import { publicMarketRoutes } from "./routes/public-market.js";
 import { publicSplitBillRoutes } from "./routes/public-split-bills.js";
+import { pushRoutes } from "./routes/push.js";
 import { prewarmCommonSymbols } from "./services/market-price.js";
 import { startWhatsAppBot } from "./services/whatsapp.js";
 import { ok } from "./utils.js";
@@ -50,6 +51,7 @@ const app = new Elysia({ adapter: node() })
   .use(botRoutes)
   .use(publicMarketRoutes)
   .use(publicSplitBillRoutes)
+  .use(pushRoutes)
   .onError(({ code, set }) => {
     if (code === "NOT_FOUND") {
       set.status = 404;

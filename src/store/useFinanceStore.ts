@@ -460,10 +460,13 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
         wallets: mergeById(state.wallets, data.wallets),
         transactions: mergeById(state.transactions, data.transactions),
         budgets: mergeById(state.budgets, data.budgets),
-        investments: (data.investments ?? state.investments).map((inv) => ({
-          ...inv,
-          symbol: inv.symbol.replace(/\.JK$/, ""),
-        })),
+        investments: mergeById(
+          state.investments,
+          data.investments?.map((inv) => ({
+            ...inv,
+            symbol: inv.symbol.replace(/\.JK$/, ""),
+          })),
+        ),
         bills: mergeById(state.bills, data.bills),
         savingGoals: mergeById(state.savingGoals, data.savingGoals),
         debts: mergeById(state.debts, data.debts),
@@ -810,6 +813,23 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
       ),
     }));
     void withPersist<Investment>(`/investments/${id}`, "PUT", updates, {
+      onSuccess: (serverItem) => {
+        if (!serverItem) return;
+        set((state) => ({
+          investments: state.investments.map((inv) =>
+            inv.id === id
+              ? {
+                  ...inv,
+                  ...serverItem,
+                  symbol: (serverItem.symbol ?? inv.symbol).replace(
+                    /\.JK$/,
+                    "",
+                  ),
+                }
+              : inv,
+          ),
+        }));
+      },
       onError: () => {
         if (!previous) return;
         set((state) => ({

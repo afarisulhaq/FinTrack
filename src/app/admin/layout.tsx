@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   BarChart3,
@@ -10,6 +10,8 @@ import {
   ArrowLeft,
   Shield,
   LogOut,
+  Menu,
+  X,
 } from "lucide-react";
 import { cn } from "~/lib/utils";
 import { ConfirmDialog } from "~/components/ui/confirm-dialog";
@@ -31,6 +33,7 @@ export default function AdminLayout({
   const router = useRouter();
   const { user, isAuthenticated, hasHydrated, logout } = useAuthStore();
   const { config } = useAppConfigStore();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
     if (!hasHydrated) return;
@@ -53,7 +56,12 @@ export default function AdminLayout({
 
   return (
     <div className="bg-bg-base text-text-primary flex min-h-screen">
-      <aside className="bg-bg-base border-border fixed top-0 left-0 z-40 flex h-screen w-64 flex-col border-r">
+      <aside
+        className={cn(
+          "bg-bg-base border-border fixed top-0 left-0 z-40 flex h-screen w-64 flex-col border-r transition-transform duration-200",
+          mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
+        )}
+      >
         <div className="border-border flex h-16 items-center gap-3 border-b px-5">
           <div className="bg-warning/15 border-warning/30 flex h-9 w-9 items-center justify-center rounded-xl border">
             <Shield className="text-warning h-5 w-5" />
@@ -62,6 +70,13 @@ export default function AdminLayout({
             <p className="text-sm font-bold">{config.appName} Admin</p>
             <p className="text-text-muted text-[11px]">System Control</p>
           </div>
+          <button
+            onClick={() => setMobileOpen(false)}
+            className="text-text-muted hover:text-text-primary ml-auto md:hidden"
+            aria-label="Tutup sidebar"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
         <nav className="flex-1 space-y-1 p-3">
           {ADMIN_NAV.map((item) => {
@@ -106,13 +121,29 @@ export default function AdminLayout({
           </button>
         </div>
       </aside>
-      <main className="ml-64 min-h-screen flex-1">
+      {mobileOpen && (
+        <button
+          aria-label="Tutup menu"
+          className="fixed inset-0 z-30 bg-black/60 backdrop-blur-sm md:hidden"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+      <main className="min-h-screen flex-1 md:ml-64">
         <header className="border-border bg-bg-base/95 sticky top-0 z-30 flex h-16 items-center justify-between border-b px-6 backdrop-blur">
-          <div>
-            <h1 className="text-base font-bold">Admin Panel</h1>
-            <p className="text-text-muted text-xs">
-              Kelola pengguna, konfigurasi aplikasi, dan sistem.
-            </p>
+          <div className="flex items-center">
+            <button
+              onClick={() => setMobileOpen(true)}
+              className="text-text-muted hover:text-text-primary mr-2 md:hidden"
+              aria-label="Buka menu"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+            <div>
+              <h1 className="text-base font-bold">Admin Panel</h1>
+              <p className="text-text-muted text-xs">
+                Kelola pengguna, konfigurasi aplikasi, dan sistem.
+              </p>
+            </div>
           </div>
           <Link
             href="/dashboard"

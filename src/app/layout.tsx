@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import Script from "next/script";
 import { env } from "~/env";
+import { SwRegister } from "~/components/pwa/sw-register";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -47,6 +48,13 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: "/favicon.ico",
+    apple: "/icons/icon-192.svg",
+  },
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: APP_NAME,
   },
 };
 
@@ -54,6 +62,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
+  themeColor: "#6366f1",
 };
 
 export default function RootLayout({
@@ -136,6 +145,7 @@ export default function RootLayout({
           `}
         </Script>
         {children}
+        <SwRegister />
       </body>
     </html>
   );
