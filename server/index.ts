@@ -15,6 +15,7 @@ import { publicMarketRoutes } from "./routes/public-market.js";
 import { publicSplitBillRoutes } from "./routes/public-split-bills.js";
 import { pushRoutes } from "./routes/push.js";
 import { prewarmCommonSymbols } from "./services/market-price.js";
+import { startReminderScheduler } from "./services/reminder-scheduler.js";
 import { startWhatsAppBot } from "./services/whatsapp.js";
 import { ok } from "./utils.js";
 
@@ -64,6 +65,9 @@ const app = new Elysia({ adapter: node() })
   });
 
 console.log(`FinTrack backend (Elysia) running on http://0.0.0.0:${port}`);
+
+// Start reminder scheduler (checks every 60s, sends push for bills, budgets, etc.)
+startReminderScheduler();
 
 // Background warmup of the Yahoo Finance cache. Runs in the
 // background so server startup isn't blocked. If the VPS IP is
