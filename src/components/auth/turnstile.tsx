@@ -96,7 +96,7 @@ export function Turnstile({
       "expired-callback": () => onExpire?.(),
       "error-callback": () => onExpire?.(),
       theme: "auto",
-      size: "flexible",
+      size: "normal",
     });
     widgetIdRef.current = id;
   }, [scriptReady, siteKey, onVerify, onExpire]);
