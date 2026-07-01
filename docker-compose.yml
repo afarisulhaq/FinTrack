@@ -22,7 +22,7 @@ services:
       args:
         # Public key — aman dihardcode (dikirim ke browser).
         # Kalau mau ganti, edit baris ini lalu rebuild.
-        - NEXT_PUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000AA
+        - NEXT_PUBLIC_TURNSTILE_SITE_KEY
     image: fintrack:latest
     container_name: fintrack
     restart: unless-stopped
