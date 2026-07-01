@@ -2,8 +2,8 @@
 #
 # Usage:
 #   1. cp .env.production.example .env.production
-#   2. edit .env.production (isi semua, termasuk NEXT_PUBLIC_TURNSTILE_SITE_KEY)
-#   3. docker compose --env-file .env.production up -d --build
+#   2. edit .env.production (isi database, JWT, TURNSTILE_SECRET_KEY dll.)
+#   3. docker compose up -d --build
 #   4. docker compose logs -f app   # to watch the first boot
 #
 # The image does NOT include Postgres. Set DATABASE_URL to an
@@ -20,8 +20,9 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        # Nilai diambil dari environment / --env-file .env.production
-        - NEXT_PUBLIC_TURNSTILE_SITE_KEY
+        # Public key — aman dihardcode (dikirim ke browser).
+        # Kalau mau ganti, edit baris ini lalu rebuild.
+        - NEXT_PUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000AA
     image: fintrack:latest
     container_name: fintrack
     restart: unless-stopped
