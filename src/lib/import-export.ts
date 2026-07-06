@@ -486,7 +486,7 @@ export function getBackupJSONTemplate(appName = "FinTrack"): string {
         balance: 500000,
         currency: "IDR",
         color: "#22c55e",
-        icon: "💵",
+        icon: "Banknote",
       },
     ],
     transactions: [
@@ -495,7 +495,7 @@ export function getBackupJSONTemplate(appName = "FinTrack"): string {
         type: "expense",
         amount: 50000,
         category: "Makanan",
-        categoryIcon: "🍔",
+        categoryIcon: "Utensils",
         walletId: "wlt-001",
         walletName: "Dompet Utama",
         description: "Contoh transaksi",

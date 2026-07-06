@@ -11,6 +11,7 @@ import {
   TrendingUp,
   Activity,
 } from "lucide-react";
+import { DynamicIcon } from "~/components/ui/dynamic-icon";
 import { PageWrapper } from "~/components/layout/page-wrapper";
 import { Button } from "~/components/ui/button";
 import { Card, CardHeader, CardBody } from "~/components/ui/card";
@@ -36,26 +37,26 @@ interface CategoryOption {
 }
 
 const INCOME_CATEGORIES: CategoryOption[] = [
-  { name: "Gaji", icon: "💼", color: "#22c55e" },
-  { name: "Freelance", icon: "💻", color: "#06b6d4" },
-  { name: "Investasi", icon: "📈", color: "#a855f7" },
-  { name: "Hadiah", icon: "🎁", color: "#f59e0b" },
-  { name: "Lainnya", icon: "➕", color: "#94a3b8" },
+  { name: "Gaji", icon: "Briefcase", color: "#22c55e" },
+  { name: "Freelance", icon: "Laptop", color: "#06b6d4" },
+  { name: "Investasi", icon: "TrendingUp", color: "#a855f7" },
+  { name: "Hadiah", icon: "Gift", color: "#f59e0b" },
+  { name: "Lainnya", icon: "MoreHorizontal", color: "#94a3b8" },
 ];
 
 const EXPENSE_CATEGORIES: CategoryOption[] = [
-  { name: "Makan", icon: "🍔", color: "#f97316" },
-  { name: "Transport", icon: "🚗", color: "#3b82f6" },
-  { name: "Belanja", icon: "🛍️", color: "#a855f7" },
-  { name: "Hiburan", icon: "🎬", color: "#ec4899" },
-  { name: "Kesehatan", icon: "🏥", color: "#22c55e" },
-  { name: "Tagihan", icon: "💡", color: "#6366f1" },
-  { name: "Kopi", icon: "☕", color: "#d97706" },
-  { name: "Lainnya", icon: "➕", color: "#94a3b8" },
+  { name: "Makan", icon: "Utensils", color: "#f97316" },
+  { name: "Transport", icon: "Car", color: "#3b82f6" },
+  { name: "Belanja", icon: "ShoppingCart", color: "#a855f7" },
+  { name: "Hiburan", icon: "Film", color: "#ec4899" },
+  { name: "Kesehatan", icon: "HeartPulse", color: "#22c55e" },
+  { name: "Tagihan", icon: "Lightbulb", color: "#FFD147" },
+  { name: "Kopi", icon: "Coffee", color: "#d97706" },
+  { name: "Lainnya", icon: "MoreHorizontal", color: "#94a3b8" },
 ];
 
 const TRANSFER_CATEGORIES: CategoryOption[] = [
-  { name: "Transfer", icon: "🔄", color: "#6366f1" },
+  { name: "Transfer", icon: "ArrowRightLeft", color: "#FFD147" },
 ];
 
 function getCategoriesByType(type: TransactionType): CategoryOption[] {
@@ -74,13 +75,13 @@ const CATEGORY_COLORS: Record<string, string> = {
   Belanja: "#a855f7",
   Hiburan: "#ec4899",
   Kesehatan: "#22c55e",
-  Tagihan: "#6366f1",
+  Tagihan: "#FFD147",
   Kopi: "#d97706",
-  Transfer: "#6366f1",
+  Transfer: "#FFD147",
 };
 
 function getCategoryColor(category: string): string {
-  return CATEGORY_COLORS[category] ?? "#6366f1";
+  return CATEGORY_COLORS[category] ?? "#FFD147";
 }
 
 // ─── Period helpers ───────────────────────────────────────────────────────────
@@ -135,14 +136,14 @@ function Toggle({
       }}
       className={cn(
         "relative inline-flex h-5 w-9 items-center rounded-full",
-        "transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-        checked ? "bg-success" : "bg-border"
+        "focus-visible:ring-primary transition-colors duration-200 focus:outline-none focus-visible:ring-2",
+        checked ? "bg-success" : "bg-border",
       )}
     >
       <span
         className={cn(
-          "inline-block w-3.5 h-3.5 rounded-full bg-white shadow-sm transition-transform duration-200",
-          checked ? "translate-x-4" : "translate-x-1"
+          "inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transition-transform duration-200",
+          checked ? "translate-x-4" : "translate-x-1",
         )}
       />
     </button>
@@ -168,7 +169,7 @@ const DEFAULT_FORM: RecurringForm = {
   type: "expense",
   amount: "",
   category: "Makan",
-  categoryIcon: "🍔",
+  categoryIcon: "Utensils",
   walletId: "",
   period: "monthly",
   nextDate: new Date().toISOString().split("T")[0],
@@ -177,12 +178,7 @@ const DEFAULT_FORM: RecurringForm = {
 
 // ─── Filter type ──────────────────────────────────────────────────────────────
 
-type FilterTab =
-  | "Semua"
-  | "Aktif"
-  | "Nonaktif"
-  | "Pengeluaran"
-  | "Pemasukan";
+type FilterTab = "Semua" | "Aktif" | "Nonaktif" | "Pengeluaran" | "Pemasukan";
 
 const FILTER_TABS: FilterTab[] = [
   "Semua",
@@ -195,21 +191,19 @@ const FILTER_TABS: FilterTab[] = [
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default function RecurringPage() {
-  const recurringTransactions = useFinanceStore(
-    (s) => s.recurringTransactions
-  );
+  const recurringTransactions = useFinanceStore((s) => s.recurringTransactions);
   const wallets = useFinanceStore((s) => s.wallets);
   const addRecurringTransaction = useFinanceStore(
-    (s) => s.addRecurringTransaction
+    (s) => s.addRecurringTransaction,
   );
   const updateRecurringTransaction = useFinanceStore(
-    (s) => s.updateRecurringTransaction
+    (s) => s.updateRecurringTransaction,
   );
   const toggleRecurringTransaction = useFinanceStore(
-    (s) => s.toggleRecurringTransaction
+    (s) => s.toggleRecurringTransaction,
   );
   const deleteRecurringTransaction = useFinanceStore(
-    (s) => s.deleteRecurringTransaction
+    (s) => s.deleteRecurringTransaction,
   );
 
   // ── Local state ────────────────────────────────────────────────────────────
@@ -224,7 +218,7 @@ export default function RecurringPage() {
 
   const walletMap = useMemo(
     () => new Map(allWallets.map((w) => [w.id, w.name])),
-    [allWallets]
+    [allWallets],
   );
 
   function fld<K extends keyof RecurringForm>(k: K, v: RecurringForm[K]) {
@@ -388,50 +382,47 @@ export default function RecurringPage() {
       title="Transaksi Berulang"
       subtitle="Kelola pendapatan & pengeluaran rutin kamu"
       actions={
-        <Button
-          leftIcon={<Plus className="w-4 h-4" />}
-          onClick={openAddModal}
-        >
+        <Button leftIcon={<Plus className="h-4 w-4" />} onClick={openAddModal}>
           Tambah
         </Button>
       }
     >
       {/* ══ Section 1: Summary StatCards ════════════════════════════════════ */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard
           title="Pengeluaran Bulanan"
           value={formatCurrency(stats.monthlyExpense, true)}
           subtitle="Estimasi per bulan"
-          icon={<TrendingDown className="w-5 h-5" />}
+          icon={<TrendingDown className="h-5 w-5" />}
           iconColor="#ef4444"
         />
         <StatCard
           title="Pemasukan Bulanan"
           value={formatCurrency(stats.monthlyIncome, true)}
           subtitle="Estimasi per bulan"
-          icon={<TrendingUp className="w-5 h-5" />}
+          icon={<TrendingUp className="h-5 w-5" />}
           iconColor="#22c55e"
         />
         <StatCard
           title="Aktif / Total"
           value={`${stats.activeCount} / ${recurringTransactions.length}`}
           subtitle="Transaksi berulang"
-          icon={<Activity className="w-5 h-5" />}
-          iconColor="#6366f1"
+          icon={<Activity className="h-5 w-5" />}
+          iconColor="#FFD147"
         />
       </div>
 
       {/* ══ Section 2: Filter Tabs ═══════════════════════════════════════════ */}
-      <div className="flex gap-2 flex-wrap">
+      <div className="flex flex-wrap gap-2">
         {FILTER_TABS.map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveFilter(tab)}
             className={cn(
-              "px-4 py-2 rounded-lg text-sm font-medium transition-all duration-150",
+              "rounded-lg px-4 py-2 text-sm font-medium transition-all duration-150",
               activeFilter === tab
                 ? "bg-primary text-white shadow-sm"
-                : "bg-bg-surface border border-border text-text-secondary hover:text-text-primary hover:border-primary/40"
+                : "bg-bg-surface border-border text-text-secondary hover:text-text-primary hover:border-primary/40 border",
             )}
           >
             {tab}
@@ -444,14 +435,14 @@ export default function RecurringPage() {
         {filtered.length === 0 ? (
           <Card>
             <div className="flex flex-col items-center gap-2 py-10 text-center">
-              <RefreshCw className="w-10 h-10 text-text-muted opacity-40" />
-              <p className="text-sm text-text-muted">
+              <RefreshCw className="text-text-muted h-10 w-10 opacity-40" />
+              <p className="text-text-muted text-sm">
                 Belum ada transaksi berulang
               </p>
               <Button
                 size="sm"
                 variant="outline"
-                leftIcon={<Plus className="w-3.5 h-3.5" />}
+                leftIcon={<Plus className="h-3.5 w-3.5" />}
                 onClick={openAddModal}
               >
                 Tambah Sekarang
@@ -468,24 +459,24 @@ export default function RecurringPage() {
               <div
                 key={rt.id}
                 className={cn(
-                  "bg-bg-surface border rounded-xl p-4 transition-all duration-150",
-                  rt.isActive ? "border-border" : "border-border/50 opacity-60"
+                  "bg-bg-surface rounded-xl border p-4 transition-all duration-150",
+                  rt.isActive ? "border-border" : "border-border/50 opacity-60",
                 )}
               >
                 {!isConfirmDelete ? (
                   <div className="flex items-center gap-3">
                     {/* Category icon */}
                     <div
-                      className="w-11 h-11 rounded-xl flex items-center justify-center text-xl shrink-0"
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-xl"
                       style={{ backgroundColor: `${catColor}18` }}
                     >
                       {rt.categoryIcon}
                     </div>
 
                     {/* Name + details */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap items-center gap-2 mb-0.5">
-                        <span className="font-semibold text-text-primary text-sm">
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-0.5 flex flex-wrap items-center gap-2">
+                        <span className="text-text-primary text-sm font-semibold">
                           {rt.name}
                         </span>
                         <Badge variant="default" size="sm">
@@ -505,21 +496,21 @@ export default function RecurringPage() {
                               ? "text-success"
                               : rt.type === "expense"
                                 ? "text-danger"
-                                : "text-primary"
+                                : "text-primary",
                           )}
                         >
                           {rt.type === "income" ? "+" : "-"}
                           {formatCurrency(rt.amount, true)}
                         </span>
-                        <span className="text-xs text-text-muted">
+                        <span className="text-text-muted text-xs">
                           {walletName}
                         </span>
                       </div>
                     </div>
 
                     {/* Right controls */}
-                    <div className="flex flex-col items-end gap-2 shrink-0">
-                      <div className="text-xs text-text-muted whitespace-nowrap">
+                    <div className="flex shrink-0 flex-col items-end gap-2">
+                      <div className="text-text-muted text-xs whitespace-nowrap">
                         Berikutnya:{" "}
                         <span className="text-text-secondary font-medium">
                           {formatDate(rt.nextDate, "short")}
@@ -532,17 +523,17 @@ export default function RecurringPage() {
                         />
                         <button
                           onClick={() => openEditModal(rt)}
-                          className="p-1.5 rounded-lg text-text-muted hover:text-primary hover:bg-primary/10 transition-colors"
+                          className="text-text-muted hover:text-primary hover:bg-primary/10 rounded-lg p-1.5 transition-colors"
                           title="Edit"
                         >
-                          <Pencil className="w-4 h-4" />
+                          <Pencil className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => setConfirmDeleteId(rt.id)}
-                          className="p-1.5 rounded-lg text-text-muted hover:text-danger hover:bg-danger/10 transition-colors"
+                          className="text-text-muted hover:text-danger hover:bg-danger/10 rounded-lg p-1.5 transition-colors"
                           title="Hapus"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
                     </div>
@@ -550,11 +541,11 @@ export default function RecurringPage() {
                 ) : (
                   /* Inline delete confirmation */
                   <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm text-text-primary">
+                    <p className="text-text-primary text-sm">
                       Yakin hapus{" "}
                       <span className="font-semibold">{rt.name}</span>?
                     </p>
-                    <div className="flex gap-2 shrink-0">
+                    <div className="flex shrink-0 gap-2">
                       <Button
                         size="sm"
                         variant="danger"
@@ -582,17 +573,17 @@ export default function RecurringPage() {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-primary" />
-            <h3 className="text-base font-semibold text-text-primary">
+            <Calendar className="text-primary h-5 w-5" />
+            <h3 className="text-text-primary text-base font-semibold">
               Kalender {currentMonthName}
             </h3>
           </div>
         </CardHeader>
         <CardBody>
           {([1, 2, 3, 4] as const).every(
-            (w) => calendarData.byWeek[w].length === 0
+            (w) => calendarData.byWeek[w].length === 0,
           ) ? (
-            <p className="text-sm text-text-muted text-center py-6">
+            <p className="text-text-muted py-6 text-center text-sm">
               Tidak ada transaksi berulang aktif bulan ini
             </p>
           ) : (
@@ -605,11 +596,11 @@ export default function RecurringPage() {
 
                 return (
                   <div key={week}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-xs font-semibold text-text-muted uppercase tracking-wide">
+                    <div className="mb-2 flex items-center gap-2">
+                      <span className="text-text-muted text-xs font-semibold tracking-wide uppercase">
                         Minggu {week}
                       </span>
-                      <span className="text-xs text-text-muted">
+                      <span className="text-text-muted text-xs">
                         (Tgl {startDay}–{endDay})
                       </span>
                     </div>
@@ -617,32 +608,32 @@ export default function RecurringPage() {
                       {items.map((item) => (
                         <div
                           key={item.id}
-                          className="flex items-center justify-between gap-3 py-1.5 px-3 rounded-lg bg-bg-elevated"
+                          className="bg-bg-elevated flex items-center justify-between gap-3 rounded-lg px-3 py-1.5"
                         >
-                          <div className="flex items-center gap-2 min-w-0">
+                          <div className="flex min-w-0 items-center gap-2">
                             <span
                               className={cn(
-                                "w-2 h-2 rounded-full shrink-0",
+                                "h-2 w-2 shrink-0 rounded-full",
                                 item.type === "income"
                                   ? "bg-success"
                                   : item.type === "expense"
                                     ? "bg-danger"
-                                    : "bg-primary"
+                                    : "bg-primary",
                               )}
                             />
-                            <span className="text-sm text-text-primary truncate">
+                            <span className="text-text-primary truncate text-sm">
                               {item.name}
                             </span>
-                            <span className="text-xs text-text-muted shrink-0">
+                            <span className="text-text-muted shrink-0 text-xs">
                               tgl {item.day}
                             </span>
                           </div>
                           <span
                             className={cn(
-                              "text-sm font-semibold shrink-0 tabular-nums",
+                              "shrink-0 text-sm font-semibold tabular-nums",
                               item.type === "income"
                                 ? "text-success"
-                                : "text-danger"
+                                : "text-danger",
                             )}
                           >
                             {item.type === "income" ? "+" : "-"}
@@ -656,20 +647,20 @@ export default function RecurringPage() {
               })}
 
               {/* Monthly total */}
-              <div className="mt-4 pt-4 border-t border-border flex flex-wrap items-center justify-between gap-3">
-                <span className="text-sm font-medium text-text-secondary">
+              <div className="border-border mt-4 flex flex-wrap items-center justify-between gap-3 border-t pt-4">
+                <span className="text-text-secondary text-sm font-medium">
                   Total Estimasi Bulan Ini
                 </span>
                 <div className="flex gap-4">
                   <div className="text-right">
-                    <div className="text-xs text-text-muted">Pengeluaran</div>
-                    <div className="text-sm font-bold text-danger">
+                    <div className="text-text-muted text-xs">Pengeluaran</div>
+                    <div className="text-danger text-sm font-bold">
                       -{formatCurrency(calendarData.monthlyNetExpense, true)}
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-xs text-text-muted">Pemasukan</div>
-                    <div className="text-sm font-bold text-success">
+                    <div className="text-text-muted text-xs">Pemasukan</div>
+                    <div className="text-success text-sm font-bold">
                       +{formatCurrency(calendarData.monthlyNetIncome, true)}
                     </div>
                   </div>
@@ -684,7 +675,9 @@ export default function RecurringPage() {
       <Modal
         open={showModal}
         onClose={closeModal}
-        title={editingId ? "Edit Transaksi Berulang" : "Tambah Transaksi Berulang"}
+        title={
+          editingId ? "Edit Transaksi Berulang" : "Tambah Transaksi Berulang"
+        }
         size="md"
       >
         <form onSubmit={handleSubmit} className="space-y-5">
@@ -699,8 +692,10 @@ export default function RecurringPage() {
 
           {/* Type toggle */}
           <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium text-text-secondary">Tipe</span>
-            <div className="flex rounded-lg overflow-hidden border border-border">
+            <span className="text-text-secondary text-sm font-medium">
+              Tipe
+            </span>
+            <div className="border-border flex overflow-hidden rounded-lg border">
               {(
                 [
                   { key: "expense" as TransactionType, label: "Pengeluaran" },
@@ -720,7 +715,7 @@ export default function RecurringPage() {
                         : key === "expense"
                           ? "bg-danger text-white"
                           : "bg-primary text-white"
-                      : "bg-bg-elevated text-text-secondary hover:text-text-primary"
+                      : "bg-bg-elevated text-text-secondary hover:text-text-primary",
                   )}
                 >
                   {label}
@@ -742,7 +737,7 @@ export default function RecurringPage() {
 
           {/* Category */}
           <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium text-text-secondary">
+            <span className="text-text-secondary text-sm font-medium">
               Kategori
             </span>
             <div className="flex flex-wrap gap-2">
@@ -752,10 +747,10 @@ export default function RecurringPage() {
                   type="button"
                   onClick={() => handleCategorySelect(cat)}
                   className={cn(
-                    "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm border transition-all duration-150",
+                    "flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition-all duration-150",
                     form.category === cat.name
                       ? "border-transparent text-white"
-                      : "bg-bg-elevated border-border text-text-secondary hover:text-text-primary"
+                      : "bg-bg-elevated border-border text-text-secondary hover:text-text-primary",
                   )}
                   style={
                     form.category === cat.name
@@ -763,7 +758,7 @@ export default function RecurringPage() {
                       : undefined
                   }
                 >
-                  <span>{cat.icon}</span>
+                  <DynamicIcon name={cat.icon} className="h-4 w-4 shrink-0" />
                   <span>{cat.name}</span>
                 </button>
               ))}
@@ -772,7 +767,7 @@ export default function RecurringPage() {
 
           {/* Wallet */}
           <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium text-text-secondary">
+            <span className="text-text-secondary text-sm font-medium">
               Dompet
             </span>
             <select
@@ -780,10 +775,10 @@ export default function RecurringPage() {
               onChange={(e) => fld("walletId", e.target.value)}
               required
               className={cn(
-                "w-full h-10 px-3 rounded-lg border text-sm",
+                "h-10 w-full rounded-lg border px-3 text-sm",
                 "bg-bg-surface border-border text-text-primary",
-                "focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary",
-                "transition-all duration-200"
+                "focus:ring-primary/50 focus:border-primary focus:ring-2 focus:outline-none",
+                "transition-all duration-200",
               )}
             >
               <option value="" disabled>
@@ -791,7 +786,7 @@ export default function RecurringPage() {
               </option>
               {allWallets.map((w) => (
                 <option key={w.id} value={w.id}>
-                  {w.icon} {w.name}
+                  {w.name}
                 </option>
               ))}
             </select>
@@ -799,7 +794,7 @@ export default function RecurringPage() {
 
           {/* Period */}
           <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium text-text-secondary">
+            <span className="text-text-secondary text-sm font-medium">
               Periode
             </span>
             <div className="grid grid-cols-4 gap-2">
@@ -811,10 +806,10 @@ export default function RecurringPage() {
                   type="button"
                   onClick={() => fld("period", p)}
                   className={cn(
-                    "py-2 rounded-lg text-sm font-medium border transition-all duration-150",
+                    "rounded-lg border py-2 text-sm font-medium transition-all duration-150",
                     form.period === p
                       ? "bg-primary border-primary text-white"
-                      : "bg-bg-elevated border-border text-text-secondary hover:text-text-primary hover:border-primary/40"
+                      : "bg-bg-elevated border-border text-text-secondary hover:text-text-primary hover:border-primary/40",
                   )}
                 >
                   {PERIOD_LABELS[p]}
@@ -825,7 +820,7 @@ export default function RecurringPage() {
 
           {/* Next date */}
           <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium text-text-secondary">
+            <span className="text-text-secondary text-sm font-medium">
               Tanggal Pertama / Berikutnya
             </span>
             <input
@@ -834,17 +829,17 @@ export default function RecurringPage() {
               onChange={(e) => fld("nextDate", e.target.value)}
               required
               className={cn(
-                "w-full h-10 px-3 rounded-lg border text-sm",
+                "h-10 w-full rounded-lg border px-3 text-sm",
                 "bg-bg-surface border-border text-text-primary",
-                "focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary",
-                "transition-all duration-200"
+                "focus:ring-primary/50 focus:border-primary focus:ring-2 focus:outline-none",
+                "transition-all duration-200",
               )}
             />
           </div>
 
           {/* Active status */}
-          <div className="flex items-center justify-between p-3 bg-bg-elevated rounded-lg">
-            <span className="text-sm font-medium text-text-primary">
+          <div className="bg-bg-elevated flex items-center justify-between rounded-lg p-3">
+            <span className="text-text-primary text-sm font-medium">
               Aktifkan transaksi ini
             </span>
             <Toggle

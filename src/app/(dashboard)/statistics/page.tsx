@@ -20,6 +20,7 @@ import { ProgressBar } from "~/components/ui/progress-bar";
 import { SpendingTrendChart } from "~/components/charts/spending-trend-chart";
 import { ExpenseBreakdownChart } from "~/components/charts/expense-breakdown-chart";
 import { HeatmapCalendar } from "~/components/charts/heatmap-calendar";
+import { DynamicIcon } from "~/components/ui/dynamic-icon";
 import { useFinanceStore } from "~/store/useFinanceStore";
 import { formatCurrency } from "~/lib/utils";
 import type { Transaction } from "~/lib/types";
@@ -43,13 +44,13 @@ const MONTH_LABELS = [
 ];
 
 const CATEGORY_COLORS = [
-  "#6366f1",
+  "#FFD147",
   "#22c55e",
   "#f59e0b",
   "#ef4444",
   "#38bdf8",
   "#ec4899",
-  "#8b5cf6",
+  "#FFB347",
   "#94a3b8",
 ];
 
@@ -304,7 +305,7 @@ export default function StatisticsPage() {
           value={`${savingsRate}%`}
           subtitle={`${formatCurrency(totalIncome - totalExpense)} tersimpan`}
           icon={<DollarSign />}
-          iconColor="#6366f1"
+          iconColor="#FFD147"
         />
         <StatCard
           title="Debt-to-Income"
@@ -520,7 +521,7 @@ export default function StatisticsPage() {
                       <span className="text-text-muted w-5 text-xs font-bold">
                         #{i + 1}
                       </span>
-                      <span className="text-base">{cat.icon}</span>
+                      <DynamicIcon name={cat.icon} className="h-4 w-4" />
                       <span className="text-text-primary flex-1 text-sm">
                         {cat.name}
                       </span>

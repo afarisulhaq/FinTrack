@@ -147,7 +147,7 @@ function NavLink({
         "group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150",
         collapsed && "justify-center",
         isActive
-          ? "bg-primary/15 text-primary"
+          ? "bg-surface-card text-text-primary ring-border shadow-sm ring-1"
           : "text-text-muted hover:bg-bg-surface hover:text-text-secondary",
       )}
     >
@@ -157,7 +157,7 @@ function NavLink({
       <Icon
         className={cn(
           "h-[18px] w-[18px] shrink-0",
-          isActive ? "text-primary" : "text-current",
+          isActive ? "text-text-primary" : "text-current",
         )}
       />
       {!collapsed && (
@@ -197,7 +197,7 @@ export function Sidebar() {
       initial={false}
       animate={{ x: mobileOpen ? 0 : undefined }}
       className={cn(
-        "bg-bg-base border-border fixed top-0 left-0 z-50 flex h-screen flex-col border-r transition-[width,transform] duration-300 ease-in-out",
+        "bg-bg-surface border-border fixed top-0 left-0 z-50 flex h-screen flex-col border-r transition-[width,transform] duration-300 ease-in-out",
         widthClass,
         mobileOpen
           ? "w-72 translate-x-0"
@@ -237,7 +237,7 @@ export function Sidebar() {
         </button>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-2 py-3">
+      <nav className="flex-1 overflow-y-auto px-2.5 py-4">
         {NAV_GROUPS.map((group) => (
           <div key={group.title} className="mb-3">
             {!collapsed && (
@@ -260,7 +260,7 @@ export function Sidebar() {
         ))}
       </nav>
 
-      <div className="border-border shrink-0 space-y-0.5 border-t px-2 py-3">
+      <div className="border-border shrink-0 space-y-0.5 border-t px-2.5 py-3">
         <NavLink
           item={{ label: "Settings", icon: Settings, href: "/settings" }}
           isActive={isActive("/settings")}

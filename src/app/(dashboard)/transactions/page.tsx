@@ -10,6 +10,7 @@ import {
   Trash2,
   Receipt,
 } from "lucide-react";
+import { DynamicIcon } from "~/components/ui/dynamic-icon";
 import { PageWrapper } from "~/components/layout/page-wrapper";
 import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
@@ -32,13 +33,13 @@ const CATEGORY_COLORS: Record<string, string> = {
   Belanja: "#a855f7",
   Hiburan: "#ec4899",
   Kesehatan: "#22c55e",
-  Tagihan: "#6366f1",
+  Tagihan: "#FFD147",
   Kopi: "#d97706",
-  Transfer: "#6366f1",
+  Transfer: "#FFD147",
 };
 
 function getCategoryColor(category: string): string {
-  return CATEGORY_COLORS[category] ?? "#6366f1";
+  return CATEGORY_COLORS[category] ?? "#FFD147";
 }
 
 interface CategoryOption {
@@ -51,26 +52,26 @@ interface CategoryOption {
 }
 
 const FALLBACK_INCOME_CATEGORIES: CategoryOption[] = [
-  { name: "Gaji", icon: "💼", color: "#22c55e" },
-  { name: "Freelance", icon: "💻", color: "#06b6d4" },
-  { name: "Investasi", icon: "📈", color: "#a855f7" },
-  { name: "Hadiah", icon: "🎁", color: "#f59e0b" },
-  { name: "Lainnya", icon: "➕", color: "#94a3b8" },
+  { name: "Gaji", icon: "Briefcase", color: "#22c55e" },
+  { name: "Freelance", icon: "Laptop", color: "#06b6d4" },
+  { name: "Investasi", icon: "TrendingUp", color: "#a855f7" },
+  { name: "Hadiah", icon: "Gift", color: "#f59e0b" },
+  { name: "Lainnya", icon: "Plus", color: "#94a3b8" },
 ];
 
 const FALLBACK_EXPENSE_CATEGORIES: CategoryOption[] = [
-  { name: "Makan", icon: "🍔", color: "#f97316" },
-  { name: "Transport", icon: "🚗", color: "#3b82f6" },
-  { name: "Belanja", icon: "🛍️", color: "#a855f7" },
-  { name: "Hiburan", icon: "🎬", color: "#ec4899" },
-  { name: "Kesehatan", icon: "🏥", color: "#22c55e" },
-  { name: "Tagihan", icon: "💡", color: "#6366f1" },
-  { name: "Kopi", icon: "☕", color: "#d97706" },
-  { name: "Lainnya", icon: "➕", color: "#94a3b8" },
+  { name: "Makan", icon: "Utensils", color: "#f97316" },
+  { name: "Transport", icon: "Car", color: "#3b82f6" },
+  { name: "Belanja", icon: "ShoppingCart", color: "#a855f7" },
+  { name: "Hiburan", icon: "Film", color: "#ec4899" },
+  { name: "Kesehatan", icon: "HeartPulse", color: "#22c55e" },
+  { name: "Tagihan", icon: "Lightbulb", color: "#FFD147" },
+  { name: "Kopi", icon: "Coffee", color: "#d97706" },
+  { name: "Lainnya", icon: "MoreHorizontal", color: "#94a3b8" },
 ];
 
 const FALLBACK_TRANSFER_CATEGORIES: CategoryOption[] = [
-  { name: "Transfer", icon: "🔄", color: "#6366f1" },
+  { name: "Transfer", icon: "ArrowRightLeft", color: "#FFD147" },
 ];
 
 /**
@@ -132,7 +133,7 @@ const DEFAULT_TX_FORM: TxForm = {
   type: "expense",
   amount: "",
   category: "",
-  categoryIcon: "🎯",
+  categoryIcon: "Target",
   categoryId: "",
   subCategoryId: "",
   newSubCategoryName: "",
@@ -410,7 +411,7 @@ export default function TransactionsPage() {
           value={formatCurrency(Math.abs(monthStats.net), true)}
           subtitle={monthStats.net >= 0 ? "Surplus" : "Defisit"}
           icon={<ArrowLeftRight size={20} />}
-          iconColor={monthStats.net >= 0 ? "#6366f1" : "#ef4444"}
+          iconColor={monthStats.net >= 0 ? "#FFD147" : "#ef4444"}
         />
       </div>
 
@@ -447,7 +448,7 @@ export default function TransactionsPage() {
               <option value="Semua Dompet">Semua Dompet</option>
               {allWallets.map((w) => (
                 <option key={w.id} value={w.id}>
-                  {w.icon} {w.name}
+                  {w.name}
                 </option>
               ))}
             </select>
@@ -508,7 +509,7 @@ export default function TransactionsPage() {
                           backgroundColor: `${getCategoryColor(tx.category)}22`,
                         }}
                       >
-                        {tx.categoryIcon}
+                        <DynamicIcon name={tx.categoryIcon} className="h-5 w-5 shrink-0" />
                       </div>
 
                       {/* Description + meta */}
@@ -657,7 +658,7 @@ export default function TransactionsPage() {
                       : {}
                   }
                 >
-                  <span>{cat.icon}</span>
+                  <DynamicIcon name={cat.icon} className="h-4 w-4 shrink-0" />
                   {cat.name}
                 </button>
               ))}
@@ -694,7 +695,7 @@ export default function TransactionsPage() {
                                 : {}
                             }
                           >
-                            <span>{s.icon}</span>
+                            <DynamicIcon name={s.icon} className="h-4 w-4 shrink-0" />
                             {s.name}
                           </button>
                         );
@@ -757,7 +758,7 @@ export default function TransactionsPage() {
                 <option value="">Pilih dompet...</option>
                 {allWallets.map((w) => (
                   <option key={w.id} value={w.id}>
-                    {w.icon} {w.name}
+                    {w.name}
                   </option>
                 ))}
               </select>

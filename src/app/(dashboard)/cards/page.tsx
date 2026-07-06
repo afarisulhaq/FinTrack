@@ -170,7 +170,7 @@ export default function CardsPage() {
           value={cards.length}
           subtitle={`${creditCards.length} kredit, ${debitCards.length} debit`}
           icon={<CreditCard />}
-          iconColor="#6366f1"
+          iconColor="#FFD147"
         />
         <StatCard
           title="Total Limit Kredit"

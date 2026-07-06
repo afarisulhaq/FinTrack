@@ -40,7 +40,7 @@ const iconOptions = [
   Sparkles,
 ];
 const presets = [
-  ["Indigo & Violet", "#6366f1", "#8b5cf6"],
+  ["Indigo & Violet", "#FFD147", "#FFB347"],
   ["Emerald & Teal", "#10b981", "#14b8a6"],
   ["Sky & Blue", "#0ea5e9", "#3b82f6"],
   ["Rose & Pink", "#f43f5e", "#ec4899"],

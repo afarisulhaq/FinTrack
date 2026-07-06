@@ -116,7 +116,7 @@ async function main() {
       id: "cat-inc-gaji",
       type: "income",
       name: "Gaji",
-      icon: "💼",
+      icon: "Briefcase",
       color: "#22c55e",
       sortOrder: 0,
       isSystem: true,
@@ -129,7 +129,7 @@ async function main() {
     create: {
       id: "sub-inc-gaji-pokok",
       name: "Gaji Pokok",
-      icon: "💵",
+      icon: "Banknote",
       color: "#22c55e",
       sortOrder: 0,
       isSystem: true,
@@ -143,7 +143,7 @@ async function main() {
     create: {
       id: "sub-inc-gaji-bonus",
       name: "Bonus",
-      icon: "🎁",
+      icon: "Gift",
       color: "#16a34a",
       sortOrder: 1,
       isSystem: true,
@@ -157,7 +157,7 @@ async function main() {
     create: {
       id: "sub-inc-gaji-tunjangan",
       name: "Tunjangan",
-      icon: "🏆",
+      icon: "Trophy",
       color: "#15803d",
       sortOrder: 2,
       isSystem: true,
@@ -169,16 +169,16 @@ async function main() {
     {
       id: "cat-inc-freelance",
       name: "Freelance",
-      icon: "💻",
+      icon: "Laptop",
       color: "#06b6d4",
     },
     {
       id: "cat-inc-investasi",
       name: "Investasi",
-      icon: "📈",
+      icon: "TrendingUp",
       color: "#a855f7",
     },
-    { id: "cat-inc-hadiah", name: "Hadiah", icon: "🎁", color: "#f59e0b" },
+    { id: "cat-inc-hadiah", name: "Hadiah", icon: "Gift", color: "#f59e0b" },
   ];
   for (const [i, c] of incomeSeed.entries()) {
     await prisma.category.upsert({
@@ -197,22 +197,22 @@ async function main() {
     });
   }
   const expenseSeed = [
-    { id: "cat-exp-makan", name: "Makan", icon: "🍔", color: "#f97316" },
+    { id: "cat-exp-makan", name: "Makan", icon: "Utensils", color: "#f97316" },
     {
       id: "cat-exp-transport",
       name: "Transport",
-      icon: "🚗",
+      icon: "Car",
       color: "#3b82f6",
     },
     { id: "cat-exp-belanja", name: "Belanja", icon: "🛍️", color: "#a855f7" },
-    { id: "cat-exp-hiburan", name: "Hiburan", icon: "🎬", color: "#ec4899" },
+    { id: "cat-exp-hiburan", name: "Hiburan", icon: "Film", color: "#ec4899" },
     {
       id: "cat-exp-kesehatan",
       name: "Kesehatan",
-      icon: "🏥",
+      icon: "HeartPulse",
       color: "#22c55e",
     },
-    { id: "cat-exp-tagihan", name: "Tagihan", icon: "💡", color: "#6366f1" },
+    { id: "cat-exp-tagihan", name: "Tagihan", icon: "Lightbulb", color: "#FFD147" },
   ];
   for (const [i, c] of expenseSeed.entries()) {
     await prisma.category.upsert({
@@ -241,7 +241,7 @@ async function main() {
       balance: 15000000,
       currency: "IDR",
       color: "#1e40af",
-      icon: "🏦",
+      icon: "Landmark",
       userId,
     },
   });
@@ -255,7 +255,7 @@ async function main() {
       balance: 500000,
       currency: "IDR",
       color: "#3b82f6",
-      icon: "🍔",
+      icon: "Utensils",
       parentId: "w-bca",
       userId,
     },
@@ -270,7 +270,7 @@ async function main() {
       balance: 3000000,
       currency: "IDR",
       color: "#0ea5e9",
-      icon: "💰",
+      icon: "Coins",
       parentId: "w-bca",
       userId,
     },
@@ -299,7 +299,7 @@ async function main() {
       balance: 250000,
       currency: "IDR",
       color: "#22c55e",
-      icon: "📱",
+      icon: "Smartphone",
       userId,
     },
   });
@@ -313,7 +313,7 @@ async function main() {
       balance: 500000,
       currency: "IDR",
       color: "#64748b",
-      icon: "💵",
+      icon: "Banknote",
       userId,
     },
   });
@@ -326,7 +326,7 @@ async function main() {
       type: "expense",
       amount: 25000,
       category: "Kopi",
-      categoryIcon: "☕",
+      categoryIcon: "Coffee",
       walletId: "w-bca-jajan",
       walletName: "Kantong Jajan",
       description: "Beli kopi",
@@ -342,7 +342,7 @@ async function main() {
       type: "income",
       amount: 8000000,
       category: "Gaji",
-      categoryIcon: "💼",
+      categoryIcon: "Briefcase",
       walletId: "w-bca",
       walletName: "BCA",
       description: "Gaji bulanan",
@@ -357,7 +357,7 @@ async function main() {
     create: {
       id: "bdg-1",
       category: "Makan",
-      categoryIcon: "🍔",
+      categoryIcon: "Utensils",
       limit: 1500000,
       spent: 820000,
       period: "monthly",
@@ -371,7 +371,7 @@ async function main() {
     create: {
       id: "bdg-2",
       category: "Transport",
-      categoryIcon: "🚗",
+      categoryIcon: "Car",
       limit: 700000,
       spent: 520000,
       period: "monthly",
@@ -393,7 +393,7 @@ async function main() {
       avgBuyPrice: 9000,
       currentPrice: 9500,
       currency: "IDR",
-      color: "#6366f1",
+      color: "#FFD147",
       userId,
     },
   });
@@ -410,7 +410,7 @@ async function main() {
       avgBuyPrice: 1800,
       currentPrice: 1700,
       currency: "IDR",
-      color: "#6366f1",
+      color: "#FFD147",
       userId,
     },
   });
@@ -425,7 +425,7 @@ async function main() {
       dueDate: new Date(Date.now() + 86400000 * 5),
       status: "unpaid",
       category: "Utilitas",
-      icon: "🌐",
+      icon: "Globe",
       isRecurring: true,
       recurringPeriod: "monthly",
       userId,
@@ -469,7 +469,7 @@ async function main() {
       amount: 65000,
       type: "expense",
       category: "Hiburan",
-      categoryIcon: "🎬",
+      categoryIcon: "Film",
       walletId: "w-bca",
       period: "monthly",
       nextDate: new Date(Date.now() + 86400000 * 10),

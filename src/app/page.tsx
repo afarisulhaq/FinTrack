@@ -178,12 +178,12 @@ function Logo({ size = "sm" }: { size?: "sm" | "lg" }) {
   return (
     <Link href="/" className="flex items-center gap-2.5">
       <div
-        className={`${boxSize} flex items-center justify-center rounded-xl bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] shadow-lg shadow-[#6366f1]/25`}
+        className={`${boxSize} flex items-center justify-center rounded-xl bg-gradient-to-br from-[#FFD147] to-[#FFB347] shadow-lg shadow-[#FFD147]/25`}
       >
-        <BarChart3 className={`${iconSize} text-white`} />
+        <BarChart3 className={`${iconSize} text-[#1A1D20]`} />
       </div>
       <span
-        className={`${textSize} bg-gradient-to-r from-[#6366f1] to-[#a78bfa] bg-clip-text font-extrabold tracking-tight text-transparent`}
+        className={`${textSize} bg-gradient-to-r from-[#FFD147] to-[#FF8A7A] bg-clip-text font-extrabold tracking-tight text-transparent`}
       >
         FinTrack
       </span>
@@ -246,7 +246,7 @@ export default function LandingPage() {
               </Link>
               <Link
                 href="/register"
-                className="inline-flex items-center gap-1.5 rounded-xl bg-[#6366f1] px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-[#6366f1]/25 transition-all hover:bg-[#4f46e5] hover:shadow-[#6366f1]/40"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-[#FFD147] px-4 py-2 text-sm font-semibold text-[#1A1D20] shadow-lg shadow-[#FFD147]/25 transition-all hover:bg-[#E0AD20] hover:shadow-[#FFD147]/40"
               >
                 Daftar Gratis
                 <ArrowUpRight className="h-3.5 w-3.5" />
@@ -292,7 +292,7 @@ export default function LandingPage() {
               </Link>
               <Link
                 href="/register"
-                className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#6366f1] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#4f46e5]"
+                className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#FFD147] px-4 py-2.5 text-sm font-semibold text-[#1A1D20] transition-colors hover:bg-[#E0AD20]"
               >
                 Daftar Gratis
                 <ArrowUpRight className="h-3.5 w-3.5" />
@@ -305,21 +305,21 @@ export default function LandingPage() {
       {/* ── Hero ────────────────────────────────────────────────────── */}
       <section className="relative isolate overflow-hidden pt-28 pb-16 sm:pt-36 sm:pb-24">
         {/* Glow blobs */}
-        <AnimatedGlow className="-top-40 -left-40 h-[500px] w-[500px] bg-[#6366f1]/20" />
-        <AnimatedGlow className="top-1/3 -right-40 h-[400px] w-[400px] bg-[#8b5cf6]/15" />
-        <AnimatedGlow className="bottom-0 left-1/3 h-[300px] w-[300px] bg-[#6366f1]/10" />
+        <AnimatedGlow className="-top-40 -left-40 h-[500px] w-[500px] bg-[#FFD147]/20" />
+        <AnimatedGlow className="top-1/3 -right-40 h-[400px] w-[400px] bg-[#FFB347]/15" />
+        <AnimatedGlow className="bottom-0 left-1/3 h-[300px] w-[300px] bg-[#FFD147]/10" />
 
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <div className="relative z-10 mx-auto max-w-3xl text-center">
             {/* Badge */}
-            <div className="mb-6 inline-flex items-center gap-1.5 rounded-full border border-[#6366f1]/30 bg-[#6366f1]/10 px-3.5 py-1 text-xs font-medium text-[#818cf8]">
+            <div className="mb-6 inline-flex items-center gap-1.5 rounded-full border border-[#FFD147]/30 bg-[#FFD147]/10 px-3.5 py-1 text-xs font-medium text-[#E0AD20]">
               <Sparkles className="h-3.5 w-3.5" />
               All-in-One Wealth & Expense Management
             </div>
 
             <h1 className="text-4xl leading-[1.1] font-extrabold tracking-tight sm:text-5xl lg:text-6xl">
               Kelola Semua Keuanganmu{" "}
-              <span className="bg-gradient-to-r from-[#6366f1] via-[#818cf8] to-[#a78bfa] bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-[#FFD147] via-[#E0AD20] to-[#FF8A7A] bg-clip-text text-transparent">
                 dengan Cerdas
               </span>
             </h1>
@@ -334,7 +334,7 @@ export default function LandingPage() {
             <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
               <Link
                 href="/register"
-                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#6366f1] px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-[#6366f1]/25 transition-all hover:bg-[#4f46e5] hover:shadow-[#6366f1]/40 sm:w-auto"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#FFD147] px-6 py-3 text-sm font-semibold text-[#1A1D20] shadow-lg shadow-[#FFD147]/25 transition-all hover:bg-[#E0AD20] hover:shadow-[#FFD147]/40 sm:w-auto"
               >
                 Mulai Gratis
                 <ChevronRight className="h-4 w-4" />
@@ -353,9 +353,9 @@ export default function LandingPage() {
             {HERO_FEATURES.map(({ icon: Icon, title, desc }) => (
               <div
                 key={title}
-                className="group rounded-2xl border border-[var(--border)] bg-[var(--bg-surface)] p-5 transition-all hover:border-[#6366f1]/30 hover:shadow-lg hover:shadow-[#6366f1]/5"
+                className="group rounded-2xl border border-[var(--border)] bg-[var(--bg-surface)] p-5 transition-all hover:border-[#FFD147]/30 hover:shadow-lg hover:shadow-[#FFD147]/5"
               >
-                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-[#6366f1]/10 text-[#818cf8]">
+                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-[#FFD147]/10 text-[#E0AD20]">
                   <Icon className="h-5 w-5" />
                 </div>
                 <h3 className="text-sm font-semibold">{title}</h3>
@@ -375,7 +375,7 @@ export default function LandingPage() {
               { value: "4.9★", label: "Rating Pengguna" },
             ].map(({ value, label }) => (
               <div key={label} className="text-center">
-                <p className="bg-gradient-to-r from-[#6366f1] to-[#a78bfa] bg-clip-text text-xl font-extrabold text-transparent sm:text-2xl">
+                <p className="bg-gradient-to-r from-[#FFD147] to-[#FF8A7A] bg-clip-text text-xl font-extrabold text-transparent sm:text-2xl">
                   {value}
                 </p>
                 <p className="mt-0.5 text-xs text-[var(--text-muted)]">
@@ -395,12 +395,12 @@ export default function LandingPage() {
       >
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <div className="mx-auto max-w-2xl text-center">
-            <p className="mb-3 text-xs font-semibold tracking-widest text-[#818cf8] uppercase">
+            <p className="mb-3 text-xs font-semibold tracking-widest text-[#E0AD20] uppercase">
               Fitur Lengkap
             </p>
             <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">
               Semua yang kamu butuhkan untuk{" "}
-              <span className="bg-gradient-to-r from-[#6366f1] to-[#a78bfa] bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-[#FFD147] to-[#FF8A7A] bg-clip-text text-transparent">
                 finansial sehat
               </span>
             </h2>
@@ -420,9 +420,9 @@ export default function LandingPage() {
                   {section.items.map(({ icon: Icon, label }) => (
                     <div
                       key={label}
-                      className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] px-4 py-3 transition-all hover:border-[#6366f1]/20"
+                      className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] px-4 py-3 transition-all hover:border-[#FFD147]/20"
                     >
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#6366f1]/10 text-[#818cf8]">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#FFD147]/10 text-[#E0AD20]">
                         <Icon className="h-4 w-4" />
                       </div>
                       <span className="text-xs font-medium">{label}</span>
@@ -441,12 +441,12 @@ export default function LandingPage() {
           <div className="grid items-center gap-12 lg:grid-cols-2">
             {/* Left: text */}
             <div>
-              <p className="mb-3 text-xs font-semibold tracking-widest text-[#818cf8] uppercase">
+              <p className="mb-3 text-xs font-semibold tracking-widest text-[#E0AD20] uppercase">
                 Cara Kerja
               </p>
               <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">
                 Dari chat WhatsApp sampai{" "}
-                <span className="bg-gradient-to-r from-[#6366f1] to-[#a78bfa] bg-clip-text text-transparent">
+                <span className="bg-gradient-to-r from-[#FFD147] to-[#FF8A7A] bg-clip-text text-transparent">
                   laporan otomatis
                 </span>
               </h2>
@@ -475,7 +475,7 @@ export default function LandingPage() {
                   },
                 ].map(({ step, title, desc }) => (
                   <div key={step} className="flex gap-4">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#6366f1] text-[10px] font-bold text-white">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#FFD147] text-[10px] font-bold text-[#1A1D20]">
                       {step}
                     </div>
                     <div>
@@ -491,7 +491,7 @@ export default function LandingPage() {
 
             {/* Right: dashboard preview card */}
             <div className="relative">
-              <AnimatedGlow className="-top-20 -right-20 h-[300px] w-[300px] bg-[#6366f1]/10" />
+              <AnimatedGlow className="-top-20 -right-20 h-[300px] w-[300px] bg-[#FFD147]/10" />
               <div className="relative overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-surface)] p-5 shadow-xl shadow-black/30">
                 {/* Mock top bar */}
                 <div className="mb-4 flex items-center justify-between">
@@ -512,7 +512,7 @@ export default function LandingPage() {
                     (h, i) => (
                       <div
                         key={i}
-                        className="h-16 w-full rounded-t-md bg-gradient-to-t from-[#6366f1]/40 to-[#818cf8]/60"
+                        className="h-16 w-full rounded-t-md bg-gradient-to-t from-[#FFD147]/40 to-[#E0AD20]/60"
                         style={{ height: `${h * 0.6 + 20}px` }}
                       />
                     ),
@@ -525,7 +525,7 @@ export default function LandingPage() {
                     {
                       name: "Bank BCA",
                       balance: "Rp 12.450.000",
-                      color: "#6366f1",
+                      color: "#FFD147",
                     },
                     {
                       name: "Kantong Jajan",
@@ -569,12 +569,12 @@ export default function LandingPage() {
       >
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <div className="mx-auto max-w-2xl text-center">
-            <p className="mb-3 text-xs font-semibold tracking-widest text-[#818cf8] uppercase">
+            <p className="mb-3 text-xs font-semibold tracking-widest text-[#E0AD20] uppercase">
               Harga
             </p>
             <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">
               Investasi kecil untuk{" "}
-              <span className="bg-gradient-to-r from-[#6366f1] to-[#a78bfa] bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-[#FFD147] to-[#FF8A7A] bg-clip-text text-transparent">
                 masa depan finansial
               </span>
             </h2>
@@ -589,12 +589,12 @@ export default function LandingPage() {
                 key={p.name}
                 className={`relative rounded-2xl border p-6 transition-all hover:shadow-lg ${
                   p.popular
-                    ? "border-[#6366f1]/40 bg-[#6366f1]/[0.04] shadow-[#6366f1]/10"
+                    ? "border-[#FFD147]/40 bg-[#FFD147]/[0.04] shadow-[#FFD147]/10"
                     : "border-[var(--border)] bg-[var(--bg-surface)]"
                 }`}
               >
                 {p.popular && (
-                  <div className="absolute -top-3 right-6 rounded-full bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] px-3 py-0.5 text-[10px] font-bold text-white shadow-lg">
+                  <div className="absolute -top-3 right-6 rounded-full bg-gradient-to-r from-[#FFD147] to-[#FFB347] px-3 py-0.5 text-[10px] font-bold text-[#1A1D20] shadow-lg">
                     POPULER
                   </div>
                 )}
@@ -626,7 +626,7 @@ export default function LandingPage() {
                   href={p.href}
                   className={`flex w-full items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-semibold transition-all ${
                     p.popular
-                      ? "bg-[#6366f1] text-white shadow-lg shadow-[#6366f1]/25 hover:bg-[#4f46e5]"
+                      ? "bg-[#FFD147] text-[#1A1D20] shadow-lg shadow-[#FFD147]/25 hover:bg-[#E0AD20]"
                       : "border border-[var(--border)] bg-[var(--bg-elevated)] text-[var(--text-primary)] hover:bg-[var(--border)]"
                   }`}
                 >
@@ -643,12 +643,12 @@ export default function LandingPage() {
       <section id="faq" className="py-16 sm:py-24">
         <div className="mx-auto max-w-3xl px-4 sm:px-6">
           <div className="mx-auto max-w-2xl text-center">
-            <p className="mb-3 text-xs font-semibold tracking-widest text-[#818cf8] uppercase">
+            <p className="mb-3 text-xs font-semibold tracking-widest text-[#E0AD20] uppercase">
               FAQ
             </p>
             <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">
               Pertanyaan yang{" "}
-              <span className="bg-gradient-to-r from-[#6366f1] to-[#a78bfa] bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-[#FFD147] to-[#FF8A7A] bg-clip-text text-transparent">
                 sering ditanyakan
               </span>
             </h2>
@@ -658,7 +658,7 @@ export default function LandingPage() {
             {FAQS.map((faq, i) => (
               <div
                 key={i}
-                className="rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] transition-colors hover:border-[#6366f1]/20"
+                className="rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] transition-colors hover:border-[#FFD147]/20"
               >
                 <button
                   type="button"
@@ -688,13 +688,13 @@ export default function LandingPage() {
       {/* ── CTA ──────────────────────────────────────────────────────── */}
       <section className="border-t border-[var(--border)]/50 py-16 sm:py-20">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
-          <div className="relative isolate overflow-hidden rounded-3xl border border-[#6366f1]/20 bg-gradient-to-br from-[#1a1d27] via-[#1e1b4b] to-[#0f1117] px-6 py-14 text-center shadow-2xl shadow-[#6366f1]/10 sm:px-14">
-            <AnimatedGlow className="-top-40 left-1/2 h-[400px] w-[600px] -translate-x-1/2 bg-[#6366f1]/15" />
+          <div className="relative isolate overflow-hidden rounded-3xl border border-[#FFD147]/20 bg-gradient-to-br from-[#1E1E1E] via-[#2D2200] to-[#121212] px-6 py-14 text-center shadow-2xl shadow-[#FFD147]/10 sm:px-14">
+            <AnimatedGlow className="-top-40 left-1/2 h-[400px] w-[600px] -translate-x-1/2 bg-[#FFD147]/15" />
 
             <div className="relative z-10">
               <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">
                 Siap{" "}
-                <span className="bg-gradient-to-r from-[#6366f1] to-[#a78bfa] bg-clip-text text-transparent">
+                <span className="bg-gradient-to-r from-[#FFD147] to-[#FF8A7A] bg-clip-text text-transparent">
                   menguasai
                 </span>{" "}
                 keuanganmu?
@@ -706,7 +706,7 @@ export default function LandingPage() {
               <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
                 <Link
                   href="/register"
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#6366f1] px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-[#6366f1]/25 transition-all hover:bg-[#4f46e5] sm:w-auto"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#FFD147] px-6 py-3 text-sm font-semibold text-[#1A1D20] shadow-lg shadow-[#FFD147]/25 transition-all hover:bg-[#E0AD20] sm:w-auto"
                 >
                   Daftar Gratis
                   <ArrowUpRight className="h-4 w-4" />

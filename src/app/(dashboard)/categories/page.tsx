@@ -12,6 +12,7 @@ import {
   AlertTriangle,
   Sparkles,
 } from "lucide-react";
+import { DynamicIcon } from "~/components/ui/dynamic-icon";
 import { PageWrapper } from "~/components/layout/page-wrapper";
 import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
@@ -27,31 +28,31 @@ import type { Category, CategoryKind, SubCategory } from "~/lib/types";
 type TabKey = "expense" | "income";
 
 const TABS: { key: TabKey; label: string; icon: string }[] = [
-  { key: "expense", label: "Pengeluaran", icon: "💸" },
-  { key: "income", label: "Pemasukan", icon: "💰" },
+  { key: "expense", label: "Pengeluaran", icon: "TrendingDown" },
+  { key: "income", label: "Pemasukan", icon: "TrendingUp" },
 ];
 
-const QUICK_ICONS = [
-  "📁",
-  "🍔",
-  "🚗",
-  "🛍️",
-  "🎬",
-  "🏥",
-  "💡",
-  "☕",
-  "🏠",
-  "📱",
-  "🎮",
-  "✈️",
-  "💪",
-  "💼",
-  "💻",
-  "📈",
-  "🎁",
-  "📚",
-  "🛒",
-  "💊",
+const CATEGORY_ICONS = [
+  "Home",
+  "Car",
+  "ShoppingCart",
+  "Coffee",
+  "Utensils",
+  "Film",
+  "HeartPulse",
+  "Lightbulb",
+  "Smartphone",
+  "Gift",
+  "Briefcase",
+  "TrendingUp",
+  "GraduationCap",
+  "Plane",
+  "Gamepad2",
+  "Zap",
+  "Baby",
+  "Book",
+  "Music",
+  "Dumbbell",
 ];
 
 const QUICK_COLORS = [
@@ -60,11 +61,11 @@ const QUICK_COLORS = [
   "#a855f7",
   "#ec4899",
   "#22c55e",
-  "#6366f1",
+  "#FFD147",
   "#06b6d4",
   "#f59e0b",
   "#ef4444",
-  "#8b5cf6",
+  "#FFB347",
   "#10b981",
   "#0ea5e9",
 ];
@@ -94,8 +95,8 @@ interface SubCategoryForm {
 const EMPTY_CAT_FORM = (type: CategoryKind): CategoryForm => ({
   type,
   name: "",
-  icon: "📁",
-  color: "#6366f1",
+  icon: "Folder",
+  color: "#FFD147",
   sortOrder: 0,
   isSystem: false,
 });
@@ -103,8 +104,8 @@ const EMPTY_CAT_FORM = (type: CategoryKind): CategoryForm => ({
 const EMPTY_SUB_FORM = (categoryId: string): SubCategoryForm => ({
   categoryId,
   name: "",
-  icon: "🔖",
-  color: "#6366f1",
+  icon: "Tag",
+  color: "#FFD147",
   sortOrder: 0,
   isSystem: false,
 });
@@ -194,8 +195,8 @@ export default function CategoriesPage() {
     const payload = {
       type: catForm.type,
       name: catForm.name.trim(),
-      icon: catForm.icon || "📁",
-      color: catForm.color || "#6366f1",
+      icon: catForm.icon || "Folder",
+      color: catForm.color || "#FFD147",
       sortOrder: catForm.sortOrder,
       isSystem: catForm.isSystem,
     };
@@ -235,8 +236,8 @@ export default function CategoriesPage() {
     const payload = {
       categoryId: subForm.categoryId,
       name: subForm.name.trim(),
-      icon: subForm.icon || "🔖",
-      color: subForm.color || "#6366f1",
+      icon: subForm.icon || "Tag",
+      color: subForm.color || "#FFD147",
       sortOrder: subForm.sortOrder,
       isSystem: subForm.isSystem,
     };
@@ -269,7 +270,7 @@ export default function CategoriesPage() {
       {
         type: "expense",
         name: "Makan",
-        icon: "🍔",
+        icon: "Utensils",
         color: "#f97316",
         sortOrder: 0,
         isSystem: false,
@@ -277,7 +278,7 @@ export default function CategoriesPage() {
       {
         type: "expense",
         name: "Transport",
-        icon: "🚗",
+        icon: "Car",
         color: "#3b82f6",
         sortOrder: 1,
         isSystem: false,
@@ -285,7 +286,7 @@ export default function CategoriesPage() {
       {
         type: "expense",
         name: "Belanja",
-        icon: "🛍️",
+        icon: "ShoppingCart",
         color: "#a855f7",
         sortOrder: 2,
         isSystem: false,
@@ -293,7 +294,7 @@ export default function CategoriesPage() {
       {
         type: "expense",
         name: "Hiburan",
-        icon: "🎬",
+        icon: "Film",
         color: "#ec4899",
         sortOrder: 3,
         isSystem: false,
@@ -301,7 +302,7 @@ export default function CategoriesPage() {
       {
         type: "expense",
         name: "Kesehatan",
-        icon: "🏥",
+        icon: "HeartPulse",
         color: "#22c55e",
         sortOrder: 4,
         isSystem: false,
@@ -309,15 +310,15 @@ export default function CategoriesPage() {
       {
         type: "expense",
         name: "Tagihan",
-        icon: "💡",
-        color: "#6366f1",
+        icon: "Lightbulb",
+        color: "#FFD147",
         sortOrder: 5,
         isSystem: false,
       },
       {
         type: "income",
         name: "Gaji",
-        icon: "💼",
+        icon: "Briefcase",
         color: "#22c55e",
         sortOrder: 0,
         isSystem: false,
@@ -325,7 +326,7 @@ export default function CategoriesPage() {
       {
         type: "income",
         name: "Freelance",
-        icon: "💻",
+        icon: "Laptop",
         color: "#06b6d4",
         sortOrder: 1,
         isSystem: false,
@@ -333,7 +334,7 @@ export default function CategoriesPage() {
       {
         type: "income",
         name: "Investasi",
-        icon: "📈",
+        icon: "TrendingUp",
         color: "#a855f7",
         sortOrder: 2,
         isSystem: false,
@@ -341,7 +342,7 @@ export default function CategoriesPage() {
       {
         type: "income",
         name: "Hadiah",
-        icon: "🎁",
+        icon: "Gift",
         color: "#f59e0b",
         sortOrder: 3,
         isSystem: false,
@@ -413,7 +414,7 @@ export default function CategoriesPage() {
                   : "text-text-muted hover:text-text-secondary",
               )}
             >
-              <span>{t.icon}</span>
+              <DynamicIcon name={t.icon} className="h-5 w-5" />
               {t.label}
               <span className="bg-bg-base text-text-muted rounded-full px-1.5 py-0.5 text-[10px]">
                 {count}
@@ -482,10 +483,10 @@ export default function CategoriesPage() {
                   </button>
 
                   <div
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl"
-                    style={{ backgroundColor: `${c.color}22` }}
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+                    style={{ backgroundColor: `${c.color}22`, color: c.color }}
                   >
-                    {c.icon}
+                    <DynamicIcon name={c.icon} className="h-5 w-5" />
                   </div>
 
                   <div className="min-w-0 flex-1">
@@ -565,10 +566,13 @@ export default function CategoriesPage() {
                                 style={{ color: s.color }}
                               />
                               <span
-                                className="shrink-0 text-lg"
-                                style={{ filter: "saturate(1.1)" }}
+                                className="shrink-0"
+                                style={{ color: s.color }}
                               >
-                                {s.icon}
+                                <DynamicIcon
+                                  name={s.icon}
+                                  className="h-5 w-5"
+                                />
                               </span>
                               <span className="text-text-primary min-w-0 flex-1 truncate text-sm font-medium">
                                 {s.name}
@@ -835,24 +839,24 @@ function IconPicker({
     <div className="flex flex-col gap-1.5">
       <label className="text-text-secondary text-sm font-medium">{label}</label>
       <div className="flex flex-wrap gap-1.5">
-        {QUICK_ICONS.map((emoji) => (
+        {CATEGORY_ICONS.map((iconName) => (
           <button
-            key={emoji}
+            key={iconName}
             type="button"
-            onClick={() => onChange(emoji)}
+            onClick={() => onChange(iconName)}
             className={cn(
-              "flex h-9 w-9 items-center justify-center rounded-lg text-lg transition-all",
-              value === emoji
-                ? "bg-primary/20 ring-primary ring-2"
-                : "bg-bg-elevated hover:bg-bg-elevated/80",
+              "flex h-9 w-9 items-center justify-center rounded-lg text-lg transition-colors",
+              value === iconName
+                ? "bg-primary/20 ring-primary text-primary ring-2"
+                : "bg-bg-elevated hover:bg-bg-elevated/80 text-text-secondary",
             )}
           >
-            {emoji}
+            <DynamicIcon name={iconName} className="h-5 w-5" />
           </button>
         ))}
       </div>
       <Input
-        placeholder="Atau ketik emoji kustom..."
+        placeholder="Atau ketik nama Lucide icon..."
         value={value}
         onChange={(e) => onChange(e.target.value)}
       />

@@ -395,7 +395,7 @@ function normalizeInvestmentBody(body: Record<string, unknown>) {
     avgBuyPrice: Number(body.avgBuyPrice ?? 0),
     currentPrice: Number(body.currentPrice ?? 0),
     currency: String(body.currency ?? "IDR"),
-    color: String(body.color ?? "#6366f1"),
+    color: String(body.color ?? "#FFD147"),
     sellPrice:
       body.sellPrice !== undefined && body.sellPrice !== null
         ? Number(body.sellPrice)

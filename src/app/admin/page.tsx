@@ -224,7 +224,7 @@ export default function AdminDashboardPage() {
           }
           subtitle={txCount === null ? "tidak tersedia" : "Semua pengguna"}
           icon={<ArrowLeftRight className="h-5 w-5" />}
-          iconColor="#6366f1"
+          iconColor="#FFD147"
         />
         <StatCard
           title="API Server"

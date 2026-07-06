@@ -48,7 +48,7 @@ const ASSET_CLASS_LABELS: Record<string, string> = {
 };
 
 const ASSET_CLASS_COLORS: Record<string, string> = {
-  stock: "#6366f1",
+  stock: "#FFD147",
   crypto: "#f59e0b",
   gold: "#d97706",
   "mutual-fund": "#22c55e",
@@ -207,7 +207,7 @@ export default function InvestmentsPage() {
           Object.keys(ASSET_CLASS_LABELS).find(
             (k) => ASSET_CLASS_LABELS[k] === name,
           ) || ""
-        ] || "#6366f1",
+        ] || "#FFD147",
     }));
   }, [investments]);
 
@@ -486,7 +486,7 @@ export default function InvestmentsPage() {
       avgBuyPrice: Number(form.avgBuyPrice),
       currentPrice: marketPrice,
       currency: "IDR",
-      color: ASSET_CLASS_COLORS[form.assetClass] || "#6366f1",
+      color: ASSET_CLASS_COLORS[form.assetClass] || "#FFD147",
       sellPrice: null,
       soldAt: null,
       buyFee: form.buyFee ? Number(form.buyFee) : 0,
@@ -598,7 +598,7 @@ export default function InvestmentsPage() {
           title="Total Nilai Portfolio"
           value={formatCurrency(totalValue)}
           icon={<Wallet />}
-          iconColor="#6366f1"
+          iconColor="#FFD147"
         />
         <StatCard
           title="Unrealized P/L"

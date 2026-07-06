@@ -1,8 +1,17 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { PiggyBank, Plus, Trash2, Edit, Target, Calendar, Zap } from "lucide-react";
+import {
+  PiggyBank,
+  Plus,
+  Trash2,
+  Edit,
+  Target,
+  Calendar,
+  Zap,
+} from "lucide-react";
 import { PageWrapper } from "~/components/layout/page-wrapper";
+import { DynamicIcon } from "~/components/ui/dynamic-icon";
 import { Button } from "~/components/ui/button";
 import { Card, CardHeader, CardBody } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
@@ -13,9 +22,40 @@ import { ProgressBar } from "~/components/ui/progress-bar";
 import { useFinanceStore } from "~/store/useFinanceStore";
 import { formatCurrency, formatDate, daysUntil, percentage } from "~/lib/utils";
 
-const GOAL_ICONS = ["🏡", "💻", "🛡️", "⛩️", "💍", "🏖️", "🚗", "🏍️", "📱", "🎓", "✈️", "💰", "🎁", "🌟"];
-const GOAL_COLORS = ["#6366f1", "#22c55e", "#f59e0b", "#ef4444", "#38bdf8", "#ec4899", "#8b5cf6", "#f97316"];
-const WALLETS = ["BCA Tabungan", "Mandiri Tabungan", "BRI Tabungan", "Dana", "GoPay", "OVO"];
+const GOAL_ICONS = [
+  "Home",
+  "Laptop",
+  "Shield",
+  "Building",
+  "Gem",
+  "Umbrella",
+  "Car",
+  "Bike",
+  "Smartphone",
+  "GraduationCap",
+  "Plane",
+  "Coins",
+  "Gift",
+  "Star",
+];
+const GOAL_COLORS = [
+  "#FFD147",
+  "#22c55e",
+  "#f59e0b",
+  "#ef4444",
+  "#38bdf8",
+  "#ec4899",
+  "#FFB347",
+  "#f97316",
+];
+const WALLETS = [
+  "BCA Tabungan",
+  "Mandiri Tabungan",
+  "BRI Tabungan",
+  "Dana",
+  "GoPay",
+  "OVO",
+];
 
 export default function SavingsPage() {
   const savingGoals = useFinanceStore((s) => s.savingGoals);
@@ -26,8 +66,14 @@ export default function SavingsPage() {
   const [showGoalModal, setShowGoalModal] = useState(false);
   const [showFundsModal, setShowFundsModal] = useState<string | null>(null);
   const [goalForm, setGoalForm] = useState({
-    name: "", icon: "🌟", targetAmount: "", deadline: "",
-    autoSave: false, autoSaveAmount: "", walletId: "BCA Tabungan", color: "#6366f1",
+    name: "",
+    icon: "Star",
+    targetAmount: "",
+    deadline: "",
+    autoSave: false,
+    autoSaveAmount: "",
+    walletId: "BCA Tabungan",
+    color: "#FFD147",
   });
   const [fundsForm, setFundsForm] = useState({ amount: "", note: "" });
 
@@ -36,7 +82,10 @@ export default function SavingsPage() {
     const totalCollected = savingGoals.reduce((s, g) => s + g.currentAmount, 0);
     const avgProgress =
       savingGoals.length > 0
-        ? savingGoals.reduce((s, g) => s + percentage(g.currentAmount, g.targetAmount), 0) / savingGoals.length
+        ? savingGoals.reduce(
+            (s, g) => s + percentage(g.currentAmount, g.targetAmount),
+            0,
+          ) / savingGoals.length
         : 0;
     return { totalTarget, totalCollected, avgProgress };
   }, [savingGoals]);
@@ -53,9 +102,20 @@ export default function SavingsPage() {
       color: goalForm.color,
       walletId: goalForm.walletId,
       autoSave: goalForm.autoSave,
-      autoSaveAmount: goalForm.autoSave ? parseFloat(goalForm.autoSaveAmount || "0") : undefined,
+      autoSaveAmount: goalForm.autoSave
+        ? parseFloat(goalForm.autoSaveAmount || "0")
+        : undefined,
     });
-    setGoalForm({ name: "", icon: "🌟", targetAmount: "", deadline: "", autoSave: false, autoSaveAmount: "", walletId: "BCA Tabungan", color: "#6366f1" });
+    setGoalForm({
+      name: "",
+      icon: "Star",
+      targetAmount: "",
+      deadline: "",
+      autoSave: false,
+      autoSaveAmount: "",
+      walletId: "BCA Tabungan",
+      color: "#FFD147",
+    });
     setShowGoalModal(false);
   }
 
@@ -67,22 +127,36 @@ export default function SavingsPage() {
     setShowFundsModal(null);
   }
 
-  const gf = (k: keyof typeof goalForm, v: string | boolean) => setGoalForm((f) => ({ ...f, [k]: v }));
+  const gf = (k: keyof typeof goalForm, v: string | boolean) =>
+    setGoalForm((f) => ({ ...f, [k]: v }));
 
   return (
     <PageWrapper
       title="Tabungan"
       subtitle="Pantau progress saving goals kamu"
       actions={
-        <Button leftIcon={<Plus className="h-4 w-4" />} onClick={() => setShowGoalModal(true)}>
+        <Button
+          leftIcon={<Plus className="h-4 w-4" />}
+          onClick={() => setShowGoalModal(true)}
+        >
           Tambah Goal
         </Button>
       }
     >
       {/* ── Summary ─────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatCard title="Total Target" value={formatCurrency(totalTarget)} icon={<Target />} iconColor="#6366f1" />
-        <StatCard title="Total Terkumpul" value={formatCurrency(totalCollected)} icon={<PiggyBank />} iconColor="#22c55e" />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <StatCard
+          title="Total Target"
+          value={formatCurrency(totalTarget)}
+          icon={<Target />}
+          iconColor="#FFD147"
+        />
+        <StatCard
+          title="Total Terkumpul"
+          value={formatCurrency(totalCollected)}
+          icon={<PiggyBank />}
+          iconColor="#22c55e"
+        />
         <StatCard
           title="Rata-rata Progress"
           value={`${Math.round(avgProgress)}%`}
@@ -93,7 +167,7 @@ export default function SavingsPage() {
       </div>
 
       {/* ── Goal Cards Grid ─────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {savingGoals.map((goal) => {
           const pct = percentage(goal.currentAmount, goal.targetAmount);
           const days = goal.deadline ? daysUntil(goal.deadline) : null;
@@ -104,22 +178,26 @@ export default function SavingsPage() {
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <div
-                    className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shrink-0"
+                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-2xl"
                     style={{ backgroundColor: goal.color + "20" }}
                   >
-                    {goal.icon}
+                    <DynamicIcon name={goal.icon} className="h-5 w-5" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-text-primary">{goal.name}</h3>
+                    <h3 className="text-text-primary font-semibold">
+                      {goal.name}
+                    </h3>
                     {goal.walletId && (
-                      <p className="text-xs text-text-muted mt-0.5">{goal.walletId}</p>
+                      <p className="text-text-muted mt-0.5 text-xs">
+                        {goal.walletId}
+                      </p>
                     )}
                   </div>
                 </div>
-                <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                   <button
                     onClick={() => deleteSavingGoal(goal.id)}
-                    className="h-7 w-7 flex items-center justify-center rounded-lg text-text-muted hover:text-danger hover:bg-danger/10 transition-colors"
+                    className="text-text-muted hover:text-danger hover:bg-danger/10 flex h-7 w-7 items-center justify-center rounded-lg transition-colors"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
@@ -129,10 +207,18 @@ export default function SavingsPage() {
               {/* Progress */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="font-bold text-text-primary">{formatCurrency(goal.currentAmount)}</span>
-                  <span className="text-text-muted text-xs">dari {formatCurrency(goal.targetAmount)}</span>
+                  <span className="text-text-primary font-bold">
+                    {formatCurrency(goal.currentAmount)}
+                  </span>
+                  <span className="text-text-muted text-xs">
+                    dari {formatCurrency(goal.targetAmount)}
+                  </span>
                 </div>
-                <ProgressBar value={goal.currentAmount} max={goal.targetAmount} color={goal.color} />
+                <ProgressBar
+                  value={goal.currentAmount}
+                  max={goal.targetAmount}
+                  color={goal.color}
+                />
                 <div className="flex items-center justify-between">
                   <span
                     className="text-xs font-semibold"
@@ -140,14 +226,16 @@ export default function SavingsPage() {
                   >
                     {pct}% tercapai
                   </span>
-                  <span className="text-xs text-text-muted">Kurang {formatCurrency(remaining)}</span>
+                  <span className="text-text-muted text-xs">
+                    Kurang {formatCurrency(remaining)}
+                  </span>
                 </div>
               </div>
 
               {/* Deadline & Auto-save */}
               <div className="flex items-center gap-3 text-xs">
                 {goal.deadline && (
-                  <div className="flex items-center gap-1.5 text-text-muted">
+                  <div className="text-text-muted flex items-center gap-1.5">
                     <Calendar className="h-3 w-3" />
                     <span>{formatDate(goal.deadline)}</span>
                     {days !== null && days > 0 && (
@@ -156,9 +244,11 @@ export default function SavingsPage() {
                   </div>
                 )}
                 {goal.autoSave && goal.autoSaveAmount && (
-                  <div className="flex items-center gap-1.5 text-success">
+                  <div className="text-success flex items-center gap-1.5">
                     <Zap className="h-3 w-3" />
-                    <span>Auto-save {formatCurrency(goal.autoSaveAmount)}/bln</span>
+                    <span>
+                      Auto-save {formatCurrency(goal.autoSaveAmount)}/bln
+                    </span>
                   </div>
                 )}
               </div>
@@ -181,75 +271,128 @@ export default function SavingsPage() {
         {savingGoals.length === 0 && (
           <div className="col-span-full">
             <Card className="py-12 text-center">
-              <PiggyBank className="h-10 w-10 text-text-muted mx-auto mb-3" />
-              <p className="text-text-muted">Belum ada saving goal. Mulai sekarang!</p>
+              <PiggyBank className="text-text-muted mx-auto mb-3 h-10 w-10" />
+              <p className="text-text-muted">
+                Belum ada saving goal. Mulai sekarang!
+              </p>
             </Card>
           </div>
         )}
       </div>
 
       {/* ── Add Goal Modal ───────────────────────────────────────────── */}
-      <Modal open={showGoalModal} onClose={() => setShowGoalModal(false)} title="Tambah Saving Goal" size="md">
+      <Modal
+        open={showGoalModal}
+        onClose={() => setShowGoalModal(false)}
+        title="Tambah Saving Goal"
+        size="md"
+      >
         <form onSubmit={handleGoalSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <Input label="Nama Goal" placeholder="cth. DP Rumah" value={goalForm.name} onChange={(e) => gf("name", e.target.value)} required />
-            <Input label="Target (Rp)" type="number" placeholder="0" value={goalForm.targetAmount} onChange={(e) => gf("targetAmount", e.target.value)} required />
+            <Input
+              label="Nama Goal"
+              placeholder="cth. DP Rumah"
+              value={goalForm.name}
+              onChange={(e) => gf("name", e.target.value)}
+              required
+            />
+            <Input
+              label="Target (Rp)"
+              type="number"
+              placeholder="0"
+              value={goalForm.targetAmount}
+              onChange={(e) => gf("targetAmount", e.target.value)}
+              required
+            />
           </div>
-          <Input label="Deadline" type="date" value={goalForm.deadline} onChange={(e) => gf("deadline", e.target.value)} required />
+          <Input
+            label="Deadline"
+            type="date"
+            value={goalForm.deadline}
+            onChange={(e) => gf("deadline", e.target.value)}
+            required
+          />
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-text-secondary">Ikon</label>
+            <label className="text-text-secondary text-sm font-medium">
+              Ikon
+            </label>
             <div className="flex flex-wrap gap-1.5">
               {GOAL_ICONS.map((icon) => (
                 <button
                   key={icon}
                   type="button"
                   onClick={() => gf("icon", icon)}
-                  className={`w-9 h-9 rounded-lg text-lg flex items-center justify-center transition-all ${goalForm.icon === icon ? "bg-primary/20 ring-2 ring-primary" : "bg-bg-elevated"}`}
+                  className={`flex h-9 w-9 items-center justify-center rounded-lg text-lg transition-all ${goalForm.icon === icon ? "bg-primary/20 ring-primary ring-2" : "bg-bg-elevated"}`}
                 >
-                  {icon}
+                  <DynamicIcon name={icon} className="h-5 w-5" />
                 </button>
               ))}
             </div>
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-text-secondary">Warna</label>
+            <label className="text-text-secondary text-sm font-medium">
+              Warna
+            </label>
             <div className="flex gap-2">
               {GOAL_COLORS.map((c) => (
                 <button
                   key={c}
                   type="button"
                   onClick={() => gf("color", c)}
-                  className={`w-7 h-7 rounded-full transition-all ${goalForm.color === c ? "ring-2 ring-offset-2 ring-offset-bg-surface ring-white scale-110" : ""}`}
+                  className={`h-7 w-7 rounded-full transition-all ${goalForm.color === c ? "ring-offset-bg-surface scale-110 ring-2 ring-white ring-offset-2" : ""}`}
                   style={{ backgroundColor: c }}
                 />
               ))}
             </div>
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-text-secondary">Wallet Sumber</label>
-            <select value={goalForm.walletId} onChange={(e) => gf("walletId", e.target.value)}
-              className="h-10 px-3 rounded-lg bg-bg-surface border border-border text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-              {WALLETS.map((w) => <option key={w}>{w}</option>)}
+            <label className="text-text-secondary text-sm font-medium">
+              Wallet Sumber
+            </label>
+            <select
+              value={goalForm.walletId}
+              onChange={(e) => gf("walletId", e.target.value)}
+              className="bg-bg-surface border-border text-text-primary focus:ring-primary/50 h-10 rounded-lg border px-3 text-sm focus:ring-2 focus:outline-none"
+            >
+              {WALLETS.map((w) => (
+                <option key={w}>{w}</option>
+              ))}
             </select>
           </div>
-          <div className="flex items-center justify-between p-3 rounded-lg bg-bg-elevated">
+          <div className="bg-bg-elevated flex items-center justify-between rounded-lg p-3">
             <div>
-              <p className="text-sm font-medium text-text-primary">Auto-save</p>
-              <p className="text-xs text-text-muted">Otomatis menabung setiap bulan</p>
+              <p className="text-text-primary text-sm font-medium">Auto-save</p>
+              <p className="text-text-muted text-xs">
+                Otomatis menabung setiap bulan
+              </p>
             </div>
             <button
               type="button"
               onClick={() => gf("autoSave", !goalForm.autoSave)}
-              className={`relative w-10 h-5 rounded-full transition-colors ${goalForm.autoSave ? "bg-primary" : "bg-bg-base"}`}
+              className={`relative h-5 w-10 rounded-full transition-colors ${goalForm.autoSave ? "bg-primary" : "bg-bg-base"}`}
             >
-              <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${goalForm.autoSave ? "translate-x-5" : "translate-x-0.5"}`} />
+              <span
+                className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${goalForm.autoSave ? "translate-x-5" : "translate-x-0.5"}`}
+              />
             </button>
           </div>
           {goalForm.autoSave && (
-            <Input label="Jumlah Auto-save / bulan (Rp)" type="number" placeholder="0" value={goalForm.autoSaveAmount} onChange={(e) => gf("autoSaveAmount", e.target.value)} />
+            <Input
+              label="Jumlah Auto-save / bulan (Rp)"
+              type="number"
+              placeholder="0"
+              value={goalForm.autoSaveAmount}
+              onChange={(e) => gf("autoSaveAmount", e.target.value)}
+            />
           )}
           <div className="flex justify-end gap-3 pt-2">
-            <Button type="button" variant="outline" onClick={() => setShowGoalModal(false)}>Batal</Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowGoalModal(false)}
+            >
+              Batal
+            </Button>
             <Button type="submit">Simpan Goal</Button>
           </div>
         </form>
@@ -263,26 +406,62 @@ export default function SavingsPage() {
         size="sm"
       >
         <form onSubmit={handleFundsSubmit} className="space-y-4">
-          <Input label="Jumlah (Rp)" type="number" placeholder="0" value={fundsForm.amount} onChange={(e) => setFundsForm((f) => ({ ...f, amount: e.target.value }))} required />
-          <Input label="Catatan (opsional)" placeholder="cth. Gaji bulan ini" value={fundsForm.note} onChange={(e) => setFundsForm((f) => ({ ...f, note: e.target.value }))} />
-          {showFundsModal && fundsForm.amount && (() => {
-            const goal = savingGoals.find((g) => g.id === showFundsModal);
-            if (!goal) return null;
-            const newAmount = goal.currentAmount + parseFloat(fundsForm.amount || "0");
-            const newPct = percentage(newAmount, goal.targetAmount);
-            return (
-              <div className="p-3 rounded-lg bg-bg-elevated text-xs">
-                <div className="flex justify-between text-text-muted mb-1">
-                  <span>Setelah ditambah</span>
-                  <span>{formatCurrency(Math.min(newAmount, goal.targetAmount))}</span>
+          <Input
+            label="Jumlah (Rp)"
+            type="number"
+            placeholder="0"
+            value={fundsForm.amount}
+            onChange={(e) =>
+              setFundsForm((f) => ({ ...f, amount: e.target.value }))
+            }
+            required
+          />
+          <Input
+            label="Catatan (opsional)"
+            placeholder="cth. Gaji bulan ini"
+            value={fundsForm.note}
+            onChange={(e) =>
+              setFundsForm((f) => ({ ...f, note: e.target.value }))
+            }
+          />
+          {showFundsModal &&
+            fundsForm.amount &&
+            (() => {
+              const goal = savingGoals.find((g) => g.id === showFundsModal);
+              if (!goal) return null;
+              const newAmount =
+                goal.currentAmount + parseFloat(fundsForm.amount || "0");
+              const newPct = percentage(newAmount, goal.targetAmount);
+              return (
+                <div className="bg-bg-elevated rounded-lg p-3 text-xs">
+                  <div className="text-text-muted mb-1 flex justify-between">
+                    <span>Setelah ditambah</span>
+                    <span>
+                      {formatCurrency(Math.min(newAmount, goal.targetAmount))}
+                    </span>
+                  </div>
+                  <ProgressBar
+                    value={newAmount}
+                    max={goal.targetAmount}
+                    color={goal.color}
+                  />
+                  <p
+                    className="mt-1 text-right font-medium"
+                    style={{ color: goal.color }}
+                  >
+                    {newPct}%
+                  </p>
                 </div>
-                <ProgressBar value={newAmount} max={goal.targetAmount} color={goal.color} />
-                <p className="text-right mt-1 font-medium" style={{ color: goal.color }}>{newPct}%</p>
-              </div>
-            );
-          })()}
+              );
+            })()}
           <div className="flex justify-end gap-3 pt-2">
-            <Button type="button" variant="outline" onClick={() => setShowFundsModal(null)}>Batal</Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowFundsModal(null)}
+            >
+              Batal
+            </Button>
             <Button type="submit">Tambah Dana</Button>
           </div>
         </form>

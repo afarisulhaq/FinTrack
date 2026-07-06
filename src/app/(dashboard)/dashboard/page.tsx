@@ -19,6 +19,7 @@ import { Card, CardHeader, CardBody } from "~/components/ui/card";
 import { StatCard } from "~/components/ui/stat-card";
 import { Badge } from "~/components/ui/badge";
 import { ProgressBar } from "~/components/ui/progress-bar";
+import { DynamicIcon } from "~/components/ui/dynamic-icon";
 import { SpendingTrendChart } from "~/components/charts/spending-trend-chart";
 import { useFinanceStore } from "~/store/useFinanceStore";
 import { formatCurrency, daysUntil, percentage } from "~/lib/utils";
@@ -98,7 +99,7 @@ export default function DashboardPage() {
       href: "/investments",
       label: "Investasi",
       icon: TrendingUp,
-      color: "#6366f1",
+      color: "#FFD147",
     },
     { href: "/bills", label: "Tagihan", icon: Bell, color: "#f59e0b" },
     { href: "/savings", label: "Tabungan", icon: PiggyBank, color: "#22c55e" },
@@ -109,7 +110,7 @@ export default function DashboardPage() {
       href: "/statistics",
       label: "Statistik",
       icon: BarChart2,
-      color: "#8b5cf6",
+      color: "#FFB347",
     },
   ];
 
@@ -122,7 +123,7 @@ export default function DashboardPage() {
           value={formatCurrency(netWorth)}
           subtitle="Total kekayaan bersih"
           icon={<Wallet />}
-          iconColor="#6366f1"
+          iconColor="#FFD147"
           trend={{ value: 4.5, label: "vs bulan lalu" }}
         />
         <StatCard
@@ -212,7 +213,7 @@ export default function DashboardPage() {
                 return (
                   <div key={goal.id}>
                     <div className="mb-1.5 flex items-center gap-2">
-                      <span className="text-base">{goal.icon}</span>
+                      <DynamicIcon name={goal.icon} className="h-4 w-4" />
                       <span className="text-text-primary flex-1 truncate text-sm font-medium">
                         {goal.name}
                       </span>
@@ -270,7 +271,7 @@ export default function DashboardPage() {
                   key={bill.id}
                   className={`flex items-center gap-3 rounded-xl border p-3 ${isOverdue ? "border-danger/30 bg-danger/5" : isUrgent ? "border-warning/30 bg-warning/5" : "border-border bg-bg-elevated"}`}
                 >
-                  <span className="shrink-0 text-xl">{bill.icon}</span>
+                  <DynamicIcon name={bill.icon} className="h-5 w-5 shrink-0" />
                   <div className="min-w-0 flex-1">
                     <p className="text-text-primary truncate text-sm font-medium">
                       {bill.name}

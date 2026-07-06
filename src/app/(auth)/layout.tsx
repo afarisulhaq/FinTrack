@@ -135,7 +135,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
             <span
               style={{
                 background:
-                  "linear-gradient(135deg, #6366f1 0%, #a78bfa 100%)",
+                  "linear-gradient(135deg, #FFD147 0%, #FFB347 50%, #FF8A7A 100%)",
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
                 backgroundClip: "text",

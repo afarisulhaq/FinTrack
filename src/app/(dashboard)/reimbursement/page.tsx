@@ -92,7 +92,7 @@ export default function ReimbursementPage() {
           value={formatCurrency(totalActive + totalSettled)}
           subtitle={`${reimbursements.length} pengajuan`}
           icon={<Receipt />}
-          iconColor="#6366f1"
+          iconColor="#FFD147"
         />
       </div>
 

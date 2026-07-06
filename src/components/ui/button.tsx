@@ -16,7 +16,7 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-primary text-white hover:bg-primary-hover focus-visible:ring-primary shadow-sm hover:shadow-md",
+          "bg-primary text-on-primary hover:bg-primary-hover focus-visible:ring-primary shadow-sm hover:shadow-md",
         ghost:
           "text-text-secondary hover:bg-bg-elevated hover:text-text-primary focus-visible:ring-primary",
         outline:
@@ -36,11 +36,12 @@ const buttonVariants = cva(
       variant: "default",
       size: "md",
     },
-  }
+  },
 );
 
 interface ButtonProps
-  extends ButtonHTMLAttributes<HTMLButtonElement>,
+  extends
+    ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   loading?: boolean;
   leftIcon?: ReactNode;
@@ -60,7 +61,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       disabled,
       ...props
     },
-    ref
+    ref,
   ) => {
     return (
       <button
@@ -70,17 +71,17 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         {...props}
       >
         {loading ? (
-          <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+          <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
         ) : leftIcon ? (
-          <span className="shrink-0 flex items-center">{leftIcon}</span>
+          <span className="flex shrink-0 items-center">{leftIcon}</span>
         ) : null}
         {children}
         {!loading && rightIcon ? (
-          <span className="shrink-0 flex items-center">{rightIcon}</span>
+          <span className="flex shrink-0 items-center">{rightIcon}</span>
         ) : null}
       </button>
     );
-  }
+  },
 );
 
 Button.displayName = "Button";

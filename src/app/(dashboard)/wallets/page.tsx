@@ -2,9 +2,12 @@
 
 import { useState, useMemo } from "react";
 import {
-  Plus, Pencil, Trash2,
+  Plus,
+  Pencil,
+  Trash2,
   Wallet as WalletIcon,
-  Layers, BarChart2,
+  Layers,
+  BarChart2,
 } from "lucide-react";
 import { PageWrapper } from "~/components/layout/page-wrapper";
 import { Button } from "~/components/ui/button";
@@ -14,6 +17,7 @@ import { Modal } from "~/components/ui/modal";
 import { StatCard } from "~/components/ui/stat-card";
 import { Input } from "~/components/ui/input";
 import { useFinanceStore } from "~/store/useFinanceStore";
+import { DynamicIcon } from "~/components/ui/dynamic-icon";
 import { formatCurrency, percentage } from "~/lib/utils";
 import type { Wallet, WalletType } from "~/lib/types";
 
@@ -27,7 +31,18 @@ const WALLET_TYPE_LABELS: Record<WalletType, string> = {
   savings: "Tabungan",
 };
 
-const QUICK_ICONS = ["🏦", "🏛️", "💳", "💰", "📱", "🏧", "💼", "🎯", "🪙", "💵"];
+const WALLET_ICONS = [
+  "Wallet",
+  "CreditCard",
+  "Landmark",
+  "Banknote",
+  "PiggyBank",
+  "Smartphone",
+  "Building",
+  "Briefcase",
+  "Coins",
+  "Vault",
+];
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -41,9 +56,9 @@ interface WalletForm {
 
 const EMPTY_FORM: WalletForm = {
   name: "",
-  icon: "💳",
+  icon: "Wallet",
   type: "bank",
-  color: "#6366f1",
+  color: "#FFD147",
   parentId: "",
 };
 
@@ -77,24 +92,22 @@ export default function WalletsPage() {
 
   const parentWallets = useMemo(
     () =>
-      wallets
-        .filter((w) => !w.parentId)
-        .sort((a, b) => b.balance - a.balance),
-    [wallets]
+      wallets.filter((w) => !w.parentId).sort((a, b) => b.balance - a.balance),
+    [wallets],
   );
 
   const totalBalance = useMemo(
     () => parentWallets.reduce((sum, w) => sum + w.balance, 0),
-    [parentWallets]
+    [parentWallets],
   );
 
   const childCount = useMemo(
     () =>
       parentWallets.reduce(
         (sum, w) => sum + getWalletChildren(wallets, w.id).length,
-        0
+        0,
       ),
-    [wallets, parentWallets]
+    [wallets, parentWallets],
   );
 
   // ── Modal helpers ────────────────────────────────────────────────────────────
@@ -154,8 +167,8 @@ export default function WalletsPage() {
   const modalTitle = editingId
     ? "Edit Dompet"
     : form.parentId
-    ? "Tambah Kantong"
-    : "Tambah Dompet";
+      ? "Tambah Kantong"
+      : "Tambah Dompet";
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
@@ -164,19 +177,22 @@ export default function WalletsPage() {
       title="Dompet"
       subtitle="Kelola dompet dan kantong keuangan"
       actions={
-        <Button leftIcon={<Plus className="h-4 w-4" />} onClick={() => openAdd()}>
+        <Button
+          leftIcon={<Plus className="h-4 w-4" />}
+          onClick={() => openAdd()}
+        >
           Tambah Dompet
         </Button>
       }
     >
       {/* ── Summary ─────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard
           title="Total Saldo"
           value={formatCurrency(totalBalance, true)}
           subtitle="Semua dompet aktif"
           icon={<WalletIcon size={20} />}
-          iconColor="#6366f1"
+          iconColor="#FFD147"
         />
         <StatCard
           title="Jumlah Dompet"
@@ -195,26 +211,30 @@ export default function WalletsPage() {
       </div>
 
       {/* ── Main layout ──────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         {/* Wallet cards */}
-        <div className="xl:col-span-2 space-y-4">
+        <div className="space-y-4 xl:col-span-2">
           {parentWallets.map((wallet) => {
             const children = getWalletChildren(wallets, wallet.id);
             return (
-              <Card key={wallet.id} padding="none" className="overflow-hidden group">
+              <Card
+                key={wallet.id}
+                padding="none"
+                className="group overflow-hidden"
+              >
                 <div style={{ borderLeft: `4px solid ${wallet.color}` }}>
                   <div className="p-5">
                     {/* Wallet header */}
                     <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex min-w-0 items-center gap-3">
                         <div
-                          className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0"
+                          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-2xl"
                           style={{ backgroundColor: `${wallet.color}22` }}
                         >
-                          {wallet.icon}
+                          <DynamicIcon name={wallet.icon} className="h-5 w-5" />
                         </div>
                         <div className="min-w-0">
-                          <h3 className="text-base font-bold text-text-primary truncate">
+                          <h3 className="text-text-primary truncate text-base font-bold">
                             {wallet.name}
                           </h3>
                           <Badge variant="default" size="sm" className="mt-1">
@@ -223,24 +243,26 @@ export default function WalletsPage() {
                         </div>
                       </div>
 
-                      <div className="flex items-start gap-2 shrink-0">
+                      <div className="flex shrink-0 items-start gap-2">
                         <div className="text-right">
-                          <p className="text-lg font-bold text-text-primary">
+                          <p className="text-text-primary text-lg font-bold">
                             {formatCurrency(wallet.balance)}
                           </p>
-                          <p className="text-xs text-text-muted">{wallet.currency}</p>
+                          <p className="text-text-muted text-xs">
+                            {wallet.currency}
+                          </p>
                         </div>
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                           <button
                             onClick={() => openEdit(wallet.id)}
-                            className="h-8 w-8 flex items-center justify-center rounded-lg bg-bg-elevated text-text-secondary hover:text-primary hover:bg-primary/10 transition-colors"
+                            className="bg-bg-elevated text-text-secondary hover:text-primary hover:bg-primary/10 flex h-8 w-8 items-center justify-center rounded-lg transition-colors"
                             title="Edit dompet"
                           >
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
                           <button
                             onClick={() => deleteWallet(wallet.id)}
-                            className="h-8 w-8 flex items-center justify-center rounded-lg bg-bg-elevated text-text-secondary hover:text-danger hover:bg-danger/10 transition-colors"
+                            className="bg-bg-elevated text-text-secondary hover:text-danger hover:bg-danger/10 flex h-8 w-8 items-center justify-center rounded-lg transition-colors"
                             title="Hapus dompet"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
@@ -251,26 +273,33 @@ export default function WalletsPage() {
 
                     {/* Children / kantong */}
                     {children.length > 0 && (
-                      <div className="mt-4 space-y-2 pl-4 border-l-2 border-border ml-6">
+                      <div className="border-border mt-4 ml-6 space-y-2 border-l-2 pl-4">
                         {children.map((child) => (
                           <div
                             key={child.id}
-                            className="flex items-center justify-between gap-3 py-2 px-3 rounded-lg bg-bg-elevated group/child"
+                            className="bg-bg-elevated group/child flex items-center justify-between gap-3 rounded-lg px-3 py-2"
                           >
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span className="text-lg shrink-0">{child.icon}</span>
-                              <span className="text-sm font-medium text-text-primary truncate">
+                            <div className="flex min-w-0 items-center gap-2">
+                              <span className="shrink-0 text-lg">
+                                <DynamicIcon
+                                  name={child.icon}
+                                  className="h-5 w-5"
+                                />
+                              </span>
+                              <span className="text-text-primary truncate text-sm font-medium">
                                 {child.name}
                               </span>
-                              <Badge variant="purple" size="sm">Kantong</Badge>
+                              <Badge variant="purple" size="sm">
+                                Kantong
+                              </Badge>
                             </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                              <span className="text-sm font-semibold text-text-primary">
+                            <div className="flex shrink-0 items-center gap-2">
+                              <span className="text-text-primary text-sm font-semibold">
                                 {formatCurrency(child.balance)}
                               </span>
                               <button
                                 onClick={() => deleteWallet(child.id)}
-                                className="h-6 w-6 flex items-center justify-center rounded text-text-muted hover:text-danger hover:bg-danger/10 transition-colors opacity-0 group-hover/child:opacity-100"
+                                className="text-text-muted hover:text-danger hover:bg-danger/10 flex h-6 w-6 items-center justify-center rounded opacity-0 transition-colors group-hover/child:opacity-100"
                                 title="Hapus kantong"
                               >
                                 <Trash2 className="h-3 w-3" />
@@ -284,7 +313,7 @@ export default function WalletsPage() {
                     {/* Add kantong button */}
                     <button
                       onClick={() => openAdd(wallet.id)}
-                      className="mt-3 ml-6 flex items-center gap-1.5 text-xs text-text-muted hover:text-primary transition-colors"
+                      className="text-text-muted hover:text-primary mt-3 ml-6 flex items-center gap-1.5 text-xs transition-colors"
                     >
                       <Plus className="h-3 w-3" />
                       Tambah Kantong
@@ -297,9 +326,11 @@ export default function WalletsPage() {
 
           {parentWallets.length === 0 && (
             <Card className="py-16 text-center">
-              <WalletIcon className="h-10 w-10 text-text-muted mx-auto mb-3" />
-              <p className="text-sm text-text-muted">Belum ada dompet. Mulai tambahkan!</p>
-              <div className="flex justify-center mt-4">
+              <WalletIcon className="text-text-muted mx-auto mb-3 h-10 w-10" />
+              <p className="text-text-muted text-sm">
+                Belum ada dompet. Mulai tambahkan!
+              </p>
+              <div className="mt-4 flex justify-center">
                 <Button
                   variant="outline"
                   size="sm"
@@ -317,8 +348,12 @@ export default function WalletsPage() {
         <div>
           <Card>
             <CardHeader>
-              <span className="text-sm font-semibold text-text-primary">Distribusi Saldo</span>
-              <Badge variant="default" size="sm">% porsi</Badge>
+              <span className="text-text-primary text-sm font-semibold">
+                Distribusi Saldo
+              </span>
+              <Badge variant="default" size="sm">
+                % porsi
+              </Badge>
             </CardHeader>
             <CardBody>
               <div className="space-y-4">
@@ -327,13 +362,18 @@ export default function WalletsPage() {
                   return (
                     <div key={wallet.id} className="space-y-1.5">
                       <div className="flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <span className="shrink-0">{wallet.icon}</span>
-                          <span className="text-text-secondary font-medium truncate">
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          <span className="shrink-0">
+                            <DynamicIcon
+                              name={wallet.icon}
+                              className="h-5 w-5"
+                            />
+                          </span>
+                          <span className="text-text-secondary truncate font-medium">
                             {wallet.name}
                           </span>
                         </div>
-                        <div className="flex items-center gap-2 shrink-0 ml-2">
+                        <div className="ml-2 flex shrink-0 items-center gap-2">
                           <span
                             className="font-semibold tabular-nums"
                             style={{ color: wallet.color }}
@@ -345,13 +385,16 @@ export default function WalletsPage() {
                           </span>
                         </div>
                       </div>
-                      <div className="h-2 rounded-full bg-bg-elevated overflow-hidden">
+                      <div className="bg-bg-elevated h-2 overflow-hidden rounded-full">
                         <div
                           className="h-full rounded-full transition-all duration-700 ease-out"
                           style={{
                             width: `${pct}%`,
                             backgroundColor: wallet.color,
-                            boxShadow: pct > 0 ? `0 0 8px 0 ${wallet.color}55` : undefined,
+                            boxShadow:
+                              pct > 0
+                                ? `0 0 8px 0 ${wallet.color}55`
+                                : undefined,
                           }}
                         />
                       </div>
@@ -359,15 +402,17 @@ export default function WalletsPage() {
                   );
                 })}
                 {parentWallets.length === 0 && (
-                  <p className="text-sm text-text-muted text-center py-6">Belum ada data</p>
+                  <p className="text-text-muted py-6 text-center text-sm">
+                    Belum ada data
+                  </p>
                 )}
               </div>
 
               {/* Total */}
               {parentWallets.length > 0 && (
-                <div className="mt-5 pt-4 border-t border-border flex items-center justify-between">
-                  <span className="text-xs text-text-muted">Total Saldo</span>
-                  <span className="text-sm font-bold text-text-primary">
+                <div className="border-border mt-5 flex items-center justify-between border-t pt-4">
+                  <span className="text-text-muted text-xs">Total Saldo</span>
+                  <span className="text-text-primary text-sm font-bold">
                     {formatCurrency(totalBalance)}
                   </span>
                 </div>
@@ -390,25 +435,27 @@ export default function WalletsPage() {
 
           {/* Icon picker */}
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-text-secondary">Ikon (Emoji)</label>
-            <div className="flex flex-wrap gap-1.5 mb-1">
-              {QUICK_ICONS.map((icon) => (
+            <label className="text-text-secondary text-sm font-medium">
+              Ikon
+            </label>
+            <div className="mb-1 flex flex-wrap gap-1.5">
+              {WALLET_ICONS.map((icon) => (
                 <button
                   key={icon}
                   type="button"
                   onClick={() => fld("icon", icon)}
-                  className={`w-9 h-9 rounded-lg text-lg flex items-center justify-center transition-all ${
+                  className={`flex h-9 w-9 items-center justify-center rounded-lg text-lg transition-all ${
                     form.icon === icon
-                      ? "bg-primary/20 ring-2 ring-primary"
+                      ? "bg-primary/20 ring-primary ring-2"
                       : "bg-bg-elevated hover:bg-bg-elevated/80"
                   }`}
                 >
-                  {icon}
+                  <DynamicIcon name={icon} className="h-5 w-5" />
                 </button>
               ))}
             </div>
             <Input
-              placeholder="Atau ketik emoji kustom..."
+              placeholder="Atau ketik nama ikon Lucide..."
               value={form.icon}
               onChange={(e) => fld("icon", e.target.value)}
             />
@@ -417,54 +464,60 @@ export default function WalletsPage() {
           <div className="grid grid-cols-2 gap-4">
             {/* Type */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-text-secondary">Tipe</label>
+              <label className="text-text-secondary text-sm font-medium">
+                Tipe
+              </label>
               <select
                 value={form.type}
                 onChange={(e) => fld("type", e.target.value as WalletType)}
-                className="h-10 px-3 rounded-lg bg-bg-surface border border-border text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className="bg-bg-surface border-border text-text-primary focus:ring-primary/50 h-10 rounded-lg border px-3 text-sm focus:ring-2 focus:outline-none"
               >
-                {(Object.entries(WALLET_TYPE_LABELS) as [WalletType, string][]).map(
-                  ([t, l]) => (
-                    <option key={t} value={t}>
-                      {l}
-                    </option>
-                  )
-                )}
+                {(
+                  Object.entries(WALLET_TYPE_LABELS) as [WalletType, string][]
+                ).map(([t, l]) => (
+                  <option key={t} value={t}>
+                    {l}
+                  </option>
+                ))}
               </select>
             </div>
 
             {/* Color */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-text-secondary">Warna</label>
-              <div className="flex items-center gap-2 h-10">
+              <label className="text-text-secondary text-sm font-medium">
+                Warna
+              </label>
+              <div className="flex h-10 items-center gap-2">
                 <input
                   type="color"
                   value={form.color}
                   onChange={(e) => fld("color", e.target.value)}
-                  className="h-9 w-14 rounded-lg border border-border bg-bg-surface cursor-pointer p-1"
+                  className="border-border bg-bg-surface h-9 w-14 cursor-pointer rounded-lg border p-1"
                 />
-                <span className="text-sm text-text-muted font-mono">{form.color}</span>
+                <span className="text-text-muted font-mono text-sm">
+                  {form.color}
+                </span>
               </div>
             </div>
           </div>
 
           {/* Parent wallet */}
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-text-secondary">
+            <label className="text-text-secondary text-sm font-medium">
               Induk Dompet{" "}
               <span className="text-text-muted font-normal">(opsional)</span>
             </label>
             <select
               value={form.parentId}
               onChange={(e) => fld("parentId", e.target.value)}
-              className="h-10 px-3 rounded-lg bg-bg-surface border border-border text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className="bg-bg-surface border-border text-text-primary focus:ring-primary/50 h-10 rounded-lg border px-3 text-sm focus:ring-2 focus:outline-none"
             >
               <option value="">— Jadikan Dompet Utama —</option>
               {parentWallets
                 .filter((w) => w.id !== editingId)
                 .map((w) => (
                   <option key={w.id} value={w.id}>
-                    {w.icon} {w.name}
+                    <DynamicIcon name={w.icon} className="h-5 w-5" /> {w.name}
                   </option>
                 ))}
             </select>
@@ -478,8 +531,8 @@ export default function WalletsPage() {
               {editingId
                 ? "Simpan Perubahan"
                 : form.parentId
-                ? "Tambah Kantong"
-                : "Tambah Dompet"}
+                  ? "Tambah Kantong"
+                  : "Tambah Dompet"}
             </Button>
           </div>
         </form>

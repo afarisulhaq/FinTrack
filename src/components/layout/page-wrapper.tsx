@@ -11,7 +11,7 @@ interface PageWrapperProps {
 
 function PageWrapper({ title, subtitle, actions, children }: PageWrapperProps) {
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex min-h-screen flex-col">
       {/* Sticky top bar with page title + search + user. The Topbar is
           the single source of truth for the page title; the body must
           not render it again or you get a "double title" — a tiny
@@ -19,12 +19,12 @@ function PageWrapper({ title, subtitle, actions, children }: PageWrapperProps) {
       <Topbar title={title} subtitle={subtitle} />
 
       {/* Page content */}
-      <main className="flex-1 p-6 space-y-6">
+      <main className="mx-auto w-full max-w-[1440px] flex-1 space-y-6 px-4 py-5 sm:px-6 lg:px-8">
         {/* Optional action bar. Only rendered when the page passes
             `actions` — keeps the layout clean for pages that have
             no page-level CTAs. */}
         {actions && (
-          <div className="flex items-center justify-end gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             {actions}
           </div>
         )}

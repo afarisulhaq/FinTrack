@@ -13,19 +13,19 @@ import { useFinanceStore } from "~/store/useFinanceStore";
 import { formatDate } from "~/lib/utils";
 
 const NOTE_COLORS = [
-  "#6366f1", "#22c55e", "#f59e0b", "#38bdf8", "#ec4899", "#8b5cf6",
+  "#FFD147", "#22c55e", "#f59e0b", "#38bdf8", "#ec4899", "#FFB347",
 ] as const;
 
 const NOTE_BG: Record<string, string> = {
-  "#6366f1": "rgba(99,102,241,0.08)",
+  "#FFD147": "rgba(255,209,71,0.08)",
   "#22c55e": "rgba(34,197,94,0.08)",
   "#f59e0b": "rgba(245,158,11,0.08)",
   "#38bdf8": "rgba(56,189,248,0.08)",
   "#ec4899": "rgba(236,72,153,0.08)",
-  "#8b5cf6": "rgba(139,92,246,0.08)",
+  "#FFB347": "rgba(139,92,246,0.08)",
 };
 
-const DEFAULT_NOTE_COLOR = "#6366f1";
+const DEFAULT_NOTE_COLOR = "#FFD147";
 
 export default function NotesPage() {
   const notes = useFinanceStore((s) => s.notes);
@@ -118,7 +118,7 @@ export default function NotesPage() {
         <div className="columns-1 sm:columns-2 lg:columns-3 gap-4 space-y-4">
           {filteredNotes.map((note) => {
             const color = note.color || DEFAULT_NOTE_COLOR;
-            const bg = NOTE_BG[color] || "rgba(99,102,241,0.08)";
+            const bg = NOTE_BG[color] || "rgba(255,209,71,0.08)";
             const tags = note.tags || [];
             return (
               <motion.div

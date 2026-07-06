@@ -8,6 +8,7 @@ import { Card, CardHeader, CardBody } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
 import { Modal } from "~/components/ui/modal";
 import { ProgressBar } from "~/components/ui/progress-bar";
+import { DynamicIcon } from "~/components/ui/dynamic-icon";
 import { useFinanceStore } from "~/store/useFinanceStore";
 import { formatDate, cn } from "~/lib/utils";
 import type { GamificationBadge } from "~/lib/types";
@@ -165,28 +166,28 @@ export default function GamificationPage() {
   // Pillar breakdown rows
   const pillars = [
     {
-      icon: "💰",
+      icon: "Coins",
       label: "Tabungan",
       score: g.breakdown.savings,
       max: 25,
       detail: "Savings rate 22%",
     },
     {
-      icon: "📊",
+      icon: "BarChart3",
       label: "Anggaran",
       score: g.breakdown.budget,
       max: 25,
       detail: "80% kategori dalam batas",
     },
     {
-      icon: "💳",
+      icon: "CreditCard",
       label: "Utang",
       score: g.breakdown.debt,
       max: 25,
       detail: "Debt-to-income 18%",
     },
     {
-      icon: "📈",
+      icon: "TrendingUp",
       label: "Investasi",
       score: g.breakdown.investment,
       max: 25,
@@ -220,8 +221,8 @@ export default function GamificationPage() {
               className="shrink-0 w-20 h-20 rounded-full flex items-center justify-center"
               style={{
                 background:
-                  "linear-gradient(135deg, #6366f1 0%, #8b5cf6 60%, #a78bfa 100%)",
-                boxShadow: "0 0 28px rgba(99,102,241,0.45)",
+                  "linear-gradient(135deg, #FFD147 0%, #FFB347 60%, #FF8A7A 100%)",
+                boxShadow: "0 0 28px rgba(255,209,71,0.45)",
               }}
             >
               <span className="text-3xl font-black text-white select-none">
@@ -257,8 +258,8 @@ export default function GamificationPage() {
                     className="h-full rounded-full"
                     style={{
                       background:
-                        "linear-gradient(90deg, #6366f1, #8b5cf6, #a78bfa)",
-                      boxShadow: "0 0 10px rgba(99,102,241,0.5)",
+                        "linear-gradient(90deg, #FFD147, #FFB347, #FF8A7A)",
+                      boxShadow: "0 0 10px rgba(255,209,71,0.5)",
                     }}
                     initial={{ width: "0%" }}
                     animate={{ width: `${xpProgress}%` }}
@@ -317,9 +318,7 @@ export default function GamificationPage() {
                 <div key={p.label} className="space-y-1.5">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-base leading-none select-none">
-                        {p.icon}
-                      </span>
+                      <DynamicIcon name={p.icon} className="h-4 w-4 shrink-0" />
                       <span className="text-sm font-medium text-text-primary">
                         {p.label}
                       </span>
@@ -519,7 +518,7 @@ export default function GamificationPage() {
                     />
                   </div>
 
-                  <div className="text-3xl mb-2 select-none">{badge.icon}</div>
+                  <DynamicIcon name={badge.icon} className="mb-2 h-8 w-8" />
                   <div className="text-sm font-semibold text-text-primary mb-0.5 leading-tight">
                     {badge.name}
                   </div>
@@ -565,12 +564,10 @@ export default function GamificationPage() {
                   transition={{ duration: 0.3, delay: i * 0.06 }}
                   whileHover={{
                     scale: 1.01,
-                    borderColor: "rgba(99,102,241,0.4)",
+                    borderColor: "rgba(255,209,71,0.4)",
                   }}
                 >
-                  <div className="text-3xl mb-2 select-none grayscale opacity-40">
-                    {badge.icon}
-                  </div>
+                  <DynamicIcon name={badge.icon} className="mb-2 h-8 w-8 opacity-40 grayscale" />
                   <div className="text-sm font-semibold text-text-secondary mb-0.5 leading-tight">
                     {badge.name}
                   </div>
@@ -583,7 +580,7 @@ export default function GamificationPage() {
                       <ProgressBar
                         value={badge.progress}
                         max={100}
-                        color="#6366f1"
+                        color="#FFD147"
                         size="sm"
                       />
                       <span className="text-[10px] text-primary block">
@@ -725,7 +722,7 @@ export default function GamificationPage() {
                 <span
                   className={cn(!selectedBadge.isUnlocked && "grayscale opacity-50")}
                 >
-                  {selectedBadge.icon}
+                  <DynamicIcon name={selectedBadge.icon} className="h-10 w-10" />
                 </span>
               </motion.div>
             </div>

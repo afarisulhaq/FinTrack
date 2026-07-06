@@ -56,6 +56,7 @@ import {
   openMonthlyReportPrint,
 } from "~/lib/import-export";
 import { toast } from "~/components/ui/toast";
+import { DynamicIcon } from "~/components/ui/dynamic-icon";
 import type { NotificationSettings, TeamMember, UserRole } from "~/lib/types";
 import {
   getPushPermission,
@@ -587,7 +588,7 @@ function ProfilTab() {
             </div>
           </div>
           <p className="text-text-muted mt-2 text-xs">
-            💡 Untuk menghapus akun, silakan hubungi support kami.
+            Lightbulb Untuk menghapus akun, silakan hubungi support kami.
           </p>
         </CardBody>
       </Card>
@@ -746,13 +747,13 @@ function AnggotaTimTab() {
             </div>
             <div className="text-text-muted flex flex-wrap gap-2 text-xs">
               <span className="bg-bg-elevated flex items-center gap-1 rounded-md px-2 py-1">
-                👁 Lihat semua
+                Eye Lihat semua
               </span>
               <span className="bg-bg-elevated flex items-center gap-1 rounded-md px-2 py-1">
-                ➕ Tambah transaksi
+                Plus Tambah transaksi
               </span>
               <span className="bg-bg-elevated flex items-center gap-1 rounded-md px-2 py-1">
-                📊 Kelola anggaran
+                BarChart3 Kelola anggaran
               </span>
             </div>
           </div>
@@ -782,17 +783,17 @@ function AnggotaTimTab() {
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {member.permissions.canViewAllWallets && (
                     <span className="bg-bg-elevated text-text-muted rounded-md px-2 py-0.5 text-xs">
-                      👁 Lihat semua
+                      Eye Lihat semua
                     </span>
                   )}
                   {member.permissions.canAddTransactions && (
                     <span className="bg-bg-elevated text-text-muted rounded-md px-2 py-0.5 text-xs">
-                      ➕ Tambah transaksi
+                      Plus Tambah transaksi
                     </span>
                   )}
                   {member.permissions.canManageBudgets && (
                     <span className="bg-bg-elevated text-text-muted rounded-md px-2 py-0.5 text-xs">
-                      📊 Kelola anggaran
+                      BarChart3 Kelola anggaran
                     </span>
                   )}
                 </div>
@@ -901,17 +902,17 @@ function AnggotaTimTab() {
                   {
                     key: "canViewAllWallets",
                     label: "Lihat semua dompet",
-                    icon: "👁",
+                    icon: "Eye",
                   },
                   {
                     key: "canAddTransactions",
                     label: "Tambah transaksi",
-                    icon: "➕",
+                    icon: "Plus",
                   },
                   {
                     key: "canManageBudgets",
                     label: "Kelola anggaran",
-                    icon: "📊",
+                    icon: "BarChart3",
                   },
                 ] as const
               ).map((perm) => (
@@ -931,7 +932,8 @@ function AnggotaTimTab() {
                     className="border-border accent-primary h-4 w-4 rounded"
                   />
                   <span className="text-text-primary text-sm">
-                    {perm.icon} {perm.label}
+                    <DynamicIcon name={perm.icon} className="h-4 w-4" />{" "}
+                    {perm.label}
                   </span>
                 </label>
               ))}
@@ -956,7 +958,7 @@ function AnggotaTimTab() {
                       className="border-border accent-primary h-4 w-4 rounded"
                     />
                     <span className="text-text-primary text-sm">
-                      {w.icon} {w.name}
+                      <DynamicIcon name={w.icon} className="h-4 w-4" /> {w.name}
                     </span>
                   </label>
                 ))}
@@ -1030,7 +1032,7 @@ function NotifikasiTab() {
     {
       key: "whatsapp" as const,
       label: "WhatsApp",
-      icon: "💬",
+      icon: "MessageCircle",
       color: "text-green-400 bg-green-500/15",
       extraField: (
         <Input
@@ -1049,7 +1051,7 @@ function NotifikasiTab() {
     {
       key: "telegram" as const,
       label: "Telegram",
-      icon: "✈️",
+      icon: "Send",
       color: "text-sky-400 bg-sky-500/15",
       extraField: (
         <Input
@@ -1068,7 +1070,7 @@ function NotifikasiTab() {
     {
       key: "email" as const,
       label: "Email",
-      icon: "📧",
+      icon: "Mail",
       color: "text-blue-400 bg-blue-500/15",
       extraField: (
         <Input
@@ -1088,7 +1090,7 @@ function NotifikasiTab() {
     {
       key: "push" as const,
       label: "Push Notification",
-      icon: "🔔",
+      icon: "Bell",
       color: "text-purple-400 bg-purple-500/15",
       extraField: (
         <div className="space-y-2">
@@ -1219,7 +1221,7 @@ function NotifikasiTab() {
                         ch.color,
                       )}
                     >
-                      {ch.icon}
+                      <DynamicIcon name={ch.icon} className="h-5 w-5" />
                     </div>
                     <div>
                       <p className="text-text-primary text-sm font-medium">
@@ -2002,7 +2004,7 @@ function DataEksporTab() {
           const wallet = wallets.find((w) => w.id === tx.walletId);
           addTransaction({
             ...tx,
-            categoryIcon: "📦",
+            categoryIcon: "Package",
             walletName: wallet?.name ?? "",
           } as Parameters<typeof addTransaction>[0]);
         }

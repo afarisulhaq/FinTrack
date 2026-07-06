@@ -7,7 +7,7 @@ interface StatCardProps {
   value: string | ReactNode;
   subtitle?: string;
   icon: ReactNode;
-  /** Hex or CSS color string — defaults to indigo */
+  /** Hex or CSS color string — defaults to gold */
   iconColor?: string;
   trend?: {
     value: number;
@@ -21,7 +21,7 @@ function StatCard({
   value,
   subtitle,
   icon,
-  iconColor = "#6366f1",
+  iconColor = "#FFD147",
   trend,
   className,
 }: StatCardProps) {
@@ -30,29 +30,29 @@ function StatCard({
   return (
     <div
       className={cn(
-        "bg-bg-surface border border-border rounded-xl p-5",
-        "flex flex-col gap-4 hover:border-border/80 transition-colors",
-        className
+        "bg-bg-surface border-border rounded-xl border p-5",
+        "hover:border-border/80 flex flex-col gap-4 transition-colors",
+        className,
       )}
     >
       {/* Main row */}
       <div className="flex items-start justify-between gap-3">
         {/* Text */}
-        <div className="flex flex-col gap-1 min-w-0">
-          <span className="text-xs font-medium text-text-muted uppercase tracking-wide">
+        <div className="flex min-w-0 flex-col gap-1">
+          <span className="text-text-muted text-xs font-medium tracking-wide uppercase">
             {title}
           </span>
-          <span className="text-2xl font-bold text-text-primary tracking-tight leading-none">
+          <span className="text-text-primary text-2xl leading-none font-bold tracking-tight">
             {value}
           </span>
           {subtitle && (
-            <span className="text-xs text-text-muted mt-0.5">{subtitle}</span>
+            <span className="text-text-muted mt-0.5 text-xs">{subtitle}</span>
           )}
         </div>
 
         {/* Icon badge */}
         <div
-          className="shrink-0 p-2.5 rounded-xl"
+          className="shrink-0 rounded-xl p-2.5"
           style={{ backgroundColor: `${iconColor}1a` }}
         >
           <span
@@ -66,22 +66,22 @@ function StatCard({
 
       {/* Trend row */}
       {trend && (
-        <div className="flex items-center gap-1.5 pt-1 border-t border-border">
+        <div className="border-border flex items-center gap-1.5 border-t pt-1">
           {isPositive ? (
-            <TrendingUp className="h-3.5 w-3.5 text-success shrink-0" />
+            <TrendingUp className="text-success h-3.5 w-3.5 shrink-0" />
           ) : (
-            <TrendingDown className="h-3.5 w-3.5 text-danger shrink-0" />
+            <TrendingDown className="text-danger h-3.5 w-3.5 shrink-0" />
           )}
           <span
             className={cn(
               "text-xs font-semibold",
-              isPositive ? "text-success" : "text-danger"
+              isPositive ? "text-success" : "text-danger",
             )}
           >
             {isPositive ? "+" : ""}
             {trend.value}%
           </span>
-          <span className="text-xs text-text-muted">{trend.label}</span>
+          <span className="text-text-muted text-xs">{trend.label}</span>
         </div>
       )}
     </div>

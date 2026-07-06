@@ -209,7 +209,7 @@ export const botRoutes = new Elysia({ prefix: "/api/bot" })
         const lines = wallets.map(
           (w) => `👛 ${w.name}: Rp${Number(w.balance).toLocaleString("id-ID")}`,
         );
-        return ok({ reply: `💰 *Saldo Dompet*\n\n${lines.join("\n")}` });
+        return ok({ reply: `Coins *Saldo Dompet*\n\n${lines.join("\n")}` });
       } catch { /* fall through */ }
     }
 
@@ -276,7 +276,7 @@ export const botRoutes = new Elysia({ prefix: "/api/bot" })
               type: parsed.type,
               amount: parsed.amount,
               category: parsed.category,
-              categoryIcon: "💰",
+              categoryIcon: "Coins",
               walletId: wallet.id,
               walletName: wallet.name,
               description: parsed.description,

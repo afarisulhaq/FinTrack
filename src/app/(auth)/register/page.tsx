@@ -40,7 +40,7 @@ function strength(password: string) {
   if (score <= 1) return { level: 1, label: "Lemah", color: "#ef4444" };
   if (score === 2) return { level: 2, label: "Cukup", color: "#f59e0b" };
   if (score === 3) return { level: 3, label: "Kuat", color: "#22c55e" };
-  return { level: 4, label: "Sangat Kuat", color: "#6366f1" };
+  return { level: 4, label: "Sangat Kuat", color: "#FFD147" };
 }
 
 export default function RegisterPage() {

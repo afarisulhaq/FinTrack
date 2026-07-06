@@ -7,12 +7,13 @@ import {
   Cell,
   Tooltip,
 } from "recharts";
+import { DynamicIcon } from "~/components/ui/dynamic-icon";
 
 export interface ExpenseCategory {
   name: string;
   value: number;
   color: string;
-  /** Optional emoji or short string icon */
+  /** Optional Lucide icon name */
   icon?: string;
 }
 
@@ -48,7 +49,7 @@ function CustomTooltip({ active, payload }: CustomTooltipProps) {
     >
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
         {item.payload.icon && (
-          <span style={{ fontSize: 14 }}>{item.payload.icon}</span>
+          <DynamicIcon name={item.payload.icon} size={14} />
         )}
         <span
           style={{
@@ -174,7 +175,7 @@ function ExpenseBreakdownChart({ data, height = 260 }: ExpenseBreakdownChartProp
 
               {/* Icon */}
               {entry.icon && (
-                <span style={{ fontSize: 13, flexShrink: 0 }}>{entry.icon}</span>
+                <DynamicIcon name={entry.icon} size={13} style={{ flexShrink: 0 }} />
               )}
 
               {/* Name */}

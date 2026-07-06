@@ -96,7 +96,7 @@ function Topbar({ title, subtitle }: TopbarProps) {
   }
 
   return (
-    <header className="bg-bg-base border-border sticky top-0 z-30 flex h-16 items-center gap-3 border-b px-4 sm:px-6">
+    <header className="bg-bg-base/85 border-border sticky top-0 z-30 flex h-16 items-center gap-3 border-b px-4 backdrop-blur-xl sm:px-6 lg:px-8">
       <button
         onClick={toggleMobile}
         className="text-text-muted hover:bg-bg-elevated hover:text-text-primary flex h-9 w-9 items-center justify-center rounded-lg transition-colors md:hidden"
@@ -116,7 +116,7 @@ function Topbar({ title, subtitle }: TopbarProps) {
         )}
       </div>
 
-      <div className="bg-bg-surface border-border group focus-within:border-primary/50 hidden h-9 w-64 items-center gap-2 rounded-lg border px-3 transition-colors md:flex">
+      <div className="bg-surface-card border-border group focus-within:border-primary/50 hidden h-9 w-64 items-center gap-2 rounded-xl border px-3 shadow-sm transition-colors md:flex">
         <Search className="text-text-muted h-3.5 w-3.5 shrink-0" />
         <input
           type="text"
@@ -171,7 +171,7 @@ function Topbar({ title, subtitle }: TopbarProps) {
         </button>
         <button
           onClick={toggleTheme}
-          className="text-text-muted hover:bg-bg-elevated hover:text-text-primary flex h-9 w-9 items-center justify-center rounded-lg transition-colors"
+          className="text-text-muted hover:bg-bg-elevated hover:text-text-primary flex h-9 w-9 items-center justify-center rounded-xl transition-colors"
           aria-label="Toggle theme"
         >
           <Sun className="h-4 w-4 dark:hidden" />
@@ -180,7 +180,7 @@ function Topbar({ title, subtitle }: TopbarProps) {
 
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>
-            <button className="hover:bg-bg-elevated focus-visible:ring-primary/50 ml-1 flex h-9 items-center gap-2 rounded-lg pr-2 pl-1.5 transition-colors focus-visible:ring-2 focus-visible:outline-none">
+            <button className="hover:bg-bg-elevated focus-visible:ring-primary/50 ml-1 flex h-9 items-center gap-2 rounded-xl pr-2 pl-1.5 transition-colors focus-visible:ring-2 focus-visible:outline-none">
               <div className="bg-primary/20 border-primary/30 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border">
                 <span className="text-primary text-xs font-bold">
                   {initials(user?.name)}

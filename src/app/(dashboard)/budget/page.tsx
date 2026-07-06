@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { Plus, Pencil, Trash2, PiggyBank, AlertTriangle } from "lucide-react";
+import { DynamicIcon } from "~/components/ui/dynamic-icon";
 import { PageWrapper } from "~/components/layout/page-wrapper";
 import { Button } from "~/components/ui/button";
 import { Card, CardHeader, CardBody } from "~/components/ui/card";
@@ -30,19 +31,19 @@ const PERIOD_TABS: { key: BudgetPeriod; label: string }[] = [
   { key: "daily", label: "Harian" },
 ];
 
-const QUICK_EMOJIS = [
-  "🍔",
-  "🚗",
-  "🛍️",
-  "🎬",
-  "🏥",
-  "💡",
-  "☕",
-  "🏠",
-  "📱",
-  "🎮",
-  "✈️",
-  "💪",
+const QUICK_ICONS = [
+  "Utensils",
+  "Car",
+  "ShoppingCart",
+  "Film",
+  "HeartPulse",
+  "Lightbulb",
+  "Coffee",
+  "Home",
+  "Smartphone",
+  "Gamepad2",
+  "Plane",
+  "Dumbbell",
 ];
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
@@ -71,10 +72,10 @@ const EMPTY_FORM: BudgetForm = {
   subCategoryId: "",
   newSubCategoryName: "",
   category: "",
-  categoryIcon: "🎯",
+  categoryIcon: "Target",
   limit: "",
   period: "monthly",
-  color: "#6366f1",
+  color: "#FFD147",
   walletId: "",
 };
 
@@ -403,10 +404,16 @@ export default function BudgetPage() {
               <div className="flex items-start justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-3">
                   <div
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-xl"
-                    style={{ backgroundColor: `${budget.color}22` }}
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
+                    style={{
+                      backgroundColor: `${budget.color}22`,
+                      color: budget.color,
+                    }}
                   >
-                    {budget.categoryIcon}
+                    <DynamicIcon
+                      name={budget.categoryIcon}
+                      className="h-5 w-5"
+                    />
                   </div>
                   <div className="min-w-0">
                     <h3 className="text-text-primary truncate text-sm font-bold">
@@ -425,8 +432,10 @@ export default function BudgetPage() {
                         );
                         if (!sub) return null;
                         return (
-                          <span className="text-text-muted ml-1 font-normal">
-                            · {sub.icon} {sub.name}
+                          <span className="text-text-muted ml-1 inline-flex items-center gap-1 font-normal">
+                            ·{" "}
+                            <DynamicIcon name={sub.icon} className="h-3 w-3" />{" "}
+                            {sub.name}
                           </span>
                         );
                       })()}
@@ -496,8 +505,9 @@ export default function BudgetPage() {
                   const w = allWallets.find((x) => x.id === budget.walletId);
                   return w ? (
                     <div className="-mt-1 flex items-center gap-1">
-                      <span className="text-text-muted text-xs">
-                        {w.icon} {w.name}
+                      <span className="text-text-muted flex items-center gap-1 text-xs">
+                        <DynamicIcon name={w.icon} className="h-3 w-3" />{" "}
+                        {w.name}
                       </span>
                     </div>
                   ) : null;
@@ -681,7 +691,7 @@ export default function BudgetPage() {
                             : { backgroundColor: "var(--bg-elevated, #1a1d27)" }
                         }
                       >
-                        <span>{c.icon}</span>
+                        <DynamicIcon name={c.icon} className="h-5 w-5" />
                         {c.name}
                       </button>
                     );
@@ -752,7 +762,7 @@ export default function BudgetPage() {
                                   }
                             }
                           >
-                            <span>{s.icon}</span>
+                            <DynamicIcon name={s.icon} className="h-4 w-4" />
                             {s.name}
                           </button>
                         );
@@ -779,18 +789,18 @@ export default function BudgetPage() {
               Ikon Kategori
             </label>
             <div className="mb-1 flex flex-wrap gap-1.5">
-              {QUICK_EMOJIS.map((emoji) => (
+              {QUICK_ICONS.map((icon) => (
                 <button
-                  key={emoji}
+                  key={icon}
                   type="button"
-                  onClick={() => fld("categoryIcon", emoji)}
+                  onClick={() => fld("categoryIcon", icon)}
                   className={`flex h-9 w-9 items-center justify-center rounded-lg text-lg transition-all ${
-                    form.categoryIcon === emoji
+                    form.categoryIcon === icon
                       ? "bg-primary/20 ring-primary ring-2"
                       : "bg-bg-elevated hover:bg-bg-elevated/80"
                   }`}
                 >
-                  {emoji}
+                  <DynamicIcon name={icon} className="h-5 w-5" />
                 </button>
               ))}
             </div>
@@ -851,7 +861,7 @@ export default function BudgetPage() {
               <option value="">— Semua Dompet —</option>
               {allWallets.map((w) => (
                 <option key={w.id} value={w.id}>
-                  {w.icon} {w.name}
+                  {w.name}
                 </option>
               ))}
             </select>

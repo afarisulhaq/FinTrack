@@ -18,9 +18,9 @@ function Card({ className, children, padding = "md" }: CardProps) {
   return (
     <div
       className={cn(
-        "bg-bg-surface border border-border rounded-xl",
+        "bg-surface-card border-border rounded-2xl border shadow-sm",
         paddingMap[padding],
-        className
+        className,
       )}
     >
       {children}
@@ -37,8 +37,8 @@ function CardHeader({ className, children }: CardSectionProps) {
   return (
     <div
       className={cn(
-        "flex items-center justify-between gap-3 pb-4 mb-4 border-b border-border",
-        className
+        "border-border mb-4 flex items-center justify-between gap-3 border-b pb-4",
+        className,
       )}
     >
       {children}
@@ -54,8 +54,8 @@ function CardFooter({ className, children }: CardSectionProps) {
   return (
     <div
       className={cn(
-        "flex items-center justify-end gap-3 pt-4 mt-4 border-t border-border",
-        className
+        "border-border mt-4 flex items-center justify-end gap-3 border-t pt-4",
+        className,
       )}
     >
       {children}

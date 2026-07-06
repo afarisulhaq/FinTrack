@@ -1940,7 +1940,7 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
       type,
       name: trimmed,
       icon: icon ?? "📁",
-      color: color ?? "#6366f1",
+      color: color ?? "#FFD147",
       sortOrder: 0,
       isSystem: false,
     });
@@ -1960,7 +1960,7 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
       categoryId,
       name: trimmed,
       icon: icon ?? parent?.icon ?? "🔖",
-      color: color ?? parent?.color ?? "#6366f1",
+      color: color ?? parent?.color ?? "#FFD147",
       sortOrder: 0,
       isSystem: false,
     });
