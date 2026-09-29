@@ -193,7 +193,7 @@ export function QrisModal({
 
             <p className="text-text-muted text-center text-xs">
               Minta peserta scan QR di atas dengan e-wallet mereka. Nominal
-              sudah terisi otomatis — tidak perlu input manual.
+              sudah terisi otomatis, tidak perlu input manual.
             </p>
 
             <details className="border-border rounded-lg border p-2">

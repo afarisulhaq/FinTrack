@@ -22,6 +22,7 @@ import { ProgressBar } from "~/components/ui/progress-bar";
 import { DynamicIcon } from "~/components/ui/dynamic-icon";
 import { SpendingTrendChart } from "~/components/charts/spending-trend-chart";
 import { useFinanceStore } from "~/store/useFinanceStore";
+import { useAppConfigStore } from "~/store/useAppConfigStore";
 import { formatCurrency, daysUntil, percentage } from "~/lib/utils";
 
 export default function DashboardPage() {
@@ -30,12 +31,18 @@ export default function DashboardPage() {
   const investments = useFinanceStore((s) => s.investments);
   const wallets = useFinanceStore((s) => s.wallets);
   const transactions = useFinanceStore((s) => s.transactions);
+  // Read the configured currency so dashboard totals reflect the
+  // admin app-settings choice (e.g. IDR → USD). The store hydrates
+  // from `localStorage` on mount, so the first paint already has the
+  // right currency instead of flashing IDR first.
+  const currency = useAppConfigStore((s) => s.config.currency);
+  const appName = useAppConfigStore((s) => s.config.appName);
+  const tagline = useAppConfigStore((s) => s.config.tagline);
 
   const totalBalance = useMemo(
     () => wallets.filter((w) => !w.parentId).reduce((s, w) => s + w.balance, 0),
     [wallets],
   );
-
   const portfolioValue = useMemo(
     () =>
       investments.reduce((s, inv) => s + inv.quantity * inv.currentPrice, 0),
@@ -74,6 +81,26 @@ export default function DashboardPage() {
     income: 0,
     expense: 0,
   };
+  const prevMonth = monthlyData[monthlyData.length - 2] ?? {
+    month: "-",
+    income: 0,
+    expense: 0,
+  };
+
+  // Real Month-over-Month calculations
+  const incomeTrend = prevMonth.income > 0
+    ? {
+        value: Math.round(((latestMonth.income - prevMonth.income) / prevMonth.income) * 1000) / 10,
+        label: `vs ${prevMonth.month}`,
+      }
+    : undefined;
+
+  const expenseTrend = prevMonth.expense > 0
+    ? {
+        value: Math.round(((latestMonth.expense - prevMonth.expense) / prevMonth.expense) * 1000) / 10,
+        label: `vs ${prevMonth.month}`,
+      }
+    : undefined;
 
   const unpaidBills = useMemo(
     () =>
@@ -94,85 +121,66 @@ export default function DashboardPage() {
     amount: m.expense,
   }));
 
-  const QUICK_LINKS = [
-    {
-      href: "/investments",
-      label: "Investasi",
-      icon: TrendingUp,
-      color: "#FFD147",
-    },
-    { href: "/bills", label: "Tagihan", icon: Bell, color: "#f59e0b" },
-    { href: "/savings", label: "Tabungan", icon: PiggyBank, color: "#22c55e" },
-    { href: "/debts", label: "Hutang", icon: Layers, color: "#ef4444" },
-    { href: "/cards", label: "Kartu", icon: CreditCard, color: "#38bdf8" },
-    { href: "/wishlist", label: "Wishlist", icon: Star, color: "#ec4899" },
-    {
-      href: "/statistics",
-      label: "Statistik",
-      icon: BarChart2,
-      color: "#FFB347",
-    },
+  const QUICK_ACTIONS = [
+    { href: "/investments", label: "Investasi", icon: TrendingUp },
+    { href: "/bills", label: "Tagihan", icon: Bell },
+    { href: "/savings", label: "Tabungan", icon: PiggyBank },
+    { href: "/debts", label: "Utang & Piutang", icon: Layers },
+    { href: "/cards", label: "Kartu", icon: CreditCard },
+    { href: "/wishlist", label: "Wishlist", icon: Star },
+    { href: "/statistics", label: "Statistik", icon: BarChart2 },
   ];
-
   return (
-    <PageWrapper title="Dashboard" subtitle="Selamat datang kembali 👋">
-      {/* ── Net Worth ───────────────────────────────────────────────── */}
+    <PageWrapper title={appName} subtitle={tagline}>
+      {/* ── Key Metrics Grid ─────────────────────────────────────────── */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Net Worth"
-          value={formatCurrency(netWorth)}
-          subtitle="Total kekayaan bersih"
-          icon={<Wallet />}
-          iconColor="#FFD147"
-          trend={{ value: 4.5, label: "vs bulan lalu" }}
+          value={formatCurrency(netWorth, false, currency)}
+          subtitle="Total kas dan investasi"
+          icon={<Wallet className="text-primary" />}
+          className="bg-gradient-to-br from-bg-surface via-bg-surface to-primary/5 border-primary/30"
         />
         <StatCard
           title="Saldo Rekening"
-          value={formatCurrency(totalBalance)}
-          subtitle={`${wallets.filter((w) => !w.parentId).length} rekening`}
+          value={formatCurrency(totalBalance, false, currency)}
+          subtitle={`${wallets.filter((w) => !w.parentId).length} akun aktif`}
           icon={<Wallet />}
-          iconColor="#22c55e"
         />
         <StatCard
           title="Pemasukan Bulan Ini"
-          value={formatCurrency(latestMonth.income)}
-          icon={<TrendingUp />}
-          iconColor="#22c55e"
-          trend={{ value: 6.1, label: "vs bulan lalu" }}
+          value={formatCurrency(latestMonth.income, false, currency)}
+          icon={<TrendingUp className="text-success" />}
+          trend={incomeTrend}
         />
         <StatCard
           title="Pengeluaran Bulan Ini"
-          value={formatCurrency(latestMonth.expense)}
-          icon={<TrendingDown />}
-          iconColor="#ef4444"
-          trend={{ value: -2.3, label: "vs bulan lalu" }}
+          value={formatCurrency(latestMonth.expense, false, currency)}
+          icon={<TrendingDown className="text-danger" />}
+          trend={expenseTrend}
         />
       </div>
 
-      {/* ── Quick Links ─────────────────────────────────────────────── */}
-      <div className="grid grid-cols-4 gap-3 sm:grid-cols-7">
-        {QUICK_LINKS.map((item) => {
+      {/* ── Quick Action Strip ────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 lg:grid-cols-7">
+        {QUICK_ACTIONS.map((item) => {
           const Icon = item.icon;
           return (
             <Link
               key={item.href}
               href={item.href}
-              className="bg-bg-surface border-border hover:border-border/60 hover:bg-bg-elevated group flex flex-col items-center gap-2 rounded-xl border p-3 transition-all"
+              className="bg-surface-card border-border hover:border-primary/40 hover:bg-bg-elevated/70 group flex items-center gap-3 rounded-xl border p-3 shadow-subtle transition-all"
             >
-              <div
-                className="flex h-10 w-10 items-center justify-center rounded-xl"
-                style={{ backgroundColor: `${item.color}15` }}
-              >
-                <Icon className="h-5 w-5" style={{ color: item.color }} />
+              <div className="bg-primary/10 border-primary/20 text-primary group-hover:bg-primary group-hover:text-on-primary flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition-colors">
+                <Icon className="h-4 w-4" />
               </div>
-              <span className="text-text-muted group-hover:text-text-secondary text-center text-[11px] font-medium transition-colors">
+              <span className="text-text-secondary group-hover:text-text-primary truncate text-xs font-semibold transition-colors">
                 {item.label}
               </span>
             </Link>
           );
         })}
       </div>
-
       {/* ── Main Grid ──────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Spending Trend */}
@@ -218,7 +226,7 @@ export default function DashboardPage() {
                         {goal.name}
                       </span>
                       <span
-                        className="text-xs font-semibold"
+                        className="text-xs font-semibold tabular-nums"
                         style={{ color: goal.color }}
                       >
                         {pct}%
@@ -230,9 +238,9 @@ export default function DashboardPage() {
                       color={goal.color}
                       size="sm"
                     />
-                    <div className="text-text-muted mt-0.5 flex justify-between text-[10px]">
-                      <span>{formatCurrency(goal.currentAmount)}</span>
-                      <span>{formatCurrency(goal.targetAmount)}</span>
+                    <div className="text-text-muted mt-1 flex justify-between text-[11px] font-medium tabular-nums">
+                      <span>{formatCurrency(goal.currentAmount, false, currency)}</span>
+                      <span>{formatCurrency(goal.targetAmount, false, currency)}</span>
                     </div>
                   </div>
                 );
@@ -269,32 +277,44 @@ export default function DashboardPage() {
               return (
                 <div
                   key={bill.id}
-                  className={`flex items-center gap-3 rounded-xl border p-3 ${isOverdue ? "border-danger/30 bg-danger/5" : isUrgent ? "border-warning/30 bg-warning/5" : "border-border bg-bg-elevated"}`}
+                  className={`flex items-center gap-3 rounded-xl border p-3.5 transition-colors ${
+                    isOverdue
+                      ? "border-danger/30 bg-danger/5"
+                      : isUrgent
+                        ? "border-warning/30 bg-warning/5"
+                        : "border-border bg-bg-surface hover:bg-bg-elevated/50"
+                  }`}
                 >
-                  <DynamicIcon name={bill.icon} className="h-5 w-5 shrink-0" />
+                  <DynamicIcon name={bill.icon} className="h-5 w-5 shrink-0 text-text-secondary" />
                   <div className="min-w-0 flex-1">
                     <p className="text-text-primary truncate text-sm font-medium">
                       {bill.name}
                     </p>
                     <p
-                      className={`text-xs font-medium ${isOverdue ? "text-danger" : isUrgent ? "text-warning" : "text-text-muted"}`}
+                      className={`text-xs font-medium ${
+                        isOverdue
+                          ? "text-danger"
+                          : isUrgent
+                            ? "text-warning"
+                            : "text-text-muted"
+                      }`}
                     >
                       {isOverdue
-                        ? `Terlambat ${Math.abs(days)} hr`
+                        ? `Terlambat ${Math.abs(days)} hari`
                         : days === 0
-                          ? "Hari ini"
-                          : `${days} hari`}
+                          ? "Jatuh tempo hari ini"
+                          : `${days} hari lagi`}
                     </p>
                   </div>
-                  <span className="text-text-primary shrink-0 text-xs font-bold">
-                    {formatCurrency(bill.amount)}
+                  <span className="text-text-primary shrink-0 text-xs font-bold tabular-nums">
+                    {formatCurrency(bill.amount, false, currency)}
                   </span>
                 </div>
               );
             })}
             {unpaidBills.length === 0 && (
-              <div className="text-text-muted col-span-full py-4 text-center text-sm">
-                Tidak ada tagihan tertunda 🎉
+              <div className="text-text-muted col-span-full py-6 text-center text-sm">
+                Tidak ada tagihan tertunda untuk saat ini.
               </div>
             )}
           </div>

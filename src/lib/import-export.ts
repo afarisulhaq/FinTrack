@@ -452,19 +452,95 @@ export function openMonthlyReportPrint(
 
 // ── Templates ─────────────────────────────────────────────────────────────
 
+export const TRANSACTION_CSV_SAMPLE_ROWS: ReadonlyArray<readonly string[]> = [
+  // Baris contoh di bawah adalah data dummy — silakan dihapus sebelum import.
+  // tipe harus salah satu dari: income | expense | transfer
+  // kategori harus sesuai dengan kategori yang sudah ada di Settings → Kategori.
+  [
+    "txn-sample-1",
+    "2026-09-01",
+    "income",
+    "8500000",
+    "Gaji",
+    "Gaji bulanan September",
+    "Dompet Utama",
+    "bulanan",
+  ],
+  [
+    "txn-sample-2",
+    "2026-09-05",
+    "income",
+    "1500000",
+    "Freelance",
+    "Bayaran project landing page",
+    "Bank BCA",
+    "freelance; september",
+  ],
+  [
+    "txn-sample-3",
+    "2026-09-07",
+    "expense",
+    "45000",
+    "Makan",
+    "Makan siang di kantor",
+    "Dompet Utama",
+    "kantor",
+  ],
+  [
+    "txn-sample-4",
+    "2026-09-10",
+    "expense",
+    "25000",
+    "Transport",
+    "Gojek ke kantor",
+    "Dompet Utama",
+    "harian",
+  ],
+  [
+    "txn-sample-5",
+    "2026-09-12",
+    "expense",
+    "320000",
+    "Belanja",
+    "Belanja mingguan",
+    "Bank BCA",
+    "mingguan",
+  ],
+  [
+    "txn-sample-6",
+    "2026-09-15",
+    "expense",
+    "150000",
+    "Hiburan",
+    "Tiket bioskop weekend",
+    "Dompet Utama",
+    "weekend",
+  ],
+  [
+    "txn-sample-7",
+    "2026-09-18",
+    "expense",
+    "275000",
+    "Kesehatan",
+    "Obat & vitamin",
+    "Dompet Utama",
+    "",
+  ],
+  [
+    "txn-sample-8",
+    "2026-09-20",
+    "expense",
+    "450000",
+    "Tagihan",
+    "Listrik & internet",
+    "Bank BCA",
+    "tagihan; bulanan",
+  ],
+];
+
 export function getTransactionsCSVTemplate(): string {
   const headers = [...TRANSACTION_CSV_HEADERS];
-  const example = [
-    "txn-001",
-    "2026-06-15",
-    "expense",
-    "50000",
-    "Makanan",
-    "Makan siang",
-    "Dompet Utama",
-    "kantor; mingguan",
-  ];
-  return rowsToCSV([headers, example]);
+  return rowsToCSV([headers, ...TRANSACTION_CSV_SAMPLE_ROWS]);
 }
 
 export function getWalletsCSVTemplate(): string {
@@ -473,34 +549,164 @@ export function getWalletsCSVTemplate(): string {
   return rowsToCSV([headers, example]);
 }
 
+/**
+ * Canonical list of expense + income categories seeded by the app.
+ * Used by the JSON backup template so first-time users see real
+ * examples that match the categories page in Settings → Kategori.
+ */
+export const SAMPLE_INCOME_CATEGORIES: ReadonlyArray<{
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+}> = [
+  { id: "cat-inc-gaji", name: "Gaji", icon: "Wallet", color: "#22c55e" },
+  { id: "cat-inc-freelance", name: "Freelance", icon: "Laptop", color: "#06b6d4" },
+  { id: "cat-inc-investasi", name: "Investasi", icon: "TrendingUp", color: "#a855f7" },
+  { id: "cat-inc-hadiah", name: "Hadiah", icon: "Gift", color: "#f59e0b" },
+];
+
+export const SAMPLE_EXPENSE_CATEGORIES: ReadonlyArray<{
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+}> = [
+  { id: "cat-exp-makan", name: "Makan", icon: "Utensils", color: "#f97316" },
+  { id: "cat-exp-transport", name: "Transport", icon: "Car", color: "#3b82f6" },
+  { id: "cat-exp-belanja", name: "Belanja", icon: "ShoppingBag", color: "#a855f7" },
+  { id: "cat-exp-hiburan", name: "Hiburan", icon: "Film", color: "#ec4899" },
+  { id: "cat-exp-kesehatan", name: "Kesehatan", icon: "HeartPulse", color: "#22c55e" },
+  { id: "cat-exp-tagihan", name: "Tagihan", icon: "Lightbulb", color: "#FFD147" },
+];
+
 export function getBackupJSONTemplate(appName = "FinTrack"): string {
+  const today = new Date().toISOString().slice(0, 10);
+  const sampleDate = `${today}T00:00:00.000Z`;
   const template: BackupBundle = {
     version: EXPORT_FORMAT_VERSION,
     exportedAt: new Date().toISOString(),
     appName,
     wallets: [
       {
-        id: "wlt-001",
+        id: "wlt-sample-1",
         name: "Dompet Utama",
         type: "cash",
-        balance: 500000,
+        balance: 1500000,
         currency: "IDR",
         color: "#22c55e",
-        icon: "Banknote",
+        icon: "Wallet",
+      },
+      {
+        id: "wlt-sample-2",
+        name: "Bank BCA",
+        type: "bank",
+        balance: 5200000,
+        currency: "IDR",
+        color: "#3b82f6",
+        icon: "Landmark",
       },
     ],
+    // Contoh kategori sudah ada di Settings → Kategori. Tidak perlu
+    // di-restore kalau user sudah punya master categories sendiri.
+    categories: [
+      ...SAMPLE_INCOME_CATEGORIES.map((c, i) => ({
+        id: c.id,
+        type: "income" as const,
+        name: c.name,
+        icon: c.icon,
+        color: c.color,
+        sortOrder: i,
+        isSystem: true,
+        subCategories: [],
+        createdAt: sampleDate,
+        updatedAt: sampleDate,
+      })),
+      ...SAMPLE_EXPENSE_CATEGORIES.map((c, i) => ({
+        id: c.id,
+        type: "expense" as const,
+        name: c.name,
+        icon: c.icon,
+        color: c.color,
+        sortOrder: i,
+        isSystem: true,
+        subCategories: [],
+        createdAt: sampleDate,
+        updatedAt: sampleDate,
+      })),
+    ],
+    subCategories: [],
     transactions: [
       {
-        id: "txn-001",
-        type: "expense",
-        amount: 50000,
-        category: "Makanan",
-        categoryIcon: "Utensils",
-        walletId: "wlt-001",
+        id: "txn-sample-1",
+        type: "income",
+        amount: 8500000,
+        category: "Gaji",
+        categoryIcon: "Wallet",
+        walletId: "wlt-sample-1",
         walletName: "Dompet Utama",
-        description: "Contoh transaksi",
-        date: "2026-06-15T00:00:00.000Z",
-        tags: ["contoh"],
+        description: "Gaji bulanan",
+        date: sampleDate,
+        tags: ["bulanan"],
+      },
+      {
+        id: "txn-sample-2",
+        type: "income",
+        amount: 1500000,
+        category: "Freelance",
+        categoryIcon: "Laptop",
+        walletId: "wlt-sample-2",
+        walletName: "Bank BCA",
+        description: "Project landing page",
+        date: sampleDate,
+        tags: ["freelance"],
+      },
+      {
+        id: "txn-sample-3",
+        type: "expense",
+        amount: 45000,
+        category: "Makan",
+        categoryIcon: "Utensils",
+        walletId: "wlt-sample-1",
+        walletName: "Dompet Utama",
+        description: "Makan siang di kantor",
+        date: sampleDate,
+        tags: ["kantor"],
+      },
+      {
+        id: "txn-sample-4",
+        type: "expense",
+        amount: 25000,
+        category: "Transport",
+        categoryIcon: "Car",
+        walletId: "wlt-sample-1",
+        walletName: "Dompet Utama",
+        description: "Gojek ke kantor",
+        date: sampleDate,
+      },
+      {
+        id: "txn-sample-5",
+        type: "expense",
+        amount: 320000,
+        category: "Belanja",
+        categoryIcon: "ShoppingBag",
+        walletId: "wlt-sample-2",
+        walletName: "Bank BCA",
+        description: "Belanja mingguan",
+        date: sampleDate,
+        tags: ["mingguan"],
+      },
+      {
+        id: "txn-sample-6",
+        type: "expense",
+        amount: 450000,
+        category: "Tagihan",
+        categoryIcon: "Lightbulb",
+        walletId: "wlt-sample-2",
+        walletName: "Bank BCA",
+        description: "Listrik & internet",
+        date: sampleDate,
+        tags: ["tagihan"],
       },
     ],
     budgets: [],
@@ -514,8 +720,6 @@ export function getBackupJSONTemplate(appName = "FinTrack"): string {
     notes: [],
     recurringTransactions: [],
     splitBills: [],
-    categories: [],
-    subCategories: [],
   };
   return JSON.stringify(template, null, 2);
 }

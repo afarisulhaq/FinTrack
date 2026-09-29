@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { useAuthStore } from "~/store/useAuthStore";
@@ -12,14 +12,27 @@ interface AuthGuardProps {
 export default function AuthGuard({ children }: AuthGuardProps) {
   const { isAuthenticated, hasHydrated } = useAuthStore();
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
+
+  // Tracks whether the client has painted at least once. Keeping the
+  // server and first-client render byte-identical avoids the React
+  // "hydration mismatch" warning we get when the auth slice rehydrates
+  // from storage and swaps the loading label ("Memuat sesi..." ->
+  // "Mengalihkan ke login...") mid-hydration.
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
-    if (hasHydrated && !isAuthenticated) {
+    if (mounted && hasHydrated && !isAuthenticated) {
       router.replace("/login");
     }
-  }, [hasHydrated, isAuthenticated, router]);
+  }, [mounted, hasHydrated, isAuthenticated, router]);
 
-  if (!hasHydrated) {
+  // Always render the same DOM on the server and the very first client
+  // render. The actual page only swaps in once persist has rehydrated
+  // AND we've committed at least one client-side render.
+  if (!mounted || !hasHydrated) {
     return <LoadingScreen label="Memuat sesi..." />;
   }
 

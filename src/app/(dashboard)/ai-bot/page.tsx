@@ -860,7 +860,7 @@ export default function AiBotPage() {
                     </span>
                   )}
                   <span className="text-text-muted mt-1 text-xs">
-                    Aktif — kirim pesan ke nomor ini untuk catat transaksi
+                    Aktif: kirim pesan ke nomor ini untuk catat transaksi
                   </span>
                 </motion.div>
               )}
@@ -1352,7 +1352,7 @@ export default function AiBotPage() {
 
             <p className="border-border bg-bg-surface text-text-muted shrink-0 border-t py-2 text-center text-[11px]">
               {botStatus ??
-                "💡 Input aktif — backend bot akan dipakai jika server berjalan"}
+                "Input aktif: backend bot akan dipakai jika server berjalan"}
             </p>
           </Card>
         </div>
@@ -1377,7 +1377,7 @@ export default function AiBotPage() {
                 Jl. Sudirman No. 12, Jakarta
               </p>
               <p className="mb-3 text-center text-[11px] text-gray-500">
-                07/06/2026 — 10:11 WIB
+                07/06/2026 - 10:11 WIB
               </p>
               <div className="border-t border-dashed border-gray-300 pt-2.5">
                 <div className="space-y-1.5">
@@ -1405,7 +1405,7 @@ export default function AiBotPage() {
                 </div>
               </div>
               <p className="mt-4 text-center text-[11px] text-gray-400">
-                — Terima kasih telah berbelanja! —
+                Terima kasih telah berbelanja!
               </p>
             </div>
           </div>

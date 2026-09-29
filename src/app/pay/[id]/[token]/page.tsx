@@ -224,10 +224,10 @@ function PayPageInner({
               <p className="text-text-primary mt-0.5 text-lg font-semibold">
                 {data.participant.name}
               </p>
-              <p className="text-text-primary mt-3 text-4xl font-extrabold tracking-tight">
+              <p className="text-text-primary mt-3 text-4xl font-extrabold tracking-tight tabular-nums">
                 {formatCurrency(data.participant.amount)}
               </p>
-              <p className="text-text-muted mt-1 text-xs">
+              <p className="text-text-muted mt-1 text-xs tabular-nums">
                 dari total {formatCurrency(data.totalAmount)}
               </p>
             </section>

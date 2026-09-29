@@ -21,7 +21,7 @@ function StatCard({
   value,
   subtitle,
   icon,
-  iconColor = "#FFD147",
+  iconColor,
   trend,
   className,
 }: StatCardProps) {
@@ -30,8 +30,8 @@ function StatCard({
   return (
     <div
       className={cn(
-        "bg-bg-surface border-border rounded-xl border p-5",
-        "hover:border-border/80 flex flex-col gap-4 transition-colors",
+        "bg-surface-card border-border rounded-xl border p-5",
+        "hover:border-border-strong hover:shadow-card transition-all duration-200 flex flex-col justify-between gap-4",
         className,
       )}
     >
@@ -39,26 +39,26 @@ function StatCard({
       <div className="flex items-start justify-between gap-3">
         {/* Text */}
         <div className="flex min-w-0 flex-col gap-1">
-          <span className="text-text-muted text-xs font-medium tracking-wide uppercase">
+          <span className="text-text-muted text-[11px] font-semibold tracking-wider uppercase">
             {title}
           </span>
-          <span className="text-text-primary text-2xl leading-none font-bold tracking-tight">
+          <span className="text-text-primary text-2xl font-bold tracking-tight tabular-nums">
             {value}
           </span>
           {subtitle && (
-            <span className="text-text-muted mt-0.5 text-xs">{subtitle}</span>
+            <span className="text-text-muted mt-0.5 text-xs font-normal">{subtitle}</span>
           )}
         </div>
 
-        {/* Icon badge */}
+        {/* Icon container */}
         <div
-          className="shrink-0 rounded-xl p-2.5"
-          style={{ backgroundColor: `${iconColor}1a` }}
+          className={cn(
+            "shrink-0 rounded-lg p-2.5 flex items-center justify-center border",
+            iconColor ? "" : "bg-primary/10 border-primary/20 text-primary"
+          )}
+          style={iconColor ? { backgroundColor: `${iconColor}15`, borderColor: `${iconColor}30`, color: iconColor } : undefined}
         >
-          <span
-            className="flex items-center justify-center [&>svg]:h-5 [&>svg]:w-5"
-            style={{ color: iconColor }}
-          >
+          <span className="flex items-center justify-center [&>svg]:h-5 [&>svg]:w-5">
             {icon}
           </span>
         </div>
@@ -66,21 +66,25 @@ function StatCard({
 
       {/* Trend row */}
       {trend && (
-        <div className="border-border flex items-center gap-1.5 border-t pt-1">
-          {isPositive ? (
-            <TrendingUp className="text-success h-3.5 w-3.5 shrink-0" />
-          ) : (
-            <TrendingDown className="text-danger h-3.5 w-3.5 shrink-0" />
-          )}
-          <span
+        <div className="border-border/60 flex items-center gap-2 border-t pt-2.5">
+          <div
             className={cn(
-              "text-xs font-semibold",
-              isPositive ? "text-success" : "text-danger",
+              "inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-semibold tabular-nums leading-none",
+              isPositive
+                ? "bg-success/10 text-success"
+                : "bg-danger/10 text-danger"
             )}
           >
-            {isPositive ? "+" : ""}
-            {trend.value}%
-          </span>
+            {isPositive ? (
+              <TrendingUp className="h-3 w-3 shrink-0" />
+            ) : (
+              <TrendingDown className="h-3 w-3 shrink-0" />
+            )}
+            <span>
+              {isPositive ? "+" : ""}
+              {trend.value}%
+            </span>
+          </div>
           <span className="text-text-muted text-xs">{trend.label}</span>
         </div>
       )}

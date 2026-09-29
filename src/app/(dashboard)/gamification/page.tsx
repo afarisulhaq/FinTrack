@@ -2,7 +2,22 @@
 
 import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
-import { Flame, Snowflake, Trophy, Shield, Zap } from "lucide-react";
+import {
+  Flame,
+  Snowflake,
+  Trophy,
+  Shield,
+  Zap,
+  Sparkles,
+  CheckCircle2,
+  Lock,
+  Crown,
+  Medal,
+  Bird,
+  Cat,
+  Flower2,
+  Star,
+} from "lucide-react";
 import { PageWrapper } from "~/components/layout/page-wrapper";
 import { Card, CardHeader, CardBody } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
@@ -39,13 +54,12 @@ function HealthRing({ score }: { score: number }) {
   const cy = 90;
   const circ = 2 * Math.PI * r;
   const dashOffset = circ * (1 - score / 100);
-  const color =
-    score >= 70 ? "#22c55e" : score >= 50 ? "#f59e0b" : "#ef4444";
+  const color = score >= 70 ? "#22c55e" : score >= 50 ? "#f59e0b" : "#ef4444";
   const label =
     score >= 70 ? "Sehat" : score >= 50 ? "Cukup" : "Perlu Perhatian";
 
   return (
-    <div className="relative w-[180px] h-[180px] shrink-0">
+    <div className="relative h-[180px] w-[180px] shrink-0">
       {/* SVG ring — rotated so the gap starts at the top */}
       <svg
         width="180"
@@ -83,17 +97,11 @@ function HealthRing({ score }: { score: number }) {
 
       {/* Inner text */}
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5">
-        <span
-          className="text-4xl font-black leading-none"
-          style={{ color }}
-        >
+        <span className="text-4xl leading-none font-black" style={{ color }}>
           {score}
         </span>
-        <span className="text-xs text-text-muted">/100</span>
-        <span
-          className="text-sm font-semibold mt-0.5"
-          style={{ color }}
-        >
+        <span className="text-text-muted text-xs">/100</span>
+        <span className="mt-0.5 text-sm font-semibold" style={{ color }}>
           {label}
         </span>
       </div>
@@ -108,18 +116,25 @@ interface LeaderboardEntry {
   name: string;
   score: number;
   isCurrentUser: boolean;
-  emoji: string;
+  Icon: React.ComponentType<{ className?: string }>;
 }
 
 const LEADERBOARD: LeaderboardEntry[] = [
-  { rank: 1, name: "Ahmad R.", score: 88, isCurrentUser: false, emoji: "🦅" },
-  { rank: 2, name: "Budi S.", score: 81, isCurrentUser: false, emoji: "🦁" },
-  { rank: 3, name: "Kamu", score: 72, isCurrentUser: true, emoji: "⭐" },
-  { rank: 4, name: "Citra M.", score: 65, isCurrentUser: false, emoji: "🌸" },
-  { rank: 5, name: "Dian K.", score: 59, isCurrentUser: false, emoji: "🦊" },
+  { rank: 1, name: "Ahmad R.", score: 88, isCurrentUser: false, Icon: Bird },
+  { rank: 2, name: "Budi S.", score: 81, isCurrentUser: false, Icon: Cat },
+  { rank: 3, name: "Kamu", score: 72, isCurrentUser: true, Icon: Star },
+  { rank: 4, name: "Citra M.", score: 65, isCurrentUser: false, Icon: Flower2 },
+  { rank: 5, name: "Dian K.", score: 59, isCurrentUser: false, Icon: Cat },
 ];
 
-const RANK_ICONS: Record<number, string> = { 1: "🥇", 2: "🥈", 3: "🥉" };
+const RANK_ICONS: Record<
+  number,
+  { Icon: React.ComponentType<{ className?: string }>; tone: string }
+> = {
+  1: { Icon: Crown, tone: "text-warning" },
+  2: { Icon: Medal, tone: "text-text-muted" },
+  3: { Icon: Medal, tone: "text-warning" },
+};
 
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
@@ -127,22 +142,20 @@ export default function GamificationPage() {
   const gamification = useFinanceStore((s) => s.gamification);
   const transactions = useFinanceStore((s) => s.transactions);
 
-  const [selectedBadge, setSelectedBadge] =
-    useState<GamificationBadge | null>(null);
+  const [selectedBadge, setSelectedBadge] = useState<GamificationBadge | null>(
+    null,
+  );
 
   const g = gamification;
-  const { nextThreshold, progress: xpProgress } = getXPInfo(
-    g.totalXP,
-    g.level
-  );
+  const { nextThreshold, progress: xpProgress } = getXPInfo(g.totalXP, g.level);
 
   const unlockedBadges = useMemo(
     () => g.badges.filter((b) => b.isUnlocked),
-    [g.badges]
+    [g.badges],
   );
   const lockedBadges = useMemo(
     () => g.badges.filter((b) => !b.isUnlocked),
-    [g.badges]
+    [g.badges],
   );
 
   // Build last-7-days activity grid from real transaction data
@@ -152,7 +165,7 @@ export default function GamificationPage() {
       d.setDate(d.getDate() - (6 - i));
       const dateStr = d.toISOString().split("T")[0];
       const hasRecord = transactions.some(
-        (tx) => tx.type === "expense" && tx.date.split("T")[0] === dateStr
+        (tx) => tx.type === "expense" && tx.date.split("T")[0] === dateStr,
       );
       return {
         date: d,
@@ -200,10 +213,8 @@ export default function GamificationPage() {
   const TIPS: Record<string, string> = {
     Tabungan: "Tingkatkan saving rate ke 20% untuk skor lebih baik",
     Anggaran: "Jaga pengeluaran tetap dalam batas anggaran setiap bulan",
-    Utang:
-      "Kurangi debt-to-income ratio dengan melunasi utang lebih cepat",
-    Investasi:
-      "Tambah aset investasi untuk meningkatkan skor finansial kamu",
+    Utang: "Kurangi debt-to-income ratio dengan melunasi utang lebih cepat",
+    Investasi: "Tambah aset investasi untuk meningkatkan skor finansial kamu",
   };
 
   return (
@@ -213,12 +224,12 @@ export default function GamificationPage() {
     >
       {/* ══ Section 1: Hero — Level & XP ════════════════════════════════════ */}
       <Card>
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
+        <div className="flex flex-col items-start gap-6 sm:flex-row sm:items-center">
           {/* Left: Level badge + XP bar */}
-          <div className="flex items-center gap-4 flex-1 min-w-0">
+          <div className="flex min-w-0 flex-1 items-center gap-4">
             {/* Circular level badge */}
             <div
-              className="shrink-0 w-20 h-20 rounded-full flex items-center justify-center"
+              className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full"
               style={{
                 background:
                   "linear-gradient(135deg, #FFD147 0%, #FFB347 60%, #FF8A7A 100%)",
@@ -231,29 +242,29 @@ export default function GamificationPage() {
             </div>
 
             {/* Level name + XP progress */}
-            <div className="flex-1 min-w-0">
-              <div className="flex flex-wrap items-center gap-2 mb-1">
-                <span className="text-lg font-bold text-text-primary">
+            <div className="min-w-0 flex-1">
+              <div className="mb-1 flex flex-wrap items-center gap-2">
+                <span className="text-text-primary text-lg font-bold">
                   {g.levelName}
                 </span>
                 <Badge variant="purple" size="sm">
                   Level {g.level}
                 </Badge>
               </div>
-              <p className="text-sm text-text-muted mb-3">
+              <p className="text-text-muted mb-3 text-sm">
                 {g.totalXP.toLocaleString("id-ID")} XP terkumpul
               </p>
 
               {/* Animated XP progress bar */}
               <div className="space-y-1.5">
-                <div className="flex justify-between text-xs text-text-muted">
+                <div className="text-text-muted flex justify-between text-xs">
                   <span>{g.totalXP.toLocaleString("id-ID")} XP</span>
                   <span>
                     {nextThreshold.toLocaleString("id-ID")} XP ke Level{" "}
                     {g.level + 1}
                   </span>
                 </div>
-                <div className="h-3 rounded-full bg-bg-elevated overflow-hidden relative">
+                <div className="bg-bg-elevated relative h-3 overflow-hidden rounded-full">
                   <motion.div
                     className="h-full rounded-full"
                     style={{
@@ -271,27 +282,29 @@ export default function GamificationPage() {
           </div>
 
           {/* Divider */}
-          <div className="hidden sm:block w-px h-20 bg-border shrink-0" />
+          <div className="bg-border hidden h-20 w-px shrink-0 sm:block" />
 
           {/* Right: Streak stats */}
-          <div className="flex gap-8 shrink-0">
+          <div className="flex shrink-0 gap-8">
             <div className="flex flex-col items-center gap-1">
               <div className="flex items-center gap-1.5">
-                <Flame className="w-6 h-6 text-warning" />
-                <span className="text-3xl font-black text-text-primary">
+                <Flame className="text-warning h-6 w-6" />
+                <span className="text-text-primary text-3xl font-black">
                   {g.currentStreak}
                 </span>
               </div>
-              <span className="text-xs text-text-muted">Hari Berturut-turut</span>
+              <span className="text-text-muted text-xs">
+                Hari Berturut-turut
+              </span>
             </div>
             <div className="flex flex-col items-center gap-1">
               <div className="flex items-center gap-1.5">
-                <Snowflake className="w-6 h-6" style={{ color: "#0ea5e9" }} />
-                <span className="text-3xl font-black text-text-primary">
+                <Snowflake className="h-6 w-6" style={{ color: "#0ea5e9" }} />
+                <span className="text-text-primary text-3xl font-black">
                   {g.zeroSpendStreak}
                 </span>
               </div>
-              <span className="text-xs text-text-muted">Hari Zero Spend</span>
+              <span className="text-text-muted text-xs">Hari Zero Spend</span>
             </div>
           </div>
         </div>
@@ -301,32 +314,32 @@ export default function GamificationPage() {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
-            <Shield className="w-5 h-5 text-primary" />
-            <h3 className="text-base font-semibold text-text-primary">
+            <Shield className="text-primary h-5 w-5" />
+            <h3 className="text-text-primary text-base font-semibold">
               Skor Kesehatan Finansial
             </h3>
           </div>
         </CardHeader>
         <CardBody>
-          <div className="flex flex-col md:flex-row items-center gap-8">
+          <div className="flex flex-col items-center gap-8 md:flex-row">
             {/* SVG ring */}
             <HealthRing score={g.healthScore} />
 
             {/* Breakdown rows */}
-            <div className="flex-1 w-full space-y-4">
+            <div className="w-full flex-1 space-y-4">
               {pillars.map((p) => (
                 <div key={p.label} className="space-y-1.5">
                   <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
+                    <div className="flex min-w-0 items-center gap-2">
                       <DynamicIcon name={p.icon} className="h-4 w-4 shrink-0" />
-                      <span className="text-sm font-medium text-text-primary">
+                      <span className="text-text-primary text-sm font-medium">
                         {p.label}
                       </span>
-                      <span className="text-xs text-text-muted hidden sm:block truncate">
-                        — {p.detail}
+                      <span className="text-text-muted hidden truncate text-xs sm:block">
+                        - {p.detail}
                       </span>
                     </div>
-                    <span className="text-sm font-bold text-text-primary shrink-0">
+                    <span className="text-text-primary shrink-0 text-sm font-bold">
                       {p.score}
                       <span className="text-text-muted font-normal">
                         /{p.max}
@@ -351,10 +364,10 @@ export default function GamificationPage() {
           </div>
 
           {/* Smart tip based on lowest pillar */}
-          <div className="mt-5 flex items-start gap-2.5 p-3.5 rounded-xl bg-bg-elevated border border-border">
-            <span className="text-base shrink-0 select-none">💡</span>
-            <p className="text-sm text-text-secondary leading-relaxed">
-              <span className="font-semibold text-warning">Tips: </span>
+          <div className="bg-bg-elevated border-border mt-5 flex items-start gap-2.5 rounded-xl border p-3.5">
+            <span className="shrink-0 text-base select-none">💡</span>
+            <p className="text-text-secondary text-sm leading-relaxed">
+              <span className="text-warning font-semibold">Tips: </span>
               {TIPS[lowestPillar.label]}
             </p>
           </div>
@@ -365,21 +378,21 @@ export default function GamificationPage() {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
-            <Flame className="w-5 h-5 text-warning" />
-            <h3 className="text-base font-semibold text-text-primary">
+            <Flame className="text-warning h-5 w-5" />
+            <h3 className="text-text-primary text-base font-semibold">
               Streak Tracker
             </h3>
           </div>
           <Badge variant="warning" size="sm">
-            🏆 Terpanjang: {g.longestStreak} hari
+            Terpanjang: {g.longestStreak} hari
           </Badge>
         </CardHeader>
         <CardBody>
-          <div className="flex flex-col sm:flex-row gap-6 sm:gap-8 items-start">
+          <div className="flex flex-col items-start gap-6 sm:flex-row sm:gap-8">
             {/* Big streak number */}
-            <div className="flex items-center gap-3 shrink-0">
+            <div className="flex shrink-0 items-center gap-3">
               <motion.span
-                className="text-5xl select-none"
+                className="text-warning flex h-12 w-12 items-center justify-center"
                 animate={{ scale: [1, 1.12, 1] }}
                 transition={{
                   duration: 1.8,
@@ -387,22 +400,24 @@ export default function GamificationPage() {
                   repeatDelay: 3,
                 }}
               >
-                🔥
+                <Flame className="h-10 w-10" />
               </motion.span>
               <div>
-                <div className="text-4xl font-black text-warning leading-none">
+                <div className="text-warning text-4xl leading-none font-black tabular-nums">
                   {g.currentStreak}
                 </div>
-                <div className="text-sm text-text-muted">hari berturut-turut</div>
+                <div className="text-text-muted text-sm">
+                  hari berturut-turut
+                </div>
               </div>
             </div>
 
             {/* 7-day dot grid */}
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium text-text-muted mb-3 uppercase tracking-wide">
+            <div className="min-w-0 flex-1">
+              <p className="text-text-muted mb-3 text-xs font-medium tracking-wide uppercase">
                 7 Hari Terakhir
               </p>
-              <div className="flex gap-2 flex-wrap">
+              <div className="flex flex-wrap gap-2">
                 {last7Days.map((day) => (
                   <div
                     key={day.dateStr}
@@ -410,16 +425,16 @@ export default function GamificationPage() {
                   >
                     <div
                       className={cn(
-                        "w-10 h-10 rounded-full flex items-center justify-center",
-                        "text-sm font-bold border transition-colors",
+                        "flex h-10 w-10 items-center justify-center rounded-full",
+                        "border text-sm font-bold transition-colors",
                         day.hasRecord
                           ? "bg-success/15 text-success border-success/30"
-                          : "bg-bg-elevated text-text-muted border-border"
+                          : "bg-bg-elevated text-text-muted border-border",
                       )}
                     >
                       {day.hasRecord ? "✓" : "–"}
                     </div>
-                    <span className="text-[10px] text-text-muted capitalize">
+                    <span className="text-text-muted text-[10px] capitalize">
                       {day.label}
                     </span>
                   </div>
@@ -430,29 +445,29 @@ export default function GamificationPage() {
             {/* Zero-spend counts */}
             <div className="shrink-0 space-y-3">
               <div className="flex items-center gap-2.5">
-                <span className="text-2xl select-none">⭐</span>
+                <Snowflake className="text-info h-5 w-5" />
                 <div>
-                  <div className="font-bold text-text-primary">
+                  <div className="text-text-primary font-bold tabular-nums">
                     {g.zeroSpendStreak}{" "}
-                    <span className="font-normal text-text-muted text-sm">
+                    <span className="text-text-muted text-sm font-normal">
                       hari
                     </span>
                   </div>
-                  <div className="text-xs text-text-muted">
+                  <div className="text-text-muted text-xs">
                     Zero spend bulan ini
                   </div>
                 </div>
               </div>
               <div className="flex items-center gap-2.5">
-                <span className="text-2xl select-none">🌟</span>
+                <Sparkles className="text-primary h-5 w-5" />
                 <div>
-                  <div className="font-bold text-text-primary">
+                  <div className="text-text-primary font-bold tabular-nums">
                     {g.totalZeroSpendDays}{" "}
-                    <span className="font-normal text-text-muted text-sm">
+                    <span className="text-text-muted text-sm font-normal">
                       hari
                     </span>
                   </div>
-                  <div className="text-xs text-text-muted">
+                  <div className="text-text-muted text-xs">
                     Total zero spend tahun ini
                   </div>
                 </div>
@@ -466,8 +481,8 @@ export default function GamificationPage() {
       <div className="space-y-5">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <Zap className="w-5 h-5 text-warning" />
-            <h3 className="text-lg font-bold text-text-primary">
+            <Zap className="text-warning h-5 w-5" />
+            <h3 className="text-text-primary text-lg font-bold">
               Koleksi Lencana
             </h3>
           </div>
@@ -479,15 +494,15 @@ export default function GamificationPage() {
         {/* ── Unlocked badges ─────────────────────────────── */}
         {unlockedBadges.length > 0 && (
           <div>
-            <p className="text-sm font-semibold text-success mb-3">
-              Sudah Diraih ✅
+            <p className="text-text-success mb-3 flex items-center gap-1.5 text-sm font-semibold">
+              <CheckCircle2 className="h-4 w-4" /> Sudah Diraih
             </p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
               {unlockedBadges.map((badge, i) => (
                 <motion.button
                   key={badge.id}
                   onClick={() => setSelectedBadge(badge)}
-                  className="text-left p-4 rounded-xl border relative overflow-hidden cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  className="focus-visible:ring-primary relative cursor-pointer overflow-hidden rounded-xl border p-4 text-left focus:outline-none focus-visible:ring-2"
                   style={{
                     backgroundColor: `${badge.color}18`,
                     borderColor: `${badge.color}35`,
@@ -501,7 +516,7 @@ export default function GamificationPage() {
                   }}
                 >
                   {/* Shimmer sweep overlay */}
-                  <div className="absolute inset-0 overflow-hidden rounded-xl pointer-events-none">
+                  <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-xl">
                     <motion.div
                       className="absolute top-0 bottom-0 w-1/2"
                       style={{
@@ -519,20 +534,20 @@ export default function GamificationPage() {
                   </div>
 
                   <DynamicIcon name={badge.icon} className="mb-2 h-8 w-8" />
-                  <div className="text-sm font-semibold text-text-primary mb-0.5 leading-tight">
+                  <div className="text-text-primary mb-0.5 text-sm leading-tight font-semibold">
                     {badge.name}
                   </div>
-                  <div className="text-xs text-text-secondary leading-tight mb-3 line-clamp-2">
+                  <div className="text-text-secondary mb-3 line-clamp-2 text-xs leading-tight">
                     {badge.description}
                   </div>
-                  <div className="flex items-center justify-between gap-1 flex-wrap">
+                  <div className="flex flex-wrap items-center justify-between gap-1">
                     {badge.unlockedAt && (
-                      <span className="text-[10px] text-text-muted">
+                      <span className="text-text-muted text-[10px]">
                         {formatDate(badge.unlockedAt, "short")}
                       </span>
                     )}
                     <span
-                      className="text-[10px] font-bold px-1.5 py-0.5 rounded-full ml-auto"
+                      className="ml-auto rounded-full px-1.5 py-0.5 text-[10px] font-bold"
                       style={{
                         backgroundColor: `${badge.color}25`,
                         color: badge.color,
@@ -550,15 +565,15 @@ export default function GamificationPage() {
         {/* ── Locked / in-progress badges ─────────────────── */}
         {lockedBadges.length > 0 && (
           <div>
-            <p className="text-sm font-semibold text-text-muted mb-3">
+            <p className="text-text-muted mb-3 text-sm font-semibold">
               Dalam Progress 🔓
             </p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
               {lockedBadges.map((badge, i) => (
                 <motion.button
                   key={badge.id}
                   onClick={() => setSelectedBadge(badge)}
-                  className="text-left p-4 rounded-xl border border-border bg-bg-elevated cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  className="border-border bg-bg-elevated focus-visible:ring-primary cursor-pointer rounded-xl border p-4 text-left focus:outline-none focus-visible:ring-2"
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3, delay: i * 0.06 }}
@@ -567,11 +582,14 @@ export default function GamificationPage() {
                     borderColor: "rgba(255,209,71,0.4)",
                   }}
                 >
-                  <DynamicIcon name={badge.icon} className="mb-2 h-8 w-8 opacity-40 grayscale" />
-                  <div className="text-sm font-semibold text-text-secondary mb-0.5 leading-tight">
+                  <DynamicIcon
+                    name={badge.icon}
+                    className="mb-2 h-8 w-8 opacity-40 grayscale"
+                  />
+                  <div className="text-text-secondary mb-0.5 text-sm leading-tight font-semibold">
                     {badge.name}
                   </div>
-                  <div className="text-xs text-text-muted leading-tight mb-2 line-clamp-2">
+                  <div className="text-text-muted mb-2 line-clamp-2 text-xs leading-tight">
                     {badge.description}
                   </div>
 
@@ -583,17 +601,17 @@ export default function GamificationPage() {
                         color="#FFD147"
                         size="sm"
                       />
-                      <span className="text-[10px] text-primary block">
+                      <span className="text-primary block text-[10px]">
                         {badge.progress}% selesai
                       </span>
                     </div>
                   )}
 
-                  <div className="flex items-center justify-between gap-1 flex-wrap mt-auto">
-                    <span className="text-[10px] text-text-muted truncate flex-1 leading-tight">
+                  <div className="mt-auto flex flex-wrap items-center justify-between gap-1">
+                    <span className="text-text-muted flex-1 truncate text-[10px] leading-tight">
                       {badge.condition}
                     </span>
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-bg-surface border border-border text-text-muted ml-1 shrink-0">
+                    <span className="bg-bg-surface border-border text-text-muted ml-1 shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-bold">
                       +{badge.xpReward} XP
                     </span>
                   </div>
@@ -608,8 +626,8 @@ export default function GamificationPage() {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
-            <Trophy className="w-5 h-5 text-warning" />
-            <h3 className="text-base font-semibold text-text-primary">
+            <Trophy className="text-warning h-5 w-5" />
+            <h3 className="text-text-primary text-base font-semibold">
               Peringkat Finansial Kamu
             </h3>
           </div>
@@ -630,43 +648,49 @@ export default function GamificationPage() {
                 <motion.div
                   key={entry.rank}
                   className={cn(
-                    "flex items-center gap-3 px-4 py-3 rounded-xl",
+                    "flex items-center gap-3 rounded-xl px-4 py-3",
                     entry.isCurrentUser
-                      ? "bg-primary/10 border border-primary/30"
-                      : "bg-bg-elevated border border-transparent"
+                      ? "bg-primary/10 border-primary/30 border"
+                      : "bg-bg-elevated border border-transparent",
                   )}
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.25, delay: entry.rank * 0.07 }}
                 >
                   {/* Rank */}
-                  <span className="w-7 text-center font-bold text-base select-none">
-                    {RANK_ICONS[entry.rank] ?? entry.rank}
-                  </span>
+                  {(() => {
+                    const r = RANK_ICONS[entry.rank];
+                    const RankIcon = r?.Icon;
+                    return RankIcon ? (
+                      <RankIcon className={cn("h-5 w-5", r.tone)} />
+                    ) : (
+                      <span className="text-text-muted w-7 text-center text-base font-bold tabular-nums">
+                        {entry.rank}
+                      </span>
+                    );
+                  })()}
 
-                  {/* Avatar emoji */}
-                  <span className="text-xl select-none">{entry.emoji}</span>
-
-                  {/* Name */}
+                  {/* Avatar icon */}
+                  <entry.Icon className="text-text-secondary h-5 w-5" />
                   <span
                     className={cn(
                       "flex-1 text-sm font-medium",
                       entry.isCurrentUser
                         ? "text-primary"
-                        : "text-text-primary"
+                        : "text-text-primary",
                     )}
                   >
                     {entry.name}
                     {entry.isCurrentUser && (
-                      <span className="ml-1.5 text-[10px] text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded-full">
+                      <span className="text-primary bg-primary/10 border-primary/20 ml-1.5 rounded-full border px-1.5 py-0.5 text-[10px]">
                         Kamu
                       </span>
                     )}
                   </span>
 
                   {/* Score bar + number */}
-                  <div className="flex items-center gap-2 shrink-0">
-                    <div className="w-24 h-2 bg-bg-surface rounded-full overflow-hidden">
+                  <div className="flex shrink-0 items-center gap-2">
+                    <div className="bg-bg-surface h-2 w-24 overflow-hidden rounded-full">
                       <div
                         className="h-full rounded-full"
                         style={{
@@ -677,7 +701,7 @@ export default function GamificationPage() {
                       />
                     </div>
                     <span
-                      className="text-sm font-bold tabular-nums w-7 text-right"
+                      className="w-7 text-right text-sm font-bold tabular-nums"
                       style={{ color: scoreColor }}
                     >
                       {entry.score}
@@ -703,7 +727,7 @@ export default function GamificationPage() {
             {/* Large icon with glow / grayscale */}
             <div className="flex justify-center py-4">
               <motion.div
-                className="w-24 h-24 rounded-2xl flex items-center justify-center text-5xl select-none"
+                className="flex h-24 w-24 items-center justify-center rounded-2xl text-5xl select-none"
                 style={{
                   backgroundColor: selectedBadge.isUnlocked
                     ? `${selectedBadge.color}22`
@@ -713,31 +737,34 @@ export default function GamificationPage() {
                     : "none",
                 }}
                 animate={
-                  selectedBadge.isUnlocked
-                    ? { scale: [1, 1.06, 1] }
-                    : undefined
+                  selectedBadge.isUnlocked ? { scale: [1, 1.06, 1] } : undefined
                 }
                 transition={{ duration: 2, repeat: Infinity }}
               >
                 <span
-                  className={cn(!selectedBadge.isUnlocked && "grayscale opacity-50")}
+                  className={cn(
+                    !selectedBadge.isUnlocked && "opacity-50 grayscale",
+                  )}
                 >
-                  <DynamicIcon name={selectedBadge.icon} className="h-10 w-10" />
+                  <DynamicIcon
+                    name={selectedBadge.icon}
+                    className="h-10 w-10"
+                  />
                 </span>
               </motion.div>
             </div>
 
             {/* Detail rows */}
             <div className="space-y-2">
-              <div className="flex items-center justify-between p-3 bg-bg-elevated rounded-lg">
-                <span className="text-sm text-text-muted">Kategori</span>
-                <span className="text-sm font-medium text-text-primary capitalize">
+              <div className="bg-bg-elevated flex items-center justify-between rounded-lg p-3">
+                <span className="text-text-muted text-sm">Kategori</span>
+                <span className="text-text-primary text-sm font-medium capitalize">
                   {selectedBadge.category}
                 </span>
               </div>
 
-              <div className="flex items-center justify-between p-3 bg-bg-elevated rounded-lg">
-                <span className="text-sm text-text-muted">XP Reward</span>
+              <div className="bg-bg-elevated flex items-center justify-between rounded-lg p-3">
+                <span className="text-text-muted text-sm">XP Reward</span>
                 <span
                   className="text-sm font-bold"
                   style={{ color: selectedBadge.color }}
@@ -746,34 +773,34 @@ export default function GamificationPage() {
                 </span>
               </div>
 
-              <div className="flex items-center justify-between p-3 bg-bg-elevated rounded-lg">
-                <span className="text-sm text-text-muted">Status</span>
+              <div className="bg-bg-elevated flex items-center justify-between rounded-lg p-3">
+                <span className="text-text-muted text-sm">Status</span>
                 {selectedBadge.isUnlocked ? (
-                  <span className="text-sm font-semibold text-success">
-                    ✅ Diraih
+                  <span className="text-text-success flex items-center gap-1 text-sm font-semibold">
+                    <CheckCircle2 className="h-4 w-4" /> Diraih
                   </span>
                 ) : (
-                  <span className="text-sm font-medium text-text-muted">
-                    🔒 Terkunci
+                  <span className="text-text-muted flex items-center gap-1 text-sm font-medium">
+                    <Lock className="h-4 w-4" /> Terkunci
                   </span>
                 )}
               </div>
 
               {selectedBadge.isUnlocked && selectedBadge.unlockedAt && (
-                <div className="flex items-center justify-between p-3 bg-bg-elevated rounded-lg">
-                  <span className="text-sm text-text-muted">Diraih pada</span>
-                  <span className="text-sm font-medium text-text-primary">
+                <div className="bg-bg-elevated flex items-center justify-between rounded-lg p-3">
+                  <span className="text-text-muted text-sm">Diraih pada</span>
+                  <span className="text-text-primary text-sm font-medium">
                     {formatDate(selectedBadge.unlockedAt, "short")}
                   </span>
                 </div>
               )}
 
               {!selectedBadge.isUnlocked && (
-                <div className="p-3 bg-bg-elevated rounded-lg space-y-2">
-                  <p className="text-xs text-text-muted uppercase tracking-wide font-medium">
+                <div className="bg-bg-elevated space-y-2 rounded-lg p-3">
+                  <p className="text-text-muted text-xs font-medium tracking-wide uppercase">
                     Syarat
                   </p>
-                  <p className="text-sm font-medium text-text-primary">
+                  <p className="text-text-primary text-sm font-medium">
                     {selectedBadge.condition}
                   </p>
                   {selectedBadge.progress !== undefined && (
@@ -784,7 +811,7 @@ export default function GamificationPage() {
                         color={selectedBadge.color}
                         size="sm"
                       />
-                      <p className="text-xs text-text-muted">
+                      <p className="text-text-muted text-xs">
                         {selectedBadge.progress}% selesai
                       </p>
                     </div>

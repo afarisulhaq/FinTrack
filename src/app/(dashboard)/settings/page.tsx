@@ -503,10 +503,10 @@ function ProfilTab() {
                   value={form.currency}
                   onChange={fld("currency")}
                   options={[
-                    { value: "IDR", label: "IDR — Rupiah Indonesia" },
-                    { value: "USD", label: "USD — US Dollar" },
-                    { value: "SGD", label: "SGD — Singapore Dollar" },
-                    { value: "MYR", label: "MYR — Malaysian Ringgit" },
+                    { value: "IDR", label: "IDR - Rupiah Indonesia" },
+                    { value: "USD", label: "USD - US Dollar" },
+                    { value: "SGD", label: "SGD - Singapore Dollar" },
+                    { value: "MYR", label: "MYR - Malaysian Ringgit" },
                   ]}
                 />
               </FormRow>
@@ -527,11 +527,11 @@ function ProfilTab() {
                   value={form.timezone}
                   onChange={fld("timezone")}
                   options={[
-                    { value: "Asia/Jakarta", label: "WIB — Asia/Jakarta" },
-                    { value: "Asia/Singapore", label: "SGT — Asia/Singapore" },
+                    { value: "Asia/Jakarta", label: "WIB - Asia/Jakarta" },
+                    { value: "Asia/Singapore", label: "SGT - Asia/Singapore" },
                     {
                       value: "Asia/Kuala_Lumpur",
-                      label: "MYT — Asia/Kuala_Lumpur",
+                      label: "MYT - Asia/Kuala_Lumpur",
                     },
                   ]}
                 />
@@ -885,9 +885,9 @@ function AnggotaTimTab() {
               options={[
                 {
                   value: "member",
-                  label: "Anggota — dapat mencatat transaksi",
+                  label: "Anggota: dapat mencatat transaksi",
                 },
-                { value: "viewer", label: "Penonton — hanya bisa melihat" },
+                { value: "viewer", label: "Penonton: hanya bisa melihat" },
               ]}
             />
           </div>
@@ -1008,24 +1008,69 @@ function NotifikasiTab() {
   const { notificationSettings, updateNotificationSettings } =
     useFinanceStore();
 
+  // Local mirror so text/select inputs stay controlled while we’re
+  // typing. The store is the source of truth on mount + after every
+  // server round-trip; the mirror is reset whenever the store changes
+  // (e.g. after a bootstrap) so toggles never silently flip back.
   const [channels, setChannels] = useState<ChannelState>({
     ...notificationSettings.channels,
   });
   const [prefs, setPrefs] = useState<PrefState>({
     ...notificationSettings.preferences,
   });
-  const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const authToken = useAuthStore((s) => s.token);
 
-  function handleSave() {
-    setSaving(true);
-    setTimeout(() => {
-      updateNotificationSettings({ channels, preferences: prefs });
-      setSaving(false);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2500);
-    }, 700);
+  // Sync local mirror whenever the store updates from the server.
+  // Without this, the form would keep showing the user’s last typed
+  // value even after the server restored an older setting on bootstrap.
+  useEffect(() => {
+    setChannels({
+      ...notificationSettings.channels,
+      // Preserve any in-progress phone / chat-id / email edits that the
+      // store doesn’t track yet — only resync enabled flags.
+      whatsapp: {
+        ...notificationSettings.channels.whatsapp,
+        phone:
+          channels.whatsapp.phone ||
+          notificationSettings.channels.whatsapp.phone,
+      },
+      telegram: {
+        ...notificationSettings.channels.telegram,
+        chatId:
+          channels.telegram.chatId ||
+          notificationSettings.channels.telegram.chatId,
+        botToken:
+          channels.telegram.botToken ||
+          notificationSettings.channels.telegram.botToken,
+      },
+      email: {
+        ...notificationSettings.channels.email,
+        address:
+          channels.email.address ||
+          notificationSettings.channels.email.address,
+      },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notificationSettings.channels]);
+
+  useEffect(() => {
+    setPrefs(notificationSettings.preferences);
+  }, [notificationSettings.preferences]);
+
+  // Persist the latest local mirror to the store + server. Called from
+  // every toggle/input handler so the UI can’t drift away from what’s
+  // actually saved.
+  function persist(next: {
+    channels?: ChannelState;
+    preferences?: PrefState;
+  }) {
+    updateNotificationSettings({
+      channels: next.channels ?? channels,
+      preferences: next.preferences ?? prefs,
+    });
+    setSaved(true);
+    window.setTimeout(() => setSaved(false), 1500);
   }
 
   const CHANNEL_CONFIG = [
@@ -1038,12 +1083,17 @@ function NotifikasiTab() {
         <Input
           placeholder="+62 812 xxxx xxxx"
           value={channels.whatsapp.phone}
-          onChange={(e) =>
-            setChannels((c) => ({
-              ...c,
-              whatsapp: { ...c.whatsapp, phone: e.target.value },
-            }))
-          }
+          onChange={(e) => {
+            const value = e.target.value;
+            setChannels((c) => {
+              const next = {
+                ...c,
+                whatsapp: { ...c.whatsapp, phone: value },
+              };
+              persist({ channels: next });
+              return next;
+            });
+          }}
           leftIcon={<Phone className="h-4 w-4" />}
         />
       ),
@@ -1054,17 +1104,39 @@ function NotifikasiTab() {
       icon: "Send",
       color: "text-sky-400 bg-sky-500/15",
       extraField: (
-        <Input
-          placeholder="Chat ID Telegram"
-          value={channels.telegram.chatId}
-          onChange={(e) =>
-            setChannels((c) => ({
-              ...c,
-              telegram: { ...c.telegram, chatId: e.target.value },
-            }))
-          }
-          leftIcon={<MessageSquare className="h-4 w-4" />}
-        />
+        <div className="space-y-2">
+          <Input
+            placeholder="Chat ID Telegram"
+            value={channels.telegram.chatId}
+            onChange={(e) => {
+              const value = e.target.value;
+              setChannels((c) => {
+                const next = {
+                  ...c,
+                  telegram: { ...c.telegram, chatId: value },
+                };
+                persist({ channels: next });
+                return next;
+              });
+            }}
+            leftIcon={<MessageSquare className="h-4 w-4" />}
+          />
+          <Input
+            placeholder="Bot Token (opsional)"
+            value={channels.telegram.botToken}
+            onChange={(e) => {
+              const value = e.target.value;
+              setChannels((c) => {
+                const next = {
+                  ...c,
+                  telegram: { ...c.telegram, botToken: value },
+                };
+                persist({ channels: next });
+                return next;
+              });
+            }}
+          />
+        </div>
       ),
     },
     {
@@ -1077,12 +1149,17 @@ function NotifikasiTab() {
           type="email"
           placeholder="email@contoh.com"
           value={channels.email.address}
-          onChange={(e) =>
-            setChannels((c) => ({
-              ...c,
-              email: { ...c.email, address: e.target.value },
-            }))
-          }
+          onChange={(e) => {
+            const value = e.target.value;
+            setChannels((c) => {
+              const next = {
+                ...c,
+                email: { ...c.email, address: value },
+              };
+              persist({ channels: next });
+              return next;
+            });
+          }}
           leftIcon={<Mail className="h-4 w-4" />}
         />
       ),
@@ -1101,7 +1178,7 @@ function NotifikasiTab() {
               "Notification" in window &&
               Notification.permission === "denied" && (
                 <span className="text-danger ml-1">
-                  Izin diblokir — ubah di pengaturan browser.
+                  Izin diblokir: ubah di pengaturan browser.
                 </span>
               )}
           </p>
@@ -1186,7 +1263,11 @@ function NotifikasiTab() {
                     if (authToken) {
                       const ok = await subscribeToPush(authToken);
                       if (ok) {
-                        setChannels((c) => ({ ...c, push: { enabled: true } }));
+                        setChannels((c) => {
+                          const next = { ...c, push: { enabled: true } };
+                          persist({ channels: next });
+                          return next;
+                        });
                         toast.success("Push Notification aktif");
                       } else {
                         toast.error(
@@ -1198,13 +1279,21 @@ function NotifikasiTab() {
                   })();
                 } else {
                   if (authToken) void unsubscribeFromPush(authToken);
-                  setChannels((c) => ({ ...c, push: { enabled: false } }));
+                  setChannels((c) => {
+                    const next = { ...c, push: { enabled: false } };
+                    persist({ channels: next });
+                    return next;
+                  });
                 }
               } else {
-                setChannels((c) => ({
-                  ...c,
-                  [ch.key]: { ...(c[ch.key] as object), enabled: v },
-                }));
+                setChannels((c) => {
+                  const next = {
+                    ...c,
+                    [ch.key]: { ...(c[ch.key] as object), enabled: v },
+                  };
+                  persist({ channels: next });
+                  return next;
+                });
               }
             }
 
@@ -1268,19 +1357,25 @@ function NotifikasiTab() {
               label="Pengingat Harian"
               description="Ingatkan untuk mencatat transaksi hari ini"
               checked={prefs.dailyReminder}
-              onCheckedChange={(v) =>
-                setPrefs((p) => ({ ...p, dailyReminder: v }))
-              }
+              onCheckedChange={(v) => {
+                setPrefs((p) => {
+                  const next = { ...p, dailyReminder: v };
+                  persist({ preferences: next });
+                  return next;
+                });
+              }}
             >
               <Input
                 type="time"
                 value={prefs.dailyReminderTime}
-                onChange={(e) =>
-                  setPrefs((p) => ({
-                    ...p,
-                    dailyReminderTime: e.target.value,
-                  }))
-                }
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setPrefs((p) => {
+                    const next = { ...p, dailyReminderTime: value };
+                    persist({ preferences: next });
+                    return next;
+                  });
+                }}
                 className="w-36"
               />
             </PrefRow>
@@ -1292,15 +1387,23 @@ function NotifikasiTab() {
               label="Laporan Mingguan"
               description="Ringkasan keuangan setiap minggu"
               checked={prefs.weeklyReport}
-              onCheckedChange={(v) =>
-                setPrefs((p) => ({ ...p, weeklyReport: v }))
-              }
+              onCheckedChange={(v) => {
+                setPrefs((p) => {
+                  const next = { ...p, weeklyReport: v };
+                  persist({ preferences: next });
+                  return next;
+                });
+              }}
             >
               <StyledSelect
                 value={String(prefs.weeklyReportDay)}
-                onChange={(v) =>
-                  setPrefs((p) => ({ ...p, weeklyReportDay: Number(v) }))
-                }
+                onChange={(v) => {
+                  setPrefs((p) => {
+                    const next = { ...p, weeklyReportDay: Number(v) };
+                    persist({ preferences: next });
+                    return next;
+                  });
+                }}
                 options={DAYS.map((d, i) => ({ value: String(i), label: d }))}
               />
             </PrefRow>
@@ -1312,9 +1415,13 @@ function NotifikasiTab() {
               label="Laporan Bulanan"
               description="Ringkasan keuangan setiap bulan"
               checked={prefs.monthlyReport}
-              onCheckedChange={(v) =>
-                setPrefs((p) => ({ ...p, monthlyReport: v }))
-              }
+              onCheckedChange={(v) => {
+                setPrefs((p) => {
+                  const next = { ...p, monthlyReport: v };
+                  persist({ preferences: next });
+                  return next;
+                });
+              }}
             />
           </div>
 
@@ -1324,9 +1431,13 @@ function NotifikasiTab() {
               label="Alert Anggaran"
               description="Notifikasi saat mendekati batas anggaran"
               checked={prefs.budgetAlert}
-              onCheckedChange={(v) =>
-                setPrefs((p) => ({ ...p, budgetAlert: v }))
-              }
+              onCheckedChange={(v) => {
+                setPrefs((p) => {
+                  const next = { ...p, budgetAlert: v };
+                  persist({ preferences: next });
+                  return next;
+                });
+              }}
             >
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
@@ -1340,12 +1451,14 @@ function NotifikasiTab() {
                   max={95}
                   step={5}
                   value={prefs.budgetAlertThreshold}
-                  onChange={(e) =>
-                    setPrefs((p) => ({
-                      ...p,
-                      budgetAlertThreshold: Number(e.target.value),
-                    }))
-                  }
+                  onChange={(e) => {
+                    const value = Number(e.target.value);
+                    setPrefs((p) => {
+                      const next = { ...p, budgetAlertThreshold: value };
+                      persist({ preferences: next });
+                      return next;
+                    });
+                  }}
                   className="accent-primary w-full"
                 />
                 <div className="text-text-muted flex justify-between text-[10px]">
@@ -1362,9 +1475,13 @@ function NotifikasiTab() {
               label="Pengingat Tagihan"
               description="Ingatkan sebelum tanggal jatuh tempo"
               checked={prefs.billReminder}
-              onCheckedChange={(v) =>
-                setPrefs((p) => ({ ...p, billReminder: v }))
-              }
+              onCheckedChange={(v) => {
+                setPrefs((p) => {
+                  const next = { ...p, billReminder: v };
+                  persist({ preferences: next });
+                  return next;
+                });
+              }}
             >
               <div className="flex items-center gap-2">
                 <Input
@@ -1372,12 +1489,14 @@ function NotifikasiTab() {
                   min={1}
                   max={14}
                   value={String(prefs.billReminderDays)}
-                  onChange={(e) =>
-                    setPrefs((p) => ({
-                      ...p,
-                      billReminderDays: Number(e.target.value),
-                    }))
-                  }
+                  onChange={(e) => {
+                    const value = Number(e.target.value);
+                    setPrefs((p) => {
+                      const next = { ...p, billReminderDays: value };
+                      persist({ preferences: next });
+                      return next;
+                    });
+                  }}
                   className="w-20"
                 />
                 <span className="text-text-muted text-sm">hari sebelumnya</span>
@@ -1391,9 +1510,13 @@ function NotifikasiTab() {
               label="Update Tabungan"
               description="Notifikasi progres target tabungan"
               checked={prefs.savingGoalUpdate}
-              onCheckedChange={(v) =>
-                setPrefs((p) => ({ ...p, savingGoalUpdate: v }))
-              }
+              onCheckedChange={(v) => {
+                setPrefs((p) => {
+                  const next = { ...p, savingGoalUpdate: v };
+                  persist({ preferences: next });
+                  return next;
+                });
+              }}
             />
           </div>
 
@@ -1403,9 +1526,13 @@ function NotifikasiTab() {
               label="Pengingat Hutang"
               description="Ingatkan hutang & piutang yang belum lunas"
               checked={prefs.debtReminder}
-              onCheckedChange={(v) =>
-                setPrefs((p) => ({ ...p, debtReminder: v }))
-              }
+              onCheckedChange={(v) => {
+                setPrefs((p) => {
+                  const next = { ...p, debtReminder: v };
+                  persist({ preferences: next });
+                  return next;
+                });
+              }}
             />
           </div>
 
@@ -1415,9 +1542,13 @@ function NotifikasiTab() {
               label="Alert Transaksi Besar"
               description="Notifikasi untuk transaksi di atas batas"
               checked={prefs.largeTransactionAlert}
-              onCheckedChange={(v) =>
-                setPrefs((p) => ({ ...p, largeTransactionAlert: v }))
-              }
+              onCheckedChange={(v) => {
+                setPrefs((p) => {
+                  const next = { ...p, largeTransactionAlert: v };
+                  persist({ preferences: next });
+                  return next;
+                });
+              }}
             >
               <div className="flex items-center gap-2">
                 <span className="text-text-muted text-sm">Rp</span>
@@ -1426,12 +1557,14 @@ function NotifikasiTab() {
                   min={0}
                   step={100000}
                   value={String(prefs.largeTransactionThreshold)}
-                  onChange={(e) =>
-                    setPrefs((p) => ({
-                      ...p,
-                      largeTransactionThreshold: Number(e.target.value),
-                    }))
-                  }
+                  onChange={(e) => {
+                    const value = Number(e.target.value);
+                    setPrefs((p) => {
+                      const next = { ...p, largeTransactionThreshold: value };
+                      persist({ preferences: next });
+                      return next;
+                    });
+                  }}
                   placeholder="500000"
                 />
               </div>
@@ -1440,26 +1573,21 @@ function NotifikasiTab() {
         </CardBody>
       </Card>
 
-      {/* Save bar */}
-      <div className="flex items-center justify-between">
+      {/* Auto-save status */}
+      <div className="flex h-6 items-center justify-end">
         <AnimatePresence>
           {saved && (
             <motion.div
               initial={{ opacity: 0, x: -8 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0 }}
-              className="text-success flex items-center gap-1.5 text-sm"
+              className="text-success flex items-center gap-1.5 text-xs"
             >
-              <Check className="h-4 w-4" />
-              Pengaturan disimpan
+              <Check className="h-3.5 w-3.5" />
+              Tersimpan otomatis
             </motion.div>
           )}
         </AnimatePresence>
-        <div className="ml-auto">
-          <Button loading={saving} onClick={handleSave}>
-            Simpan Pengaturan
-          </Button>
-        </div>
       </div>
     </div>
   );
@@ -2000,6 +2128,22 @@ function DataEksporTab() {
     try {
       if (pendingImport.kind === "csv" && pendingImport.csvPreview) {
         const { items, issues } = pendingImport.csvPreview;
+        if (items.length === 0) {
+          toast.error(
+            "Import gagal",
+            issues.length
+              ? `${issues.length} baris bermasalah. ${issues
+                  .slice(0, 3)
+                  .map((i) => `Baris ${i.row}: ${i.message}`)
+                  .join(" · ")}`
+              : "File CSV tidak berisi transaksi valid.",
+          );
+          if (issues.length) console.warn("[import] issues:", issues);
+          setPendingImport(null);
+          return;
+        }
+
+        const beforeCount = transactions.length;
         for (const tx of items) {
           const wallet = wallets.find((w) => w.id === tx.walletId);
           addTransaction({
@@ -2008,15 +2152,29 @@ function DataEksporTab() {
             walletName: wallet?.name ?? "",
           } as Parameters<typeof addTransaction>[0]);
         }
-        toast.success(
-          "Import selesai",
-          `${items.length} transaksi ditambahkan${
-            issues.length
-              ? `, ${issues.length} baris dilewati (lihat console)`
-              : ""
-          }`,
-        );
-        if (issues.length) console.warn("[import] issues:", issues);
+        // Server returns rows asynchronously via withPersist; wait a
+        // tick so the success toast is grounded in a real network call
+        // rather than optimistic state that may roll back on failure.
+        await new Promise<void>((r) => window.setTimeout(r, 250));
+        const added = transactions.length - beforeCount;
+
+        if (added > 0 && issues.length === 0) {
+          toast.success(
+            "Import berhasil",
+            `${added} transaksi ditambahkan ke workspace.`,
+          );
+        } else if (added > 0 && issues.length > 0) {
+          toast.warning(
+            "Import sebagian berhasil",
+            `${added} transaksi ditambahkan · ${issues.length} baris dilewati (lihat console).`,
+          );
+          if (issues.length) console.warn("[import] issues:", issues);
+        } else {
+          toast.error(
+            "Import gagal",
+            "Tidak ada transaksi yang berhasil ditambahkan. Periksa dompet & kategori di file CSV.",
+          );
+        }
       } else if (
         pendingImport.kind === "json" &&
         pendingImport.jsonPreview?.bundle
@@ -2025,6 +2183,14 @@ function DataEksporTab() {
         // Merge-import via hydrateFromBackend so the server-side
         // merge-by-id strategy applies. Wallets / transactions / etc.
         // with the same id are left untouched on the server.
+        const before = {
+          wallets: wallets.length,
+          transactions: transactions.length,
+          budgets: budgets.length,
+          bills: bills.length,
+          savingGoals: savingGoals.length,
+          debts: debts.length,
+        };
         hydrateFromBackend({
           wallets: bundle.wallets,
           transactions: bundle.transactions,
@@ -2042,10 +2208,45 @@ function DataEksporTab() {
           categories: bundle.categories,
           subCategories: bundle.subCategories,
         });
-        toast.success(
-          "Restore selesai",
-          "Data backup sudah digabung ke workspace. Refresh untuk sinkron ke server.",
-        );
+        const after = {
+          wallets: bundle.wallets.length,
+          transactions: bundle.transactions.length,
+          budgets: bundle.budgets.length,
+          bills: bundle.bills.length,
+          savingGoals: bundle.savingGoals.length,
+          debts: bundle.debts.length,
+        };
+        const lines = [
+          `Dompet ${after.wallets}`,
+          `Transaksi ${after.transactions}`,
+          `Anggaran ${after.budgets}`,
+          `Tagihan ${after.bills}`,
+          `Tabungan ${after.savingGoals}`,
+          `Utang ${after.debts}`,
+        ];
+        const delta =
+          (after.wallets - before.wallets) +
+          (after.transactions - before.transactions) +
+          (after.budgets - before.budgets) +
+          (after.bills - before.bills) +
+          (after.savingGoals - before.savingGoals) +
+          (after.debts - before.debts);
+        if (delta === 0 && after.wallets + after.transactions === 0) {
+          toast.error(
+            "Restore gagal",
+            "File backup tidak berisi data yang bisa di-restore.",
+          );
+        } else if (delta <= 0) {
+          toast.warning(
+            "Restore selesai (0 data baru)",
+            `Semua ID sudah ada di workspace. ${lines.join(" · ")}`,
+          );
+        } else {
+          toast.success(
+            "Restore berhasil",
+            `${delta} record baru ditambahkan. ${lines.join(" · ")}`,
+          );
+        }
         // Fire-and-forget: pull the canonical state back from server
         // so the UI reflects the merge, not the optimistic store.
         void refreshAll();
@@ -2637,7 +2838,7 @@ function QrisTab() {
         <CardBody className="space-y-4">
           <p className="text-text-muted text-sm">
             Paste string QRIS statis dari e-wallet kamu (GoPay, OVO, DANA,
-            ShopeePay, dll), atau cukup upload screenshot QR-nya — string akan
+            ShopeePay, dll), atau cukup upload screenshot QR-nya: string akan
             otomatis ke-ekstrak. String ini akan dipakai untuk men-generate QRIS
             dinamis sesuai nominal tagihan saat kamu menagih peserta split bill.
           </p>
@@ -2700,14 +2901,14 @@ function QrisTab() {
             <ol className="text-text-muted mt-2 list-decimal space-y-1 pl-5 text-xs">
               <li>
                 <strong>Cara cepat:</strong> screenshot QRIS dari e-wallet, lalu
-                upload di atas — string otomatis ke-ekstrak.
+                upload di atas: string otomatis ke-ekstrak.
               </li>
               <li>
                 <strong>Cara manual:</strong> buka e-wallet (GoPay/OVO/DANA/dll)
-                → pilih menu QRIS / Tampilkan QR.
+                lalu pilih menu QRIS / Tampilkan QR.
               </li>
               <li>
-                Biasanya ada tombol "Salin" atau "Share" — pilih opsi "Salin
+                Biasanya ada tombol "Salin" atau "Share", pilih opsi "Salin
                 Teks" / "Copy String".
               </li>
               <li>Paste di kolom "String QRIS" di atas.</li>

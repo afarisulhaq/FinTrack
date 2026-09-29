@@ -7,29 +7,33 @@ import { cn } from "~/lib/utils";
 
 const buttonVariants = cva(
   [
-    "inline-flex items-center justify-center gap-2 font-medium rounded-lg",
-    "transition-all duration-200 select-none",
+    "inline-flex items-center justify-center gap-2 font-medium rounded-lg text-sm",
+    "transition-all duration-150 select-none cursor-pointer",
+    "active:scale-[0.985]",
     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-    "focus-visible:ring-offset-bg-base disabled:opacity-50 disabled:pointer-events-none",
+    "focus-visible:ring-offset-bg-base disabled:opacity-50 disabled:pointer-events-none disabled:cursor-not-allowed",
   ],
   {
     variants: {
       variant: {
         default:
-          "bg-primary text-on-primary hover:bg-primary-hover focus-visible:ring-primary shadow-sm hover:shadow-md",
+          "bg-primary text-on-primary font-semibold hover:bg-primary-hover focus-visible:ring-primary shadow-sm",
+        secondary:
+          "bg-bg-elevated text-text-primary border border-border hover:bg-bg-surface hover:border-border-strong focus-visible:ring-primary shadow-subtle",
         ghost:
           "text-text-secondary hover:bg-bg-elevated hover:text-text-primary focus-visible:ring-primary",
         outline:
-          "border border-border text-text-primary hover:bg-bg-elevated hover:border-primary/50 focus-visible:ring-primary",
+          "border border-border text-text-primary bg-bg-surface hover:bg-bg-elevated hover:border-border-strong focus-visible:ring-primary shadow-subtle",
         danger:
-          "bg-danger text-white hover:bg-red-600 focus-visible:ring-danger shadow-sm",
+          "bg-danger text-white font-medium hover:bg-red-700 focus-visible:ring-danger shadow-sm",
         success:
-          "bg-success text-white hover:bg-green-600 focus-visible:ring-success shadow-sm",
+          "bg-success text-white font-medium hover:bg-green-700 focus-visible:ring-success shadow-sm",
       },
       size: {
+        xs: "h-7 px-2.5 text-xs rounded-md",
         sm: "h-8 px-3 text-xs",
         md: "h-10 px-4 text-sm",
-        lg: "h-12 px-6 text-base",
+        lg: "h-11 px-5 text-base rounded-xl",
       },
     },
     defaultVariants: {

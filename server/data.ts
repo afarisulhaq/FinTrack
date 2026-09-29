@@ -1,5 +1,5 @@
 import bcrypt from "bcryptjs";
-import type { AppConfig, User } from "./types.js";
+import type { AppConfig, DebtContact, User } from "./types.js";
 
 const now = new Date().toISOString();
 
@@ -199,6 +199,7 @@ export const db = {
   ],
   investments: [],
   debts: [],
+  debtContacts: [] as DebtContact[],
   cards: [],
   wishlist: [],
   reimbursements: [],

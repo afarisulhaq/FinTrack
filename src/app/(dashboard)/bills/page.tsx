@@ -9,6 +9,7 @@ import {
   Clock,
   AlertTriangle,
   Calendar,
+  PartyPopper,
 } from "lucide-react";
 import { DynamicIcon } from "~/components/ui/dynamic-icon";
 import { PageWrapper } from "~/components/layout/page-wrapper";
@@ -177,20 +178,17 @@ export default function BillsPage() {
         <StatCard
           title="Belum Dibayar"
           value={formatCurrency(unpaidTotal)}
-          icon={<AlertTriangle />}
-          iconColor="#ef4444"
+          icon={<AlertTriangle className="text-danger" />}
         />
         <StatCard
           title="Total Bulan Ini"
           value={formatCurrency(monthTotal)}
-          icon={<Calendar />}
-          iconColor="#FFD147"
+          icon={<Calendar className="text-primary" />}
         />
         <StatCard
           title="Jatuh Tempo Minggu Ini"
           value={formatCurrency(weekTotal)}
-          icon={<Clock />}
-          iconColor="#f59e0b"
+          icon={<Clock className="text-warning" />}
         />
       </div>
 
@@ -271,14 +269,13 @@ export default function BillsPage() {
 
                     {/* Amount */}
                     <div className="shrink-0 text-right">
-                      <p className="text-text-primary text-base font-bold">
+                      <p className="text-text-primary text-base font-bold tabular-nums">
                         {formatCurrency(bill.amount)}
                       </p>
-                      <p className="text-text-muted text-[10px]">
+                      <p className="text-text-muted text-[10px] tabular-nums">
                         {formatDate(bill.dueDate)}
                       </p>
                     </div>
-
                     {/* Actions */}
                     <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                       {bill.status !== "paid" && (
@@ -377,8 +374,9 @@ export default function BillsPage() {
                     );
                   })}
                   {upcoming.length === 0 && (
-                    <p className="text-text-muted pl-8 text-sm">
-                      Semua tagihan sudah dibayar 🎉
+                    <p className="text-text-muted flex items-center gap-1.5 pl-8 text-sm">
+                      <PartyPopper className="h-4 w-4" />
+                      Semua tagihan sudah dibayar
                     </p>
                   )}
                 </div>
@@ -427,7 +425,7 @@ export default function BillsPage() {
               <select
                 value={form.category}
                 onChange={(e) => fld("category", e.target.value)}
-                className="bg-bg-surface border-border text-text-primary focus:ring-primary/50 h-10 rounded-lg border px-3 text-sm focus:ring-2 focus:outline-none"
+                className="bg-bg-surface border-border text-text-primary focus:border-primary focus:ring-primary/20 h-10 rounded-lg border px-3 text-sm transition-colors focus:ring-1 focus:outline-none"
               >
                 {CATEGORIES.map((c) => (
                   <option key={c}>{c}</option>

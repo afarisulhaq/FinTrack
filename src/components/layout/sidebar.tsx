@@ -144,27 +144,27 @@ function NavLink({
       href={item.href}
       onClick={onNavigate}
       className={cn(
-        "group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150",
-        collapsed && "justify-center",
+        "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150",
+        collapsed && "justify-center px-2 py-2.5",
         isActive
-          ? "bg-surface-card text-text-primary ring-border shadow-sm ring-1"
-          : "text-text-muted hover:bg-bg-surface hover:text-text-secondary",
+          ? "bg-primary/10 text-primary font-semibold shadow-subtle"
+          : "text-text-secondary hover:bg-bg-elevated hover:text-text-primary",
       )}
     >
       {isActive && (
-        <span className="bg-primary absolute top-1/2 left-0 h-5 w-0.5 -translate-y-1/2 rounded-r-full" />
+        <span className="bg-primary absolute top-1/2 left-0 h-4 w-1 -translate-y-1/2 rounded-r-full shadow-[0_0_8px_rgba(217,119,6,0.4)]" />
       )}
       <Icon
         className={cn(
-          "h-[18px] w-[18px] shrink-0",
-          isActive ? "text-text-primary" : "text-current",
+          "h-[18px] w-[18px] shrink-0 transition-colors",
+          isActive ? "text-primary" : "text-text-muted group-hover:text-text-primary",
         )}
       />
       {!collapsed && (
         <span className="truncate leading-none">{item.label}</span>
       )}
       {collapsed && (
-        <div className="bg-bg-elevated border-border text-text-primary pointer-events-none absolute left-full z-50 ml-3 translate-x-1 rounded-lg border px-2.5 py-1.5 text-xs font-medium whitespace-nowrap opacity-0 shadow-lg transition-all duration-150 group-hover:translate-x-0 group-hover:opacity-100">
+        <div className="bg-bg-surface border-border text-text-primary pointer-events-none absolute left-full z-50 ml-3 translate-x-1 rounded-lg border px-2.5 py-1.5 text-xs font-semibold whitespace-nowrap opacity-0 shadow-elevated transition-all duration-150 group-hover:translate-x-0 group-hover:opacity-100">
           {item.label}
         </div>
       )}
@@ -239,13 +239,13 @@ export function Sidebar() {
 
       <nav className="flex-1 overflow-y-auto px-2.5 py-4">
         {NAV_GROUPS.map((group) => (
-          <div key={group.title} className="mb-3">
+          <div key={group.title} className="mb-4">
             {!collapsed && (
-              <p className="text-text-muted/50 px-3 pb-1 text-[10px] font-semibold tracking-widest uppercase">
+              <p className="text-text-muted px-3 pb-1.5 text-[10px] font-semibold tracking-wider uppercase select-none">
                 {group.title}
               </p>
             )}
-            <div className="space-y-0.5">
+            <div className="space-y-1">
               {group.items.map((item) => (
                 <NavLink
                   key={item.href}

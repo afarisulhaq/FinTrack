@@ -14,7 +14,7 @@ let swRegistration: ServiceWorkerRegistration | null = null;
 
 /** Register the service worker. Call once on app boot. */
 export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
-  if (typeof window === "undefined" || !("serviceWorker" in navigator)) {
+  if (typeof window === "undefined" || !("serviceWorker" in navigator) || process.env.NODE_ENV === "development") {
     return null;
   }
   try {

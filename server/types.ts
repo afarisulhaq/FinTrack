@@ -39,3 +39,11 @@ export interface ApiResponse<T> {
   data?: T;
   error?: string;
 }
+
+export interface DebtContact {
+  id: string;
+  name: string;
+  phone?: string;
+  note?: string;
+  createdAt: string;
+}

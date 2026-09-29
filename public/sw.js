@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
 
-const CACHE_NAME = "fintrack-v1";
+const CACHE_NAME = "fintrack-v2";
 const STATIC_ASSETS = ["/favicon.ico"];
 
 // Install: pre-cache essential assets
@@ -27,8 +27,12 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
-  // Skip non-GET and API requests
-  if (event.request.method !== "GET" || url.pathname.startsWith("/api/")) {
+  // Skip non-GET, API requests, and Next.js assets/chunks
+  if (
+    event.request.method !== "GET" ||
+    url.pathname.startsWith("/api/") ||
+    url.pathname.startsWith("/_next/")
+  ) {
     return;
   }
 

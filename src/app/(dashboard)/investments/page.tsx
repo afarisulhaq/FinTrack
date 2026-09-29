@@ -597,41 +597,37 @@ export default function InvestmentsPage() {
         <StatCard
           title="Total Nilai Portfolio"
           value={formatCurrency(totalValue)}
-          icon={<Wallet />}
-          iconColor="#FFD147"
+          icon={<Wallet className="text-primary" />}
         />
         <StatCard
           title="Unrealized P/L"
           value={
-            <span className={totalPL >= 0 ? "text-success" : "text-danger"}>
+            <span className={`tabular-nums ${totalPL >= 0 ? "text-success" : "text-danger"}`}>
               {totalPL >= 0 ? "+" : ""}
               {formatCurrency(totalPL)}
             </span>
           }
           subtitle={`${totalPL >= 0 ? "+" : ""}${totalPLPct}% dari modal`}
-          icon={totalPL >= 0 ? <TrendingUp /> : <TrendingDown />}
-          iconColor={totalPL >= 0 ? "#22c55e" : "#ef4444"}
+          icon={totalPL >= 0 ? <TrendingUp className="text-success" /> : <TrendingDown className="text-danger" />}
         />
         <StatCard
           title="Realized P/L"
           value={
             <span
-              className={totalRealizedPL >= 0 ? "text-success" : "text-danger"}
+              className={`tabular-nums ${totalRealizedPL >= 0 ? "text-success" : "text-danger"}`}
             >
               {totalRealizedPL >= 0 ? "+" : ""}
               {formatCurrency(totalRealizedPL)}
             </span>
           }
           subtitle="Dari aset terjual"
-          icon={<TrendingUp />}
-          iconColor={totalRealizedPL >= 0 ? "#22c55e" : "#ef4444"}
+          icon={<TrendingUp className={totalRealizedPL >= 0 ? "text-success" : "text-danger"} />}
         />
         <StatCard
           title="Jumlah Aset"
           value={investments.length}
           subtitle={`${investments.filter((i) => i.quantity > 0).length} aktif, ${investments.filter((i) => i.quantity === 0).length} terjual`}
-          icon={<BarChart2 />}
-          iconColor="#38bdf8"
+          icon={<BarChart2 className="text-info" />}
         />
       </div>
 
@@ -1194,7 +1190,7 @@ export default function InvestmentsPage() {
                   {sellModal.investment.name}
                 </p>
                 <p className="text-text-muted text-xs">
-                  {displaySymbol(sellModal.investment.symbol)} —{" "}
+                  {displaySymbol(sellModal.investment.symbol)} -{" "}
                   {ASSET_CLASS_LABELS[sellModal.investment.assetClass] ||
                     sellModal.investment.assetClass}
                 </p>
@@ -1218,7 +1214,7 @@ export default function InvestmentsPage() {
               </div>
               <div className="flex justify-between">
                 <span className="text-text-muted">Total Modal</span>
-                <span>
+                <span className="tabular-nums">
                   {formatCurrency(
                     sellModal.investment.avgBuyPrice *
                       sellModal.investment.quantity +

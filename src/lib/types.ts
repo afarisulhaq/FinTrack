@@ -187,6 +187,14 @@ export interface Debt {
   createdAt: string;
 }
 
+export interface DebtContact {
+  id: string;
+  name: string;
+  phone?: string;
+  note?: string;
+  createdAt: string;
+}
+
 // ─── Split Bill ───────────────────────────────────────────────────────────
 
 export type SplitMethod = "equal" | "percentage" | "custom";

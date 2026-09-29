@@ -31,29 +31,12 @@ function CustomTooltip({ active, payload, label }: SpendingTooltipProps) {
   if (!active || !payload?.length) return null;
   const value = payload[0]?.value ?? 0;
   return (
-    <div
-      style={{
-        backgroundColor: "#22263a",
-        border: "1px solid #2d3148",
-        borderRadius: 10,
-        padding: "10px 14px",
-        boxShadow: "0 4px 20px rgb(0 0 0 / 0.4)",
-      }}
-    >
-      <p
-        style={{
-          fontSize: 11,
-          fontWeight: 600,
-          color: "#94a3b8",
-          marginBottom: 4,
-          textTransform: "uppercase",
-          letterSpacing: "0.04em",
-        }}
-      >
+    <div className="bg-bg-surface border-border rounded-xl border p-3 shadow-elevated">
+      <p className="text-text-muted text-[11px] font-semibold uppercase tracking-wider mb-1">
         {label}
       </p>
-      <p style={{ fontSize: 15, fontWeight: 700, color: "#f1f5f9", margin: 0 }}>
-        {Number(value).toLocaleString()}
+      <p className="text-text-primary text-sm font-bold tabular-nums">
+        Rp {Number(value).toLocaleString("id-ID")}
       </p>
     </div>
   );
@@ -65,56 +48,58 @@ function SpendingTrendChart({ data, height = 280 }: SpendingTrendChartProps) {
 
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <AreaChart data={data} margin={{ top: 8, right: 4, left: -8, bottom: 0 }}>
+      <AreaChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#FFD147" stopOpacity={0.35} />
-            <stop offset="60%" stopColor="#FFD147" stopOpacity={0.1} />
-            <stop offset="100%" stopColor="#FFD147" stopOpacity={0} />
+            <stop offset="0%" stopColor="#d97706" stopOpacity={0.3} />
+            <stop offset="70%" stopColor="#d97706" stopOpacity={0.04} />
+            <stop offset="100%" stopColor="#d97706" stopOpacity={0} />
           </linearGradient>
         </defs>
 
         <CartesianGrid
           strokeDasharray="3 3"
-          stroke="#2d3148"
+          stroke="currentColor"
+          className="text-border/60"
           vertical={false}
-          opacity={0.5}
         />
         <XAxis
           dataKey="month"
-          tick={{ fill: "#94a3b8", fontSize: 11 }}
+          tick={{ fontSize: 11 }}
+          className="text-text-muted"
           axisLine={false}
           tickLine={false}
           dy={6}
         />
         <YAxis
-          tick={{ fill: "#94a3b8", fontSize: 11 }}
+          tick={{ fontSize: 11 }}
+          className="text-text-muted"
           axisLine={false}
           tickLine={false}
           tickFormatter={(v: number) =>
             v >= 1_000_000
-              ? `${(v / 1_000_000).toFixed(1)}M`
+              ? `${(v / 1_000_000).toFixed(1)}jt`
               : v >= 1_000
-                ? `${(v / 1_000).toFixed(0)}K`
+                ? `${(v / 1_000).toFixed(0)}rb`
                 : String(v)
           }
-          width={44}
+          width={42}
         />
         <Tooltip
           content={<CustomTooltip />}
-          cursor={{ stroke: "#FFD147", strokeWidth: 1, strokeDasharray: "4 4" }}
+          cursor={{ stroke: "#d97706", strokeWidth: 1.5, strokeDasharray: "4 4" }}
         />
         <Area
           type="monotone"
           dataKey="amount"
-          stroke="#FFD147"
-          strokeWidth={2.5}
+          stroke="#d97706"
+          strokeWidth={2}
           fill={`url(#${gradientId})`}
           dot={false}
           activeDot={{
-            r: 5,
-            fill: "#FFD147",
-            stroke: "#1a1d27",
+            r: 4.5,
+            fill: "#d97706",
+            stroke: "var(--bg-surface)",
             strokeWidth: 2,
           }}
         />

@@ -76,7 +76,12 @@ function Topbar({ title, subtitle }: TopbarProps) {
     const isCurrentlyDark = document.documentElement.classList.contains("dark");
     const next = !isCurrentlyDark;
     document.documentElement.classList.toggle("dark", next);
-    window.localStorage.setItem("fintrack_theme", next ? "dark" : "light");
+    const value = next ? "dark" : "light";
+    window.localStorage.setItem("fintrack_theme", value);
+    // Mirror to a cookie so the next SSR pass renders the right
+    // <html className>. Path=/ makes it visible to every route under
+    // this origin; SameSite=Lax keeps it on same-site navigations.
+    document.cookie = `fintrack_theme=${value}; path=/; max-age=31536000; samesite=lax`;
   }
 
   function signOut() {
@@ -96,35 +101,35 @@ function Topbar({ title, subtitle }: TopbarProps) {
   }
 
   return (
-    <header className="bg-bg-base/85 border-border sticky top-0 z-30 flex h-16 items-center gap-3 border-b px-4 backdrop-blur-xl sm:px-6 lg:px-8">
+    <header className="bg-bg-surface/85 border-border sticky top-0 z-30 flex h-16 items-center gap-3 border-b px-4 backdrop-blur-xl sm:px-6 lg:px-8">
       <button
         onClick={toggleMobile}
-        className="text-text-muted hover:bg-bg-elevated hover:text-text-primary flex h-9 w-9 items-center justify-center rounded-lg transition-colors md:hidden"
+        className="text-text-muted hover:bg-bg-elevated hover:text-text-primary flex h-10 w-10 items-center justify-center rounded-lg transition-colors md:hidden"
         aria-label="Buka menu"
       >
-        <Menu className="h-4 w-4" />
+        <Menu className="h-5 w-5" />
       </button>
 
       <div className="min-w-0 flex-1">
-        <h1 className="text-text-primary truncate text-[15px] leading-tight font-semibold">
+        <h1 className="text-text-primary truncate text-base leading-tight font-bold tracking-tight">
           {title}
         </h1>
         {subtitle && (
-          <p className="text-text-muted mt-0.5 truncate text-xs leading-tight">
+          <p className="text-text-muted mt-0.5 truncate text-xs leading-tight font-normal">
             {subtitle}
           </p>
         )}
       </div>
 
-      <div className="bg-surface-card border-border group focus-within:border-primary/50 hidden h-9 w-64 items-center gap-2 rounded-xl border px-3 shadow-sm transition-colors md:flex">
+      <div className="bg-bg-base border-border group focus-within:border-primary/50 focus-within:bg-bg-surface hidden h-9 w-64 items-center gap-2 rounded-lg border px-3 shadow-subtle transition-all md:flex">
         <Search className="text-text-muted h-3.5 w-3.5 shrink-0" />
         <input
           type="text"
           placeholder="Search anything..."
-          className="text-text-primary placeholder:text-text-muted min-w-0 flex-1 bg-transparent text-sm outline-none"
+          className="text-text-primary placeholder:text-text-muted min-w-0 flex-1 bg-transparent text-xs outline-none"
           readOnly
         />
-        <kbd className="text-text-muted bg-bg-elevated border-border shrink-0 rounded border px-1.5 py-0.5 font-mono text-[10px]">
+        <kbd className="text-text-muted bg-bg-surface border-border shrink-0 rounded border px-1.5 py-0.5 font-mono text-[10px]">
           ⌘K
         </kbd>
       </div>
@@ -196,7 +201,7 @@ function Topbar({ title, subtitle }: TopbarProps) {
             <DropdownMenu.Content
               align="end"
               sideOffset={8}
-              className="bg-bg-surface border-border animate-fade-in z-50 min-w-[220px] rounded-xl border p-1.5 shadow-[0_8px_30px_-4px_rgb(0_0_0/0.5)]"
+              className="bg-bg-surface border-border z-50 min-w-[220px] rounded-xl border p-1.5 shadow-elevated"
             >
               <div className="border-border mb-1 border-b px-3 py-2.5">
                 <div className="flex items-center gap-2.5">

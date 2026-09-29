@@ -246,14 +246,14 @@ export default function AvgCalculatorPage() {
           {/* Average baru */}
           <Card className="bg-primary/5 border-primary/30">
             <p className="text-text-muted text-xs">Average Baru</p>
-            <p className="text-primary mt-1 text-3xl font-bold">
+            <p className="text-primary mt-1 text-3xl font-bold tabular-nums">
               {formatCurrency(result.newAvg)}
             </p>
-            <p className="text-text-muted mt-1 text-xs">
-              Total: {result.totalLot.toLocaleString("id-ID")} Lot ·{" "}
+            <p className="text-text-muted mt-1 text-xs tabular-nums">
+              Total: {result.totalLot.toLocaleString("id-ID")} Lot -{" "}
               {result.totalShares.toLocaleString("id-ID")} lembar
             </p>
-            <div className="border-border mt-4 space-y-2 border-t pt-4 text-sm">
+            <div className="border-border mt-4 space-y-2 border-t pt-4 text-sm tabular-nums">
               <div className="flex justify-between">
                 <span className="text-text-muted">Total Modal Net</span>
                 <span className="text-text-primary font-semibold">
@@ -274,7 +274,7 @@ export default function AvgCalculatorPage() {
             <h4 className="text-text-primary mb-3 text-sm font-semibold">
               Rincian Pembelian Baru
             </h4>
-            <div className="space-y-2 text-sm">
+            <div className="space-y-2 text-sm tabular-nums">
               <div className="flex justify-between">
                 <span className="text-text-muted">Modal Pembelian</span>
                 <span className="text-text-primary">

@@ -1,112 +1,106 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary: #ffd147;
-  --color-primary-hover: #f5c038;
-  --color-primary-deep: #e0ad20;
-  --color-on-primary: #1a1d20;
-  --color-bg-base: #ebe9e4;
-  --color-bg-surface: #f8f7f4;
-  --color-bg-elevated: #f0eee9;
-  --color-surface-card: #ffffff;
-  --color-surface-dark: #dcd4c6;
-  --color-surface-deep: #222327;
-  --color-text-primary: #1a1d20;
-  --color-text-secondary: #2d2f33;
-  --color-text-muted: #6e7073;
-  --color-border: #e5e2dc;
-  --color-border-subtle: #efede8;
-  --color-border-strong: #c9c6be;
-  --color-success: #22c55e;
-  --color-danger: #ff7b72;
-  --color-warning: #f59e0b;
-  --color-info: #3b82f6;
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-deep: var(--primary-deep);
+  --color-on-primary: var(--on-primary);
+  --color-bg-base: var(--bg-base);
+  --color-bg-surface: var(--bg-surface);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-surface-card: var(--surface-card);
+  --color-surface-dark: var(--surface-dark);
+  --color-surface-deep: var(--surface-deep);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-border: var(--border);
+  --color-border-subtle: var(--border-subtle);
+  --color-border-strong: var(--border-strong);
+  --color-success: var(--success);
+  --color-danger: var(--danger);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
 
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
+  --radius-xs: 0.375rem;
   --radius-sm: 0.5rem;
   --radius-md: 0.75rem;
   --radius-lg: 1rem;
-  --radius-xl: 1rem;
+  --radius-xl: 1.25rem;
   --radius-2xl: 1.5rem;
 
-  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.08);
-  --shadow-elevated: 0 4px 12px rgba(0, 0, 0, 0.1);
-  --shadow-modal: 0 8px 24px rgba(0, 0, 0, 0.15);
+  --shadow-subtle: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+  --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.06), 0 1px 2px -1px rgba(0, 0, 0, 0.04);
+  --shadow-elevated: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  --shadow-modal: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
 }
 
 /* ─── Light mode (default) ───────────────────────────────────── */
 :root {
-  --primary: #ffd147;
-  --primary-hover: #f5c038;
-  --primary-deep: #e0ad20;
-  --primary-glow: rgba(255, 209, 71, 0.25);
-  --on-primary: #1a1d20;
+  --primary: #d97706;
+  --primary-hover: #b45309;
+  --primary-deep: #92400e;
+  --primary-glow: rgba(217, 119, 6, 0.2);
+  --on-primary: #ffffff;
 
-  --bg-base: #ebe9e4;
-  --bg-surface: #f8f7f4;
-  --bg-elevated: #f0eee9;
-  --bg-overlay: rgba(235, 233, 228, 0.85);
+  --bg-base: #f8f7f4;
+  --bg-surface: #ffffff;
+  --bg-elevated: #f0eee8;
+  --bg-overlay: rgba(248, 247, 244, 0.85);
   --surface-card: #ffffff;
-  --surface-dark: #dcd4c6;
-  --surface-deep: #222327;
+  --surface-dark: #1a1d20;
+  --surface-deep: #121417;
 
-  --text-primary: #1a1d20;
-  --text-secondary: #2d2f33;
-  --text-muted: #6e7073;
+  --text-primary: #17181c;
+  --text-secondary: #44474f;
+  --text-muted: #6e727d;
 
-  --border: #e5e2dc;
-  --border-subtle: #efede8;
-  --border-strong: #c9c6be;
+  --border: #e6e3dc;
+  --border-subtle: #f0eee8;
+  --border-strong: #c8c4bc;
 
-  --success: #22c55e;
-  --success-bg: rgba(34, 197, 94, 0.1);
-  --danger: #ff7b72;
-  --danger-bg: rgba(255, 123, 114, 0.1);
-  --warning: #f59e0b;
-  --warning-bg: rgba(245, 158, 11, 0.1);
-  --info: #3b82f6;
-  --info-bg: rgba(59, 130, 246, 0.1);
+  --success: #16a34a;
+  --success-bg: rgba(22, 163, 74, 0.08);
+  --danger: #dc2626;
+  --danger-bg: rgba(220, 38, 38, 0.08);
+  --warning: #d97706;
+  --warning-bg: rgba(217, 119, 6, 0.08);
+  --info: #2563eb;
+  --info-bg: rgba(37, 99, 235, 0.08);
 
-  --gradient-primary: linear-gradient(
-    135deg,
-    #ffd147 0%,
-    #ffb347 50%,
-    #ff8a7a 100%
-  );
-  --gradient-success: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-  --gradient-danger: linear-gradient(135deg, #ff7b72 0%, #ef5a50 100%);
-  --gradient-warning: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-  --gradient-surface: linear-gradient(180deg, #f8f7f4 0%, #ebe9e4 100%);
+  --gradient-primary: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  --gradient-surface: linear-gradient(180deg, #ffffff 0%, #f8f7f4 100%);
 
   --scrollbar-width: 6px;
-  --scrollbar-track: #f0eee9;
-  --scrollbar-thumb: #c9c6be;
-  --scrollbar-thumb-hover: #e0ad20;
-
+  --scrollbar-track: #f0eee8;
+  --scrollbar-thumb: #cac6bd;
+  --scrollbar-thumb-hover: #b45309;
   /* ── Auth layout light-mode palette ─────────────────────────── */
   --auth-panel-gradient: linear-gradient(
     135deg,
     #f5f3ef 0%,
     #ebe9e4 60%,
-    #ffd14720 100%
+    color-mix(in oklab, var(--primary) 12%, transparent) 100%
   );
   --auth-panel-divider: linear-gradient(
     to bottom,
     transparent 0%,
-    rgba(255, 209, 71, 0.25) 30%,
-    rgba(255, 209, 71, 0.25) 70%,
+    color-mix(in oklab, var(--primary) 25%, transparent) 30%,
+    color-mix(in oklab, var(--primary) 25%, transparent) 70%,
     transparent 100%
   );
-  --auth-blob-1: rgba(255, 209, 71, 0.18);
-  --auth-blob-2: rgba(255, 179, 71, 0.14);
-  --auth-blob-3: rgba(255, 209, 71, 0.1);
-  --auth-blob-4: rgba(255, 138, 122, 0.08);
-  --auth-tile-bg: rgba(255, 209, 71, 0.08);
-  --auth-tile-border: rgba(255, 209, 71, 0.2);
-  --auth-stat-bg: rgba(255, 209, 71, 0.06);
-  --auth-stat-border: rgba(255, 209, 71, 0.15);
-  --auth-icon-color: #e0ad20;
+  --auth-blob-1: color-mix(in oklab, var(--primary) 18%, transparent);
+  --auth-blob-2: color-mix(in oklab, var(--accent-color, var(--primary)) 14%, transparent);
+  --auth-blob-3: color-mix(in oklab, var(--primary) 10%, transparent);
+  --auth-blob-4: color-mix(in oklab, var(--accent-color, var(--primary)) 8%, transparent);
+  --auth-tile-bg: color-mix(in oklab, var(--primary) 8%, transparent);
+  --auth-tile-border: color-mix(in oklab, var(--primary) 20%, transparent);
+  --auth-stat-bg: color-mix(in oklab, var(--primary) 6%, transparent);
+  --auth-stat-border: color-mix(in oklab, var(--primary) 15%, transparent);
+  --auth-icon-color: var(--primary);
   --auth-card-shadow: 0 20px 60px -20px rgba(0, 0, 0, 0.12);
   --auth-strength-meter-bg: #e5e2dc;
   --auth-input-bg: #ffffff;
@@ -120,68 +114,70 @@
 
 /* ─── Dark mode ──────────────────────────────────────────────── */
 :root.dark {
-  --color-bg-base: #121212;
-  --color-bg-surface: #1e1e1e;
-  --color-bg-elevated: #2a2a2a;
-  --color-surface-card: #2a2a2a;
-  --color-text-primary: #e4e4e7;
-  --color-text-secondary: #a1a1aa;
-  --color-text-muted: #909097;
-  --color-border: #333333;
-  --color-border-subtle: #2a2a2a;
+  --primary: #fbbf24;
+  --primary-hover: #f59e0b;
+  --primary-deep: #d97706;
+  --primary-glow: rgba(251, 191, 36, 0.2);
+  --on-primary: #181a1f;
 
-  --primary: #ffd147;
-  --primary-hover: #ffe070;
-  --primary-deep: #ffd147;
-  --primary-glow: rgba(255, 209, 71, 0.25);
+  --bg-base: #101114;
+  --bg-surface: #17191e;
+  --bg-elevated: #20232a;
+  --bg-overlay: rgba(16, 17, 20, 0.85);
+  --surface-card: #17191e;
+  --surface-dark: #0b0c0e;
+  --surface-deep: #08090a;
 
-  --bg-base: #121212;
-  --bg-surface: #1e1e1e;
-  --bg-elevated: #2a2a2a;
-  --bg-overlay: rgba(18, 18, 18, 0.85);
-  --surface-card: #2a2a2a;
+  --text-primary: #f3f4f6;
+  --text-secondary: #9ca3af;
+  --text-muted: #6b7280;
 
-  --text-primary: #e4e4e7;
-  --text-secondary: #a1a1aa;
-  --text-muted: #909097;
+  --border: #282c35;
+  --border-subtle: #1e2128;
+  --border-strong: #3b404d;
 
-  --border: #333333;
-  --border-subtle: #2a2a2a;
+  --success: #22c55e;
+  --success-bg: rgba(34, 197, 94, 0.12);
+  --danger: #ef4444;
+  --danger-bg: rgba(239, 68, 68, 0.12);
+  --warning: #f59e0b;
+  --warning-bg: rgba(245, 158, 11, 0.12);
+  --info: #3b82f6;
+  --info-bg: rgba(59, 130, 246, 0.12);
 
-  --gradient-primary: linear-gradient(
-    135deg,
-    #ffd147 0%,
-    #ffb347 50%,
-    #ff8a7a 100%
-  );
-  --gradient-surface: linear-gradient(180deg, #1e1e1e 0%, #121212 100%);
+  --gradient-primary: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  --gradient-surface: linear-gradient(180deg, #17191e 0%, #101114 100%);
 
-  --scrollbar-track: #1e1e1e;
-  --scrollbar-thumb: #333333;
-  --scrollbar-thumb-hover: #ffd147;
+  --scrollbar-track: #17191e;
+  --scrollbar-thumb: #2d323c;
+  --scrollbar-thumb-hover: #fbbf24;
 
-  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3);
-  --shadow-elevated: 0 4px 12px rgba(0, 0, 0, 0.4);
-  --shadow-modal: 0 8px 24px rgba(0, 0, 0, 0.5);
-
+  --shadow-subtle: 0 1px 2px 0 rgba(0, 0, 0, 0.2);
+  --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.3), 0 1px 2px -1px rgba(0, 0, 0, 0.2);
+  --shadow-elevated: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
+  --shadow-modal: 0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
   /* ── Auth layout dark-mode palette ──────────────────────────── */
-  --auth-panel-gradient: linear-gradient(135deg, #1e1e1e 0%, #121212 100%);
+  --auth-panel-gradient: linear-gradient(
+    135deg,
+    #1e1e1e 0%,
+    color-mix(in oklab, var(--primary) 8%, #121212) 100%
+  );
   --auth-panel-divider: linear-gradient(
     to bottom,
     transparent 0%,
-    rgba(255, 209, 71, 0.2) 30%,
-    rgba(255, 209, 71, 0.2) 70%,
+    color-mix(in oklab, var(--primary) 20%, transparent) 30%,
+    color-mix(in oklab, var(--primary) 20%, transparent) 70%,
     transparent 100%
   );
-  --auth-blob-1: rgba(255, 209, 71, 0.15);
-  --auth-blob-2: rgba(255, 179, 71, 0.12);
-  --auth-blob-3: rgba(255, 209, 71, 0.08);
-  --auth-blob-4: rgba(255, 138, 122, 0.06);
-  --auth-tile-bg: rgba(255, 209, 71, 0.1);
-  --auth-tile-border: rgba(255, 209, 71, 0.2);
-  --auth-stat-bg: rgba(255, 209, 71, 0.06);
-  --auth-stat-border: rgba(255, 209, 71, 0.15);
-  --auth-icon-color: #ffd147;
+  --auth-blob-1: color-mix(in oklab, var(--primary) 15%, transparent);
+  --auth-blob-2: color-mix(in oklab, var(--accent-color, var(--primary)) 12%, transparent);
+  --auth-blob-3: color-mix(in oklab, var(--primary) 8%, transparent);
+  --auth-blob-4: color-mix(in oklab, var(--accent-color, var(--primary)) 6%, transparent);
+  --auth-tile-bg: color-mix(in oklab, var(--primary) 10%, transparent);
+  --auth-tile-border: color-mix(in oklab, var(--primary) 20%, transparent);
+  --auth-stat-bg: color-mix(in oklab, var(--primary) 6%, transparent);
+  --auth-stat-border: color-mix(in oklab, var(--primary) 15%, transparent);
+  --auth-icon-color: var(--primary);
   --auth-card-shadow: 0 20px 60px -20px rgba(0, 0, 0, 0.7);
   --auth-strength-meter-bg: #2a2a2a;
   --auth-input-bg: #121212;
@@ -202,7 +198,8 @@
 
 html {
   -webkit-text-size-adjust: 100%;
-  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11", "tnum";
+  font-variant-numeric: tabular-nums;
   scroll-behavior: smooth;
 }
 
@@ -210,7 +207,7 @@ body {
   background-color: var(--bg-base);
   color: var(--text-primary);
   font-family: var(--font-sans, "Inter", ui-sans-serif, system-ui, sans-serif);
-  line-height: 1.6;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   min-height: 100dvh;
@@ -218,15 +215,14 @@ body {
 
 /* ─── Selection ───────────────────────────────────────────────── */
 ::selection {
-  background-color: rgba(255, 209, 71, 0.35);
-  color: #1a1d20;
+  background-color: rgba(217, 119, 6, 0.2);
+  color: inherit;
 }
 
 ::-moz-selection {
-  background-color: rgba(255, 209, 71, 0.35);
-  color: #1a1d20;
+  background-color: rgba(217, 119, 6, 0.2);
+  color: inherit;
 }
-
 /* ─── Scrollbar ───────────────────────────────────────────────── */
 ::-webkit-scrollbar {
   width: var(--scrollbar-width);
@@ -271,27 +267,28 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
   padding: 1.25rem;
+  box-shadow: var(--shadow-card);
 }
 
 .card-elevated {
-  background-color: var(--bg-elevated);
-  border: 1px solid var(--border);
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-xl);
   padding: 1.25rem;
+  box-shadow: var(--shadow-elevated);
 }
 
 .glass {
-  background: rgba(248, 247, 244, 0.7);
+  background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(229, 226, 220, 0.5);
+  border: 1px solid var(--border-subtle);
 }
 
 :root.dark .glass {
-  background: rgba(30, 30, 30, 0.7);
-  border-color: rgba(51, 51, 51, 0.5);
+  background: rgba(23, 25, 30, 0.85);
+  border-color: var(--border-subtle);
 }
-
 .gradient-text {
   background: var(--gradient-primary);
   -webkit-background-clip: text;

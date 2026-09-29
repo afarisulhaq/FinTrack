@@ -304,8 +304,7 @@ export default function TransactionsPage() {
     // expense transaction just because the form was already valid).
     fld("type", t);
     fld("category", "");
-    fld("categoryIcon", "🎯");
-    fld("categoryId", "");
+    fld("categoryIcon", "Circle");
     fld("subCategoryId", "");
     fld("newSubCategoryName", "");
   }
@@ -397,21 +396,24 @@ export default function TransactionsPage() {
         <StatCard
           title="Pemasukan Bulan Ini"
           value={formatCurrency(monthStats.income, true)}
-          icon={<TrendingUp size={20} />}
-          iconColor="#22c55e"
+          icon={<TrendingUp className="text-success" />}
         />
         <StatCard
           title="Pengeluaran Bulan Ini"
           value={formatCurrency(monthStats.expense, true)}
-          icon={<TrendingDown size={20} />}
-          iconColor="#ef4444"
+          icon={<TrendingDown className="text-danger" />}
         />
         <StatCard
           title="Saldo Bersih"
           value={formatCurrency(Math.abs(monthStats.net), true)}
-          subtitle={monthStats.net >= 0 ? "Surplus" : "Defisit"}
-          icon={<ArrowLeftRight size={20} />}
-          iconColor={monthStats.net >= 0 ? "#FFD147" : "#ef4444"}
+          subtitle={
+            monthStats.net >= 0 ? "Surplus bulan ini" : "Defisit bulan ini"
+          }
+          icon={
+            <ArrowLeftRight
+              className={monthStats.net >= 0 ? "text-primary" : "text-danger"}
+            />
+          }
         />
       </div>
 
@@ -431,7 +433,7 @@ export default function TransactionsPage() {
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
-              className="bg-bg-elevated border-border text-text-primary focus:ring-primary/50 h-10 rounded-lg border px-3 text-sm focus:ring-2 focus:outline-none sm:w-44"
+              className="bg-bg-surface border-border text-text-primary focus:border-primary focus:ring-primary/20 h-10 rounded-lg border px-3 text-sm transition-colors focus:ring-1 focus:outline-none sm:w-44"
             >
               <option value="Semua Kategori">Semua Kategori</option>
               {allCategories.map((c) => (
@@ -443,7 +445,7 @@ export default function TransactionsPage() {
             <select
               value={walletFilter}
               onChange={(e) => setWalletFilter(e.target.value)}
-              className="bg-bg-elevated border-border text-text-primary focus:ring-primary/50 h-10 rounded-lg border px-3 text-sm focus:ring-2 focus:outline-none sm:w-44"
+              className="bg-bg-surface border-border text-text-primary focus:border-primary focus:ring-primary/20 h-10 rounded-lg border px-3 text-sm transition-colors focus:ring-1 focus:outline-none sm:w-44"
             >
               <option value="Semua Dompet">Semua Dompet</option>
               {allWallets.map((w) => (
@@ -509,7 +511,10 @@ export default function TransactionsPage() {
                           backgroundColor: `${getCategoryColor(tx.category)}22`,
                         }}
                       >
-                        <DynamicIcon name={tx.categoryIcon} className="h-5 w-5 shrink-0" />
+                        <DynamicIcon
+                          name={tx.categoryIcon}
+                          className="h-5 w-5 shrink-0"
+                        />
                       </div>
 
                       {/* Description + meta */}
@@ -630,13 +635,14 @@ export default function TransactionsPage() {
             <label className="text-text-secondary text-sm font-medium">
               Kategori{" "}
               <span className="text-text-muted font-normal">
-                — pilih dari master yang sudah dibuat di halaman
+                (pilih dari master di halaman
                 <a
                   href="/categories"
                   className="text-primary ml-1 underline underline-offset-2"
                 >
                   Kategori
                 </a>
+                )
               </span>
             </label>
             <div className="flex flex-wrap gap-2">
@@ -695,7 +701,10 @@ export default function TransactionsPage() {
                                 : {}
                             }
                           >
-                            <DynamicIcon name={s.icon} className="h-4 w-4 shrink-0" />
+                            <DynamicIcon
+                              name={s.icon}
+                              className="h-4 w-4 shrink-0"
+                            />
                             {s.name}
                           </button>
                         );
@@ -709,7 +718,7 @@ export default function TransactionsPage() {
                 users can add a new “jenis” without leaving the form. */}
             {form.categoryId && (
               <Input
-                placeholder="Atau ketik sub baru (mis. “Tunjangan Makan”) — otomatis tersimpan di master"
+                placeholder="Atau ketik sub baru (mis. Tunjangan Makan) - otomatis tersimpan"
                 value={form.newSubCategoryName}
                 onChange={(e) => {
                   fld("newSubCategoryName", e.target.value);
@@ -726,7 +735,7 @@ export default function TransactionsPage() {
                 value={form.category}
                 onChange={(e) => {
                   fld("category", e.target.value);
-                  fld("categoryIcon", "🎯");
+                  fld("categoryIcon", "Circle");
                 }}
                 className="h-8 text-xs"
               />

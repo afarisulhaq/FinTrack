@@ -25,6 +25,9 @@ import {
   Gamepad2,
   Smartphone,
 } from "lucide-react";
+import { useAppConfigStore } from "~/store/useAppConfigStore";
+import { DynamicIcon } from "~/components/ui/dynamic-icon";
+import { applyBrand } from "~/lib/brand";
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -38,7 +41,7 @@ const HERO_FEATURES = [
   {
     icon: Wallet,
     title: "Multi-Dompet & Rekening",
-    desc: "Struktur dompet hierarki seperti Bank Jago — pisahkan dana sesuai kebutuhan.",
+    desc: "Struktur dompet hierarki seperti Bank Jago. Pisahkan dana sesuai kebutuhan.",
   },
   {
     icon: TrendingUp,
@@ -53,9 +56,9 @@ const HERO_FEATURES = [
   {
     icon: SplitSquareVertical,
     title: "Split Bill QRIS",
-    desc: "Buat tagihan grup, share link pembayaran QRIS ke peserta — otomatis terlacak.",
+    desc: "Buat tagihan grup, share link pembayaran QRIS ke peserta. Otomatis terlacak.",
   },
-] as const;
+];
 
 const FEATURES_SECTIONS = [
   {
@@ -157,7 +160,7 @@ const FAQS = [
   },
   {
     q: "Bisa dipakai untuk keluarga?",
-    a: "Bisa! Dengan fitur Multi-User, kamu bisa tambah pasangan atau anak sebagai Member dengan hak akses terbatas — cocok untuk keuangan keluarga atau bisnis kecil.",
+    a: "Bisa! Dengan fitur Multi-User, kamu bisa tambah pasangan atau anak sebagai Member dengan hak akses terbatas: cocok untuk keuangan keluarga atau bisnis kecil.",
   },
   {
     q: "Apakah ada uji coba gratis?",
@@ -172,30 +175,50 @@ const FAQS = [
 // ── Components ────────────────────────────────────────────────────────────
 
 function Logo({ size = "sm" }: { size?: "sm" | "lg" }) {
+  const { config } = useAppConfigStore();
   const iconSize = size === "lg" ? "h-7 w-7" : "h-5 w-5";
   const boxSize = size === "lg" ? "h-11 w-11" : "h-8 w-8";
   const textSize = size === "lg" ? "text-xl" : "text-sm";
   return (
     <Link href="/" className="flex items-center gap-2.5">
       <div
-        className={`${boxSize} flex items-center justify-center rounded-xl bg-gradient-to-br from-[#FFD147] to-[#FFB347] shadow-lg shadow-[#FFD147]/25`}
+        className={`${boxSize} flex items-center justify-center rounded-xl`}
+        style={{
+          background: "var(--gradient-primary)",
+          boxShadow: "0 4px 14px var(--primary-glow)",
+        }}
       >
-        <BarChart3 className={`${iconSize} text-[#1A1D20]`} />
+        <DynamicIcon
+          name={config.logoIcon || "TrendingUp"}
+          className={`${iconSize} text-on-primary`}
+        />
       </div>
       <span
-        className={`${textSize} bg-gradient-to-r from-[#FFD147] to-[#FF8A7A] bg-clip-text font-extrabold tracking-tight text-transparent`}
+        className={`${textSize} font-extrabold tracking-tight`}
+        style={{
+          background: "var(--gradient-primary)",
+          WebkitBackgroundClip: "text",
+          WebkitTextFillColor: "transparent",
+        }}
       >
-        FinTrack
+        {config.appName}
       </span>
     </Link>
   );
 }
 
-function AnimatedGlow({ className }: { className?: string }) {
+function AnimatedGlow({
+  className,
+  style,
+}: {
+  className?: string;
+  style?: React.CSSProperties;
+}) {
   return (
     <div
       aria-hidden
       className={`pointer-events-none absolute rounded-full blur-3xl ${className ?? ""}`}
+      style={style}
     />
   );
 }
@@ -203,9 +226,14 @@ function AnimatedGlow({ className }: { className?: string }) {
 // ── Main Page ─────────────────────────────────────────────────────────────
 
 export default function LandingPage() {
+  const { config } = useAppConfigStore();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+
+  useEffect(() => {
+    applyBrand(config.primaryColor, config.accentColor);
+  }, [config.primaryColor, config.accentColor]);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
@@ -246,7 +274,7 @@ export default function LandingPage() {
               </Link>
               <Link
                 href="/register"
-                className="inline-flex items-center gap-1.5 rounded-xl bg-[#FFD147] px-4 py-2 text-sm font-semibold text-[#1A1D20] shadow-lg shadow-[#FFD147]/25 transition-all hover:bg-[#E0AD20] hover:shadow-[#FFD147]/40"
+                className="bg-primary text-on-primary hover:bg-primary-hover shadow-primary/25 hover:shadow-primary/40 inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold shadow-lg transition-all"
               >
                 Daftar Gratis
                 <ArrowUpRight className="h-3.5 w-3.5" />
@@ -292,7 +320,7 @@ export default function LandingPage() {
               </Link>
               <Link
                 href="/register"
-                className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#FFD147] px-4 py-2.5 text-sm font-semibold text-[#1A1D20] transition-colors hover:bg-[#E0AD20]"
+                className="bg-primary text-on-primary hover:bg-primary-hover inline-flex items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors"
               >
                 Daftar Gratis
                 <ArrowUpRight className="h-3.5 w-3.5" />
@@ -305,21 +333,45 @@ export default function LandingPage() {
       {/* ── Hero ────────────────────────────────────────────────────── */}
       <section className="relative isolate overflow-hidden pt-28 pb-16 sm:pt-36 sm:pb-24">
         {/* Glow blobs */}
-        <AnimatedGlow className="-top-40 -left-40 h-[500px] w-[500px] bg-[#FFD147]/20" />
-        <AnimatedGlow className="top-1/3 -right-40 h-[400px] w-[400px] bg-[#FFB347]/15" />
-        <AnimatedGlow className="bottom-0 left-1/3 h-[300px] w-[300px] bg-[#FFD147]/10" />
+        <AnimatedGlow
+          className="-top-40 -left-40 h-[500px] w-[500px]"
+          style={{
+            backgroundColor:
+              "color-mix(in oklab, var(--primary) 20%, transparent)",
+          }}
+        />
+        <AnimatedGlow
+          className="top-1/3 -right-40 h-[400px] w-[400px]"
+          style={{
+            backgroundColor:
+              "color-mix(in oklab, var(--accent-color, var(--primary)) 15%, transparent)",
+          }}
+        />
+        <AnimatedGlow
+          className="bottom-0 left-1/3 h-[300px] w-[300px]"
+          style={{
+            backgroundColor:
+              "color-mix(in oklab, var(--primary) 10%, transparent)",
+          }}
+        />
 
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <div className="relative z-10 mx-auto max-w-3xl text-center">
             {/* Badge */}
-            <div className="mb-6 inline-flex items-center gap-1.5 rounded-full border border-[#FFD147]/30 bg-[#FFD147]/10 px-3.5 py-1 text-xs font-medium text-[#E0AD20]">
+            <div className="border-primary/30 bg-primary/10 text-primary mb-6 inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1 text-xs font-medium">
               <Sparkles className="h-3.5 w-3.5" />
               All-in-One Wealth & Expense Management
             </div>
 
             <h1 className="text-4xl leading-[1.1] font-extrabold tracking-tight sm:text-5xl lg:text-6xl">
               Kelola Semua Keuanganmu{" "}
-              <span className="bg-gradient-to-r from-[#FFD147] via-[#E0AD20] to-[#FF8A7A] bg-clip-text text-transparent">
+              <span
+                style={{
+                  background: "var(--gradient-primary)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                }}
+              >
                 dengan Cerdas
               </span>
             </h1>
@@ -334,7 +386,7 @@ export default function LandingPage() {
             <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
               <Link
                 href="/register"
-                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#FFD147] px-6 py-3 text-sm font-semibold text-[#1A1D20] shadow-lg shadow-[#FFD147]/25 transition-all hover:bg-[#E0AD20] hover:shadow-[#FFD147]/40 sm:w-auto"
+                className="bg-primary text-on-primary hover:bg-primary-hover shadow-primary/25 hover:shadow-primary/40 inline-flex w-full items-center justify-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold shadow-lg transition-all sm:w-auto"
               >
                 Mulai Gratis
                 <ChevronRight className="h-4 w-4" />
@@ -353,9 +405,9 @@ export default function LandingPage() {
             {HERO_FEATURES.map(({ icon: Icon, title, desc }) => (
               <div
                 key={title}
-                className="group rounded-2xl border border-[var(--border)] bg-[var(--bg-surface)] p-5 transition-all hover:border-[#FFD147]/30 hover:shadow-lg hover:shadow-[#FFD147]/5"
+                className="hover:border-primary/30 hover:shadow-primary/5 group rounded-2xl border border-[var(--border)] bg-[var(--bg-surface)] p-5 transition-all hover:shadow-lg"
               >
-                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-[#FFD147]/10 text-[#E0AD20]">
+                <div className="bg-primary/10 text-primary mb-3 flex h-10 w-10 items-center justify-center rounded-xl">
                   <Icon className="h-5 w-5" />
                 </div>
                 <h3 className="text-sm font-semibold">{title}</h3>
@@ -375,7 +427,14 @@ export default function LandingPage() {
               { value: "4.9★", label: "Rating Pengguna" },
             ].map(({ value, label }) => (
               <div key={label} className="text-center">
-                <p className="bg-gradient-to-r from-[#FFD147] to-[#FF8A7A] bg-clip-text text-xl font-extrabold text-transparent sm:text-2xl">
+                <p
+                  className="text-xl font-extrabold sm:text-2xl"
+                  style={{
+                    background: "var(--gradient-primary)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                  }}
+                >
                   {value}
                 </p>
                 <p className="mt-0.5 text-xs text-[var(--text-muted)]">
@@ -395,17 +454,23 @@ export default function LandingPage() {
       >
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <div className="mx-auto max-w-2xl text-center">
-            <p className="mb-3 text-xs font-semibold tracking-widest text-[#E0AD20] uppercase">
+            <p className="text-primary mb-3 text-xs font-semibold tracking-widest uppercase">
               Fitur Lengkap
             </p>
             <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">
               Semua yang kamu butuhkan untuk{" "}
-              <span className="bg-gradient-to-r from-[#FFD147] to-[#FF8A7A] bg-clip-text text-transparent">
+              <span
+                style={{
+                  background: "var(--gradient-primary)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                }}
+              >
                 finansial sehat
               </span>
             </h2>
             <p className="mt-4 text-sm leading-relaxed text-[var(--text-secondary)]">
-              Dari catat pengeluaran harian sampai pantau portofolio investasi —
+              Dari catat pengeluaran harian sampai pantau portofolio investasi:
               semua terintegrasi dalam satu platform.
             </p>
           </div>
@@ -420,9 +485,9 @@ export default function LandingPage() {
                   {section.items.map(({ icon: Icon, label }) => (
                     <div
                       key={label}
-                      className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] px-4 py-3 transition-all hover:border-[#FFD147]/20"
+                      className="hover:border-primary/20 flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] px-4 py-3 transition-all"
                     >
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#FFD147]/10 text-[#E0AD20]">
+                      <div className="bg-primary/10 text-primary flex h-8 w-8 shrink-0 items-center justify-center rounded-lg">
                         <Icon className="h-4 w-4" />
                       </div>
                       <span className="text-xs font-medium">{label}</span>
@@ -441,19 +506,25 @@ export default function LandingPage() {
           <div className="grid items-center gap-12 lg:grid-cols-2">
             {/* Left: text */}
             <div>
-              <p className="mb-3 text-xs font-semibold tracking-widest text-[#E0AD20] uppercase">
+              <p className="text-primary mb-3 text-xs font-semibold tracking-widest uppercase">
                 Cara Kerja
               </p>
               <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">
                 Dari chat WhatsApp sampai{" "}
-                <span className="bg-gradient-to-r from-[#FFD147] to-[#FF8A7A] bg-clip-text text-transparent">
+                <span
+                  style={{
+                    background: "var(--gradient-primary)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                  }}
+                >
                   laporan otomatis
                 </span>
               </h2>
               <p className="mt-4 text-sm leading-relaxed text-[var(--text-secondary)]">
-                FinTrack dirancang agar kamu tidak perlu berpindah aplikasi.
-                Cukup kirim pesan ke bot, foto struk, atau buka dashboard —
-                semua terpantau.
+                {config.appName} dirancang agar kamu tidak perlu berpindah aplikasi.
+                Cukup kirim pesan ke bot, foto struk, atau buka dashboard: semua
+                terpantau.
               </p>
 
               <div className="mt-8 space-y-5">
@@ -475,7 +546,7 @@ export default function LandingPage() {
                   },
                 ].map(({ step, title, desc }) => (
                   <div key={step} className="flex gap-4">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#FFD147] text-[10px] font-bold text-[#1A1D20]">
+                    <div className="bg-primary text-on-primary flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[10px] font-bold">
                       {step}
                     </div>
                     <div>
@@ -491,7 +562,13 @@ export default function LandingPage() {
 
             {/* Right: dashboard preview card */}
             <div className="relative">
-              <AnimatedGlow className="-top-20 -right-20 h-[300px] w-[300px] bg-[#FFD147]/10" />
+              <AnimatedGlow
+                className="-top-20 -right-20 h-[300px] w-[300px]"
+                style={{
+                  backgroundColor:
+                    "color-mix(in oklab, var(--primary) 10%, transparent)",
+                }}
+              />
               <div className="relative overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-surface)] p-5 shadow-xl shadow-black/30">
                 {/* Mock top bar */}
                 <div className="mb-4 flex items-center justify-between">
@@ -512,8 +589,12 @@ export default function LandingPage() {
                     (h, i) => (
                       <div
                         key={i}
-                        className="h-16 w-full rounded-t-md bg-gradient-to-t from-[#FFD147]/40 to-[#E0AD20]/60"
-                        style={{ height: `${h * 0.6 + 20}px` }}
+                        className="h-16 w-full rounded-t-md"
+                        style={{
+                          height: `${h * 0.6 + 20}px`,
+                          background:
+                            "linear-gradient(to top, color-mix(in oklab, var(--primary) 35%, transparent), color-mix(in oklab, var(--primary) 75%, transparent))",
+                        }}
                       />
                     ),
                   )}
@@ -525,7 +606,7 @@ export default function LandingPage() {
                     {
                       name: "Bank BCA",
                       balance: "Rp 12.450.000",
-                      color: "#FFD147",
+                      color: "var(--primary)",
                     },
                     {
                       name: "Kantong Jajan",
@@ -569,12 +650,18 @@ export default function LandingPage() {
       >
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <div className="mx-auto max-w-2xl text-center">
-            <p className="mb-3 text-xs font-semibold tracking-widest text-[#E0AD20] uppercase">
+            <p className="text-primary mb-3 text-xs font-semibold tracking-widest uppercase">
               Harga
             </p>
             <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">
               Investasi kecil untuk{" "}
-              <span className="bg-gradient-to-r from-[#FFD147] to-[#FF8A7A] bg-clip-text text-transparent">
+              <span
+                style={{
+                  background: "var(--gradient-primary)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                }}
+              >
                 masa depan finansial
               </span>
             </h2>
@@ -589,12 +676,15 @@ export default function LandingPage() {
                 key={p.name}
                 className={`relative rounded-2xl border p-6 transition-all hover:shadow-lg ${
                   p.popular
-                    ? "border-[#FFD147]/40 bg-[#FFD147]/[0.04] shadow-[#FFD147]/10"
+                    ? "border-primary/40 bg-primary/[0.04] shadow-primary/10"
                     : "border-[var(--border)] bg-[var(--bg-surface)]"
                 }`}
               >
                 {p.popular && (
-                  <div className="absolute -top-3 right-6 rounded-full bg-gradient-to-r from-[#FFD147] to-[#FFB347] px-3 py-0.5 text-[10px] font-bold text-[#1A1D20] shadow-lg">
+                  <div
+                    className="text-on-primary absolute -top-3 right-6 rounded-full px-3 py-0.5 text-[10px] font-bold shadow-lg"
+                    style={{ background: "var(--gradient-primary)" }}
+                  >
                     POPULER
                   </div>
                 )}
@@ -626,7 +716,7 @@ export default function LandingPage() {
                   href={p.href}
                   className={`flex w-full items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-semibold transition-all ${
                     p.popular
-                      ? "bg-[#FFD147] text-[#1A1D20] shadow-lg shadow-[#FFD147]/25 hover:bg-[#E0AD20]"
+                      ? "bg-primary text-on-primary hover:bg-primary-hover shadow-primary/25 shadow-lg"
                       : "border border-[var(--border)] bg-[var(--bg-elevated)] text-[var(--text-primary)] hover:bg-[var(--border)]"
                   }`}
                 >
@@ -643,12 +733,18 @@ export default function LandingPage() {
       <section id="faq" className="py-16 sm:py-24">
         <div className="mx-auto max-w-3xl px-4 sm:px-6">
           <div className="mx-auto max-w-2xl text-center">
-            <p className="mb-3 text-xs font-semibold tracking-widest text-[#E0AD20] uppercase">
+            <p className="text-primary mb-3 text-xs font-semibold tracking-widest uppercase">
               FAQ
             </p>
             <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">
               Pertanyaan yang{" "}
-              <span className="bg-gradient-to-r from-[#FFD147] to-[#FF8A7A] bg-clip-text text-transparent">
+              <span
+                style={{
+                  background: "var(--gradient-primary)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                }}
+              >
                 sering ditanyakan
               </span>
             </h2>
@@ -658,7 +754,7 @@ export default function LandingPage() {
             {FAQS.map((faq, i) => (
               <div
                 key={i}
-                className="rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] transition-colors hover:border-[#FFD147]/20"
+                className="rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] transition-colors hover:border-primary/20"
               >
                 <button
                   type="button"
@@ -688,25 +784,47 @@ export default function LandingPage() {
       {/* ── CTA ──────────────────────────────────────────────────────── */}
       <section className="border-t border-[var(--border)]/50 py-16 sm:py-20">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
-          <div className="relative isolate overflow-hidden rounded-3xl border border-[#FFD147]/20 bg-gradient-to-br from-[#1E1E1E] via-[#2D2200] to-[#121212] px-6 py-14 text-center shadow-2xl shadow-[#FFD147]/10 sm:px-14">
-            <AnimatedGlow className="-top-40 left-1/2 h-[400px] w-[600px] -translate-x-1/2 bg-[#FFD147]/15" />
+          <div
+            className="relative isolate overflow-hidden rounded-3xl border px-6 py-14 text-center shadow-2xl sm:px-14"
+            style={{
+              borderColor:
+                "color-mix(in oklab, var(--primary) 25%, transparent)",
+              background:
+                "linear-gradient(135deg, #181a1d 0%, color-mix(in oklab, var(--primary) 12%, #121417) 50%, #101114 100%)",
+              boxShadow:
+                "0 25px 50px -12px color-mix(in oklab, var(--primary) 15%, transparent)",
+            }}
+          >
+            <AnimatedGlow
+              className="-top-40 left-1/2 h-[400px] w-[600px] -translate-x-1/2"
+              style={{
+                backgroundColor:
+                  "color-mix(in oklab, var(--primary) 15%, transparent)",
+              }}
+            />
 
             <div className="relative z-10">
               <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">
                 Siap{" "}
-                <span className="bg-gradient-to-r from-[#FFD147] to-[#FF8A7A] bg-clip-text text-transparent">
+                <span
+                  style={{
+                    background: "var(--gradient-primary)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                  }}
+                >
                   menguasai
                 </span>{" "}
                 keuanganmu?
               </h2>
               <p className="mx-auto mt-4 max-w-lg text-sm leading-relaxed text-[var(--text-secondary)]">
-                Gabung 50.000+ pengguna yang sudah merapikan keuangan dengan
-                FinTrack. Gratis selamanya, tanpa kartu kredit.
+                Gabung 50.000+ pengguna yang sudah merapikan keuangan dengan{" "}
+                {config.appName}. Gratis selamanya, tanpa kartu kredit.
               </p>
               <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
                 <Link
                   href="/register"
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#FFD147] px-6 py-3 text-sm font-semibold text-[#1A1D20] shadow-lg shadow-[#FFD147]/25 transition-all hover:bg-[#E0AD20] sm:w-auto"
+                  className="bg-primary text-on-primary hover:bg-primary-hover shadow-primary/25 inline-flex w-full items-center justify-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold shadow-lg transition-all sm:w-auto"
                 >
                   Daftar Gratis
                   <ArrowUpRight className="h-4 w-4" />
@@ -746,7 +864,7 @@ export default function LandingPage() {
             </div>
           </div>
           <p className="mt-6 text-center text-[11px] text-[var(--text-muted)] sm:text-left">
-            &copy; {new Date().getFullYear()} FinTrack. All rights reserved.
+            &copy; {new Date().getFullYear()} {config.appName}. {config.footerText || "All rights reserved."}
           </p>
         </div>
       </footer>

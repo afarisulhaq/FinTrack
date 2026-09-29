@@ -316,7 +316,7 @@ export default function MarketWatchPage() {
           ini menampilkan data harga pasar apa adanya untuk membantu kamu
           memantau saham. Ini{" "}
           <span className="font-semibold">bukan rekomendasi beli/jual</span>.
-          Pergerakan harga besok tidak bisa diprediksi pasti — gunakan data
+          Pergerakan harga besok tidak bisa diprediksi pasti - gunakan data
           range harga di bawah sebagai acuan area pantau, dan selalu lakukan
           analisis sendiri.
         </p>

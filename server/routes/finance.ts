@@ -25,6 +25,7 @@ const prismaResources = new Set<ResourceKey>([
   "notes",
   "recurringTransactions",
   "debts",
+  "debtContacts",
   "cards",
   "wishlist",
   "reimbursements",
@@ -530,6 +531,22 @@ function serializeDebt(d: {
     installments: Array.isArray(d.installments) ? d.installments : [],
     isSettled: d.isSettled,
     createdAt: toIso(d.createdAt),
+  };
+}
+
+function serializeDebtContact(c: {
+  id: string;
+  name: string;
+  phone: string | null;
+  note: string | null;
+  createdAt: Date;
+}) {
+  return {
+    id: c.id,
+    name: c.name,
+    phone: c.phone ?? undefined,
+    note: c.note ?? undefined,
+    createdAt: toIso(c.createdAt),
   };
 }
 
@@ -1087,6 +1104,13 @@ async function listPrismaResource(
       });
       return rows.map(serializeDebt);
     }
+    case "debtContacts": {
+      const rows = await prisma.debtContact.findMany({
+        where: filter,
+        orderBy: { name: "asc" },
+      });
+      return rows.map(serializeDebtContact);
+    }
     case "cards": {
       const rows = await prisma.card.findMany({ where: filter });
       return rows.map(serializeCard);
@@ -1270,6 +1294,17 @@ async function createPrismaResource(
     case "debts": {
       const created = await prisma.debt.create({ data: data as never });
       return serializeDebt(created);
+    }
+    case "debtContacts": {
+      const created = await prisma.debtContact.create({
+        data: {
+          ...data,
+          name: String(body.name ?? "").trim(),
+          phone: body.phone ? String(body.phone).trim() : null,
+          note: body.note ? String(body.note).trim() : null,
+        } as never,
+      });
+      return serializeDebtContact(created);
     }
     case "cards": {
       const created = await prisma.card.create({ data: data as never });
@@ -1559,6 +1594,20 @@ async function updatePrismaResource(
       });
       return serializeDebt(updated);
     }
+    case "debtContacts": {
+      const existing = await prisma.debtContact.findFirst({ where });
+      if (!existing) throw new Error("Data tidak ditemukan");
+      const updated = await prisma.debtContact.update({
+        where: { id: resourceId },
+        data: {
+          ...data,
+          ...(body.name !== undefined ? { name: String(body.name).trim() } : {}),
+          ...(body.phone !== undefined ? { phone: body.phone ? String(body.phone).trim() : null } : {}),
+          ...(body.note !== undefined ? { note: body.note ? String(body.note).trim() : null } : {}),
+        } as never,
+      });
+      return serializeDebtContact(updated);
+    }
     case "cards": {
       const existing = await prisma.card.findFirst({ where });
       if (!existing) throw new Error("Data tidak ditemukan");
@@ -1698,6 +1747,11 @@ async function deletePrismaResource(
       if (result.count === 0) throw new Error("Data tidak ditemukan");
       return;
     }
+    case "debtContacts": {
+      const result = await prisma.debtContact.deleteMany({ where });
+      if (result.count === 0) throw new Error("Data tidak ditemukan");
+      return;
+    }
     case "cards": {
       const result = await prisma.card.deleteMany({ where });
       if (result.count === 0) throw new Error("Data tidak ditemukan");
@@ -1747,6 +1801,7 @@ async function getBootstrapFromDb(userId: string | null) {
     notes,
     recurring,
     debts,
+    debtContacts,
     cards,
     wishlist,
     reimbursements,
@@ -1770,6 +1825,10 @@ async function getBootstrapFromDb(userId: string | null) {
     prisma.note.findMany({ where: filter, orderBy: { updatedAt: "desc" } }),
     prisma.recurringTransaction.findMany({ where: filter }),
     prisma.debt.findMany({ where: filter, orderBy: { createdAt: "desc" } }),
+    prisma.debtContact.findMany({
+      where: filter,
+      orderBy: { name: "asc" },
+    }),
     prisma.card.findMany({ where: filter }),
     prisma.wishlistItem.findMany({
       where: filter,
@@ -1818,6 +1877,7 @@ async function getBootstrapFromDb(userId: string | null) {
     notes: notes.map(serializeNote),
     recurringTransactions: recurring.map(serializeRecurring),
     debts: debts.map(serializeDebt),
+    debtContacts: debtContacts.map(serializeDebtContact),
     cards: cards.map(serializeCard),
     wishlist: wishlist.map(serializeWishlistItem),
     reimbursements: reimbursements.map(serializeReimbursement),

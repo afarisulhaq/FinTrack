@@ -18,31 +18,33 @@ import {
   RotateCcw,
   Save,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Card, CardBody } from "~/components/ui/card";
 import { useAppConfigStore, type AppConfig } from "~/store/useAppConfigStore";
 import { useAuthStore } from "~/store/useAuthStore";
 import { api } from "~/lib/api";
-
-const iconOptions = [
-  TrendingUp,
-  Wallet,
-  PieChart,
-  BarChart3,
-  DollarSign,
-  Coins,
-  Landmark,
-  CreditCard,
-  PiggyBank,
-  Shield,
-  Zap,
-  Sparkles,
+import { applyBrand } from "~/lib/brand";
+const iconOptions: { name: string; Component: LucideIcon }[] = [
+  { name: "TrendingUp", Component: TrendingUp },
+  { name: "Wallet", Component: Wallet },
+  { name: "PieChart", Component: PieChart },
+  { name: "BarChart3", Component: BarChart3 },
+  { name: "DollarSign", Component: DollarSign },
+  { name: "Coins", Component: Coins },
+  { name: "Landmark", Component: Landmark },
+  { name: "CreditCard", Component: CreditCard },
+  { name: "PiggyBank", Component: PiggyBank },
+  { name: "Shield", Component: Shield },
+  { name: "Zap", Component: Zap },
+  { name: "Sparkles", Component: Sparkles },
 ];
 const presets = [
-  ["Indigo & Violet", "#FFD147", "#FFB347"],
+  ["Gold & Amber", "#FFD147", "#FFB347"],
   ["Emerald & Teal", "#10b981", "#14b8a6"],
   ["Sky & Blue", "#0ea5e9", "#3b82f6"],
+  ["Indigo & Violet", "#6366f1", "#8b5cf6"],
   ["Rose & Pink", "#f43f5e", "#ec4899"],
   ["Amber & Orange", "#f59e0b", "#f97316"],
   ["Slate & Gray", "#64748b", "#94a3b8"],
@@ -55,6 +57,14 @@ export default function AppSettingsPage() {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => setDraft(config), [config]);
+
+  // Live-mirror draft primary/accent into CSS variables so the entire UI
+  // (bg-primary / text-primary utilities, --gradient-primary, auth layout
+  // tiles) updates as the user picks a color — not only after Save.
+  useEffect(() => {
+    applyBrand(draft.primaryColor, draft.accentColor);
+  }, [draft.primaryColor, draft.accentColor]);
+
   function update<K extends keyof AppConfig>(key: K, value: AppConfig[K]) {
     setDraft((current) => ({ ...current, [key]: value }));
   }
@@ -72,19 +82,12 @@ export default function AppSettingsPage() {
       }
     }
     updateConfig(nextConfig);
-    document.documentElement.style.setProperty(
-      "--primary",
-      nextConfig.primaryColor,
-    );
-    document.documentElement.style.setProperty(
-      "--color-primary",
-      nextConfig.primaryColor,
-    );
+    applyBrand(nextConfig.primaryColor, nextConfig.accentColor);
     setSaved(true);
     window.setTimeout(() => setSaved(false), 1500);
   }
   const SelectedIcon =
-    iconOptions.find((Icon) => Icon.name === draft.logoIcon) ?? TrendingUp;
+    iconOptions.find((entry) => entry.name === draft.logoIcon)?.Component ?? TrendingUp;
 
   return (
     <div className="space-y-6">
@@ -213,11 +216,11 @@ export default function AppSettingsPage() {
                   <div>
                     <p className="text-sm font-semibold mb-2">Pilih Icon</p>
                     <div className="grid grid-cols-6 gap-2">
-                      {iconOptions.map((Icon) => (
+                      {iconOptions.map(({ name, Component: Icon }) => (
                         <button
-                          key={Icon.name}
-                          onClick={() => update("logoIcon", Icon.name)}
-                          className={`aspect-square rounded-lg flex items-center justify-center border ${draft.logoIcon === Icon.name ? "border-warning bg-warning/10 text-warning" : "border-border bg-bg-elevated text-text-muted"}`}
+                          key={name}
+                          onClick={() => update("logoIcon", name)}
+                          className={`aspect-square rounded-lg flex items-center justify-center border ${draft.logoIcon === name ? "border-warning bg-warning/10 text-warning" : "border-border bg-bg-elevated text-text-muted"}`}
                         >
                           <Icon className="h-5 w-5" />
                         </button>

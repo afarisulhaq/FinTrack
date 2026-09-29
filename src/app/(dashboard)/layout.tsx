@@ -10,6 +10,8 @@ import { ConfirmDialog } from "~/components/ui/confirm-dialog";
 import { useSidebarStore } from "~/store/useSidebarStore";
 import { useAuthStore } from "~/store/useAuthStore";
 import { useFinanceStore } from "~/store/useFinanceStore";
+import { useAppConfigStore } from "~/store/useAppConfigStore";
+import { applyBrand } from "~/lib/brand";
 import { api } from "~/lib/api";
 
 export default function DashboardLayout({
@@ -24,7 +26,17 @@ export default function DashboardLayout({
     (state) => state.hydrateFromBackend,
   );
   const refreshCategories = useFinanceStore((s) => s.refreshCategories);
+  // Read once at render — `useAppConfigStore` already persists the
+  // config to localStorage, so a refresh preserves the footer text
+  // without needing a server round-trip on every navigation.
+  const footerText = useAppConfigStore((s) => s.config.footerText);
   const [isMobile, setIsMobile] = useState(false);
+  const brandPrimary = useAppConfigStore((s) => s.config.primaryColor);
+  const brandAccent = useAppConfigStore((s) => s.config.accentColor);
+
+  useEffect(() => {
+    applyBrand(brandPrimary, brandAccent);
+  }, [brandPrimary, brandAccent]);
 
   /** Reusable bootstrap fetcher */
   const fetchData = useCallback(() => {
@@ -108,6 +120,11 @@ export default function DashboardLayout({
               className="min-h-screen"
             >
               {children}
+              {footerText && (
+                <footer className="text-text-muted border-border/60 mt-10 border-t pt-4 pb-6 text-center text-[11px]">
+                  {footerText}
+                </footer>
+              )}
             </motion.div>
           </AnimatePresence>
         </main>

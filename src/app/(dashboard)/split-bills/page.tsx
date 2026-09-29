@@ -15,6 +15,7 @@ import {
   MessageCircle,
   CheckCircle2,
   Link as LinkIcon,
+  AlertTriangle,
 } from "lucide-react";
 import { PageWrapper } from "~/components/layout/page-wrapper";
 import { Card, CardBody, CardHeader } from "~/components/ui/card";
@@ -247,7 +248,7 @@ function BillCard({ bill, onClick }: { bill: SplitBill; onClick: () => void }) {
           {settled ? "Selesai" : `${paidCount}/${totalCount}`}
         </Badge>
       </div>
-      <p className="text-text-primary text-xl font-bold">
+      <p className="text-text-primary text-xl font-bold tabular-nums">
         {formatCurrency(bill.totalAmount)}
       </p>
       <p className="text-text-muted mt-1 text-xs">
@@ -257,7 +258,7 @@ function BillCard({ bill, onClick }: { bill: SplitBill; onClick: () => void }) {
           month: "short",
         })}
       </p>
-      <div className="border-border mt-3 flex items-center justify-between border-t pt-2 text-xs">
+      <div className="border-border mt-3 flex items-center justify-between border-t pt-2 text-xs tabular-nums">
         <span className="text-text-muted">
           {formatCurrency(collected)} / {formatCurrency(bill.totalAmount)}
         </span>
@@ -484,10 +485,13 @@ function CreateSplitBillModal({
             ))}
           </div>
           {amountMismatch && (
-            <p className="text-warning mt-2 text-xs">
-              ⚠️ Total peserta ({formatCurrency(totalInputAmount)}) tidak sama
-              dengan total tagihan ({formatCurrency(declaredTotal)}). Selisih:{" "}
-              {formatCurrency(Math.abs(totalInputAmount - declaredTotal))}
+            <p className="text-text-warning mt-2 flex items-start gap-1.5 text-xs">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+              <span className="tabular-nums">
+                Total peserta ({formatCurrency(totalInputAmount)}) tidak sama
+                dengan total tagihan ({formatCurrency(declaredTotal)}). Selisih:{" "}
+                {formatCurrency(Math.abs(totalInputAmount - declaredTotal))}
+              </span>
             </p>
           )}
         </div>
@@ -547,7 +551,7 @@ function SplitBillDetailModal({
     >
       <div className="space-y-4">
         <Card padding="sm">
-          <div className="space-y-2 text-sm">
+          <div className="space-y-2 text-sm tabular-nums">
             <div className="flex justify-between">
               <span className="text-text-muted">Dibayar oleh</span>
               <span className="text-text-primary font-medium">
@@ -560,17 +564,6 @@ function SplitBillDetailModal({
                 {formatCurrency(collected)} / {formatCurrency(bill.totalAmount)}
               </span>
             </div>
-            <div className="bg-bg-elevated h-2 overflow-hidden rounded-full">
-              <div
-                className="bg-success h-full transition-all"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-            {bill.description && (
-              <p className="text-text-muted text-xs italic">
-                {bill.description}
-              </p>
-            )}
           </div>
         </Card>
 

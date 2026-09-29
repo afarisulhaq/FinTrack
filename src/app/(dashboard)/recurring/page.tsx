@@ -387,28 +387,24 @@ export default function RecurringPage() {
         </Button>
       }
     >
-      {/* ══ Section 1: Summary StatCards ════════════════════════════════════ */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard
           title="Pengeluaran Bulanan"
           value={formatCurrency(stats.monthlyExpense, true)}
           subtitle="Estimasi per bulan"
-          icon={<TrendingDown className="h-5 w-5" />}
-          iconColor="#ef4444"
+          icon={<TrendingDown className="text-danger h-5 w-5" />}
         />
         <StatCard
           title="Pemasukan Bulanan"
           value={formatCurrency(stats.monthlyIncome, true)}
           subtitle="Estimasi per bulan"
-          icon={<TrendingUp className="h-5 w-5" />}
-          iconColor="#22c55e"
+          icon={<TrendingUp className="text-success h-5 w-5" />}
         />
         <StatCard
           title="Aktif / Total"
           value={`${stats.activeCount} / ${recurringTransactions.length}`}
           subtitle="Transaksi berulang"
-          icon={<Activity className="h-5 w-5" />}
-          iconColor="#FFD147"
+          icon={<Activity className="text-primary h-5 w-5" />}
         />
       </div>
 
@@ -467,10 +463,16 @@ export default function RecurringPage() {
                   <div className="flex items-center gap-3">
                     {/* Category icon */}
                     <div
-                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-xl"
-                      style={{ backgroundColor: `${catColor}18` }}
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
+                      style={{
+                        backgroundColor: `${catColor}18`,
+                        color: catColor,
+                      }}
                     >
-                      {rt.categoryIcon}
+                      <DynamicIcon
+                        name={rt.categoryIcon || "Repeat"}
+                        className="h-5 w-5"
+                      />
                     </div>
 
                     {/* Name + details */}
@@ -491,7 +493,7 @@ export default function RecurringPage() {
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
                         <span
                           className={cn(
-                            "text-sm font-bold",
+                            "tabular-nums text-sm font-bold",
                             rt.type === "income"
                               ? "text-success"
                               : rt.type === "expense"

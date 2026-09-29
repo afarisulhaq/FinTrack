@@ -169,25 +169,32 @@ export default function CardsPage() {
           title="Total Kartu"
           value={cards.length}
           subtitle={`${creditCards.length} kredit, ${debitCards.length} debit`}
-          icon={<CreditCard />}
-          iconColor="#FFD147"
+          icon={<CreditCard className="text-primary" />}
         />
         <StatCard
           title="Total Limit Kredit"
-          value={formatCurrency(totalLimit)}
-          icon={<CreditCard />}
-          iconColor="#22c55e"
+          value={
+            <span className="tabular-nums">{formatCurrency(totalLimit)}</span>
+          }
+          icon={<CreditCard className="text-success" />}
         />
         <StatCard
           title="Total Digunakan"
-          value={formatCurrency(totalUsed)}
+          value={
+            <span className="tabular-nums">{formatCurrency(totalUsed)}</span>
+          }
           subtitle={
             totalLimit > 0
               ? `${Math.round((totalUsed / totalLimit) * 100)}% dari limit`
               : ""
           }
-          icon={<AlertTriangle />}
-          iconColor={totalUsed / totalLimit > 0.7 ? "#ef4444" : "#f59e0b"}
+          icon={
+            <AlertTriangle
+              className={
+                totalUsed / totalLimit > 0.7 ? "text-danger" : "text-warning"
+              }
+            />
+          }
         />
       </div>
 
@@ -198,7 +205,7 @@ export default function CardsPage() {
             <span className="text-text-primary text-sm font-semibold">
               Credit Utilization
             </span>
-            <span className="text-text-muted text-xs">
+            <span className="text-text-muted text-xs tabular-nums">
               {formatCurrency(totalUsed)} / {formatCurrency(totalLimit)} (
               {Math.round((totalUsed / totalLimit) * 100)}%)
             </span>
@@ -219,7 +226,7 @@ export default function CardsPage() {
             />
             <p className="text-text-muted mt-2 text-xs">
               Ideal di bawah 30% dari total limit. Sisa tersedia:{" "}
-              <span className="text-text-primary font-medium">
+              <span className="text-text-primary font-medium tabular-nums">
                 {formatCurrency(totalLimit - totalUsed)}
               </span>
             </p>
@@ -272,7 +279,7 @@ export default function CardsPage() {
                       <p className="text-[10px] tracking-wide text-white/50 uppercase">
                         Available
                       </p>
-                      <p className="text-sm font-bold text-white">
+                      <p className="text-sm font-bold text-white tabular-nums">
                         {formatCurrency((card.limit || 0) - (card.used || 0))}
                       </p>
                     </div>
@@ -298,7 +305,7 @@ export default function CardsPage() {
             <div className="mt-3 space-y-2 px-1">
               {card.type === "credit" && card.limit && (
                 <div className="space-y-1">
-                  <div className="text-text-muted flex justify-between text-xs">
+                  <div className="text-text-muted flex justify-between text-xs tabular-nums">
                     <span>Digunakan</span>
                     <span>
                       {formatCurrency(card.used || 0)} /{" "}

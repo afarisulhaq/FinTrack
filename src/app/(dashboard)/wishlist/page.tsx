@@ -166,27 +166,25 @@ export default function WishlistPage() {
         </Button>
       }
     >
-      {/* ── Summary ─────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard
           title="Total Item"
-          value={totalItems}
+          value={<span className="tabular-nums">{totalItems}</span>}
           subtitle={`${purchasedCount} sudah dibeli`}
-          icon={<Star />}
-          iconColor="#FFD147"
+          icon={<Star className="text-primary" />}
         />
         <StatCard
           title="Total Nilai Wishlist"
-          value={formatCurrency(totalValue)}
-          icon={<ShoppingCart />}
-          iconColor="#f59e0b"
+          value={
+            <span className="tabular-nums">{formatCurrency(totalValue)}</span>
+          }
+          icon={<ShoppingCart className="text-warning" />}
         />
         <StatCard
           title="Sudah Dibeli"
-          value={purchasedCount}
+          value={<span className="tabular-nums">{purchasedCount}</span>}
           subtitle="item terpenuhi"
-          icon={<ShoppingCart />}
-          iconColor="#22c55e"
+          icon={<ShoppingCart className="text-success" />}
         />
       </div>
 
@@ -280,7 +278,7 @@ export default function WishlistPage() {
 
               {/* Price & Priority */}
               <div className="flex items-center justify-between">
-                <span className="text-text-primary text-xl font-bold">
+                <span className="text-text-primary text-xl font-bold tabular-nums">
                   {formatCurrency(item.price)}
                 </span>
                 <Badge variant={cfg.variant} size="sm">
@@ -339,8 +337,10 @@ export default function WishlistPage() {
             ) : (
               <ChevronDown className="h-4 w-4" />
             )}
-            Sudah Dibeli ({purchasedItems.length} item) —{" "}
-            {formatCurrency(purchasedItems.reduce((s, w) => s + w.price, 0))}
+            Sudah Dibeli ({purchasedItems.length} item) -{" "}
+            <span className="tabular-nums">
+              {formatCurrency(purchasedItems.reduce((s, w) => s + w.price, 0))}
+            </span>
           </button>
 
           {showPurchased && (

@@ -94,10 +94,10 @@ export default function AdminDashboardPage() {
         const [usersResult, txResult, botResult] = await Promise.allSettled([
           api.get<AdminUser[]>("/users", token),
           api.get<unknown[]>("/transactions", token),
-          api.get<{ whatsapp: { status: string }; telegram: { status: string } }>(
-            "/bot/status",
-            token,
-          ),
+          api.get<{
+            whatsapp: { status: string };
+            telegram: { status: string };
+          }>("/bot/status", token),
         ]);
 
         if (cancelled) return;
@@ -195,45 +195,48 @@ export default function AdminDashboardPage() {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard
           title="Total Pengguna"
-          value={loading ? "…" : formatNumber(totalUsers)}
-          subtitle={
-            loading
-              ? "…"
-              : `+${formatNumber(newThisMonth)} bulan ini`
+          value={
+            <span className="tabular-nums">
+              {loading ? "…" : formatNumber(totalUsers)}
+            </span>
           }
-          icon={<Users className="h-5 w-5" />}
-          iconColor="#f59e0b"
+          subtitle={loading ? "…" : `+${formatNumber(newThisMonth)} bulan ini`}
+          icon={<Users className="text-warning h-5 w-5" />}
         />
         <StatCard
           title="Pengguna Aktif"
-          value={loading ? "…" : formatNumber(activeUsers)}
-          subtitle={
-            loading ? "…" : `${activePercent}% dari total`
+          value={
+            <span className="tabular-nums">
+              {loading ? "…" : formatNumber(activeUsers)}
+            </span>
           }
-          icon={<Activity className="h-5 w-5" />}
-          iconColor="#22c55e"
+          subtitle={loading ? "…" : `${activePercent}% dari total`}
+          icon={<Activity className="text-success h-5 w-5" />}
         />
         <StatCard
           title="Total Transaksi"
           value={
-            txCount === null
-              ? "—"
-              : loading
-                ? "…"
-                : formatNumber(txCount)
+            txCount === null ? (
+              <span>-</span>
+            ) : loading ? (
+              "…"
+            ) : (
+              <span className="tabular-nums">{formatNumber(txCount)}</span>
+            )
           }
           subtitle={txCount === null ? "tidak tersedia" : "Semua pengguna"}
-          icon={<ArrowLeftRight className="h-5 w-5" />}
-          iconColor="#FFD147"
+          icon={<ArrowLeftRight className="text-primary h-5 w-5" />}
         />
         <StatCard
           title="API Server"
           value={
-            apiOnline === null
-              ? "—"
-              : apiOnline
-                ? "Online"
-                : "Offline"
+            apiOnline === null ? (
+              <span>-</span>
+            ) : apiOnline ? (
+              "Online"
+            ) : (
+              "Offline"
+            )
           }
           subtitle={
             apiOnline === null
@@ -242,8 +245,7 @@ export default function AdminDashboardPage() {
                 ? "Respons terakhir OK"
                 : "Gagal merespons"
           }
-          icon={<Server className="h-5 w-5" />}
-          iconColor="#38bdf8"
+          icon={<Server className="text-info h-5 w-5" />}
         />
       </div>
 
@@ -257,11 +259,7 @@ export default function AdminDashboardPage() {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={last7}>
                   <XAxis dataKey="day" stroke="#94a3b8" />
-                  <YAxis
-                    stroke="#94a3b8"
-                    allowDecimals={false}
-                    width={32}
-                  />
+                  <YAxis stroke="#94a3b8" allowDecimals={false} width={32} />
                   <Tooltip
                     contentStyle={{
                       background: "#1a1d27",
@@ -269,11 +267,7 @@ export default function AdminDashboardPage() {
                       borderRadius: 12,
                     }}
                   />
-                  <Bar
-                    dataKey="users"
-                    fill="#f59e0b"
-                    radius={[8, 8, 0, 0]}
-                  />
+                  <Bar dataKey="users" fill="#f59e0b" radius={[8, 8, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -288,7 +282,13 @@ export default function AdminDashboardPage() {
             <div className="space-y-3">
               <HealthRow
                 name="API Server"
-                status={apiOnline === null ? "Memeriksa…" : apiOnline ? "Online" : "Offline"}
+                status={
+                  apiOnline === null
+                    ? "Memeriksa…"
+                    : apiOnline
+                      ? "Online"
+                      : "Offline"
+                }
                 ok={apiOnline === true}
               />
               <HealthRow
@@ -347,10 +347,7 @@ export default function AdminDashboardPage() {
                   </thead>
                   <tbody>
                     {recentUsers.map((u) => (
-                      <tr
-                        key={u.id}
-                        className="border-border/60 border-b"
-                      >
+                      <tr key={u.id} className="border-border/60 border-b">
                         <td className="py-3 font-medium">{u.name}</td>
                         <td className="text-text-muted">{u.email}</td>
                         <td className="capitalize">{u.role}</td>
@@ -437,9 +434,7 @@ function HealthRow({
   ok: boolean;
 }) {
   return (
-    <div
-      className="bg-bg-elevated flex items-center justify-between rounded-lg p-3"
-    >
+    <div className="bg-bg-elevated flex items-center justify-between rounded-lg p-3">
       <span className="text-sm">{name}</span>
       <span className={ok ? "text-success" : "text-warning"}>
         {ok ? (

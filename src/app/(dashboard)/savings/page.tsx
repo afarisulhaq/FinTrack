@@ -147,22 +147,27 @@ export default function SavingsPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard
           title="Total Target"
-          value={formatCurrency(totalTarget)}
-          icon={<Target />}
-          iconColor="#FFD147"
+          value={
+            <span className="tabular-nums">{formatCurrency(totalTarget)}</span>
+          }
+          icon={<Target className="text-primary" />}
         />
         <StatCard
           title="Total Terkumpul"
-          value={formatCurrency(totalCollected)}
-          icon={<PiggyBank />}
-          iconColor="#22c55e"
+          value={
+            <span className="tabular-nums">
+              {formatCurrency(totalCollected)}
+            </span>
+          }
+          icon={<PiggyBank className="text-success" />}
         />
         <StatCard
           title="Rata-rata Progress"
-          value={`${Math.round(avgProgress)}%`}
+          value={
+            <span className="tabular-nums">{`${Math.round(avgProgress)}%`}</span>
+          }
           subtitle={`${savingGoals.length} goal aktif`}
-          icon={<Zap />}
-          iconColor="#f59e0b"
+          icon={<Zap className="text-warning" />}
         />
       </div>
 
@@ -207,10 +212,10 @@ export default function SavingsPage() {
               {/* Progress */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-text-primary font-bold">
+                  <span className="text-text-primary font-bold tabular-nums">
                     {formatCurrency(goal.currentAmount)}
                   </span>
-                  <span className="text-text-muted text-xs">
+                  <span className="text-text-muted text-xs tabular-nums">
                     dari {formatCurrency(goal.targetAmount)}
                   </span>
                 </div>
@@ -226,7 +231,7 @@ export default function SavingsPage() {
                   >
                     {pct}% tercapai
                   </span>
-                  <span className="text-text-muted text-xs">
+                  <span className="text-text-muted text-xs tabular-nums">
                     Kurang {formatCurrency(remaining)}
                   </span>
                 </div>
@@ -246,7 +251,7 @@ export default function SavingsPage() {
                 {goal.autoSave && goal.autoSaveAmount && (
                   <div className="text-success flex items-center gap-1.5">
                     <Zap className="h-3 w-3" />
-                    <span>
+                    <span className="tabular-nums">
                       Auto-save {formatCurrency(goal.autoSaveAmount)}/bln
                     </span>
                   </div>
@@ -402,8 +407,7 @@ export default function SavingsPage() {
       <Modal
         open={!!showFundsModal}
         onClose={() => setShowFundsModal(null)}
-        title={`Tambah Dana — ${savingGoals.find((g) => g.id === showFundsModal)?.name || ""}`}
-        size="sm"
+        title={`Tambah Dana - ${savingGoals.find((g) => g.id === showFundsModal)?.name || ""}`}
       >
         <form onSubmit={handleFundsSubmit} className="space-y-4">
           <Input
@@ -434,7 +438,7 @@ export default function SavingsPage() {
               const newPct = percentage(newAmount, goal.targetAmount);
               return (
                 <div className="bg-bg-elevated rounded-lg p-3 text-xs">
-                  <div className="text-text-muted mb-1 flex justify-between">
+                  <div className="text-text-muted mb-1 flex justify-between tabular-nums">
                     <span>Setelah ditambah</span>
                     <span>
                       {formatCurrency(Math.min(newAmount, goal.targetAmount))}

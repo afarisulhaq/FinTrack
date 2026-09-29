@@ -10,23 +10,67 @@ export function cn(...inputs: ClassValue[]): string {
 // ─── Currency Formatting ───────────────────────────────────────────────────────
 
 /**
- * Format a number as Indonesian Rupiah.
- * Pass `compact = true` for short forms like "Rp15jt", "Rp500rb".
+ * Format a number in a target currency. Defaults to IDR to keep
+ * existing callers source-compatible. Pass `currency` from
+ * `useAppConfigStore().config.currency` to honor the admin setting.
+ *
+ * Pass `compact = true` for short forms like "Rp15jt", "Rp500rb" /
+ * "$15K" / "€1.2M".
  */
-export function formatCurrency(amount: number, compact = false): string {
+export function formatCurrency(
+  amount: number,
+  compact = false,
+  currency = "IDR",
+): string {
+  const code = (currency || "IDR").toUpperCase();
   if (compact) {
-    const abs = Math.abs(amount)
-    const sign = amount < 0 ? '-' : ''
-    if (abs >= 1_000_000_000) return `${sign}Rp${(abs / 1_000_000_000).toFixed(1)}M`
-    if (abs >= 1_000_000) return `${sign}Rp${(abs / 1_000_000).toFixed(1)}jt`
-    if (abs >= 1_000) return `${sign}Rp${(abs / 1_000).toFixed(0)}rb`
-    return `${sign}Rp${abs.toFixed(0)}`
+    const abs = Math.abs(amount);
+    const sign = amount < 0 ? "-" : "";
+    if (abs >= 1_000_000_000) {
+      return `${sign}${getSymbol(code)}${(abs / 1_000_000_000).toFixed(1)}M`;
+    }
+    if (abs >= 1_000_000) {
+      return `${sign}${getSymbol(code)}${(abs / 1_000_000).toFixed(1)}jt`;
+    }
+    if (abs >= 1_000) {
+      return `${sign}${getSymbol(code)}${(abs / 1_000).toFixed(0)}rb`;
+    }
+    return `${sign}${getSymbol(code)}${abs.toFixed(0)}`;
   }
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    maximumFractionDigits: 0,
-  }).format(amount)
+  try {
+    return new Intl.NumberFormat("id-ID", {
+      style: "currency",
+      currency: code,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  } catch {
+    // Unknown ISO code → fall back to a manual `CODE 1.234.567` so we
+    // never throw at render time on a misconfigured currency.
+    return `${code} ${Math.round(amount).toLocaleString("id-ID")}`;
+  }
+}
+
+function getSymbol(code: string): string {
+  // Only override currencies whose compact form users typically write
+  // without an Intl symbol. Most currencies fall through to the raw code.
+  switch (code) {
+    case "IDR":
+      return "Rp";
+    case "USD":
+      return "$";
+    case "EUR":
+      return "€";
+    case "GBP":
+      return "£";
+    case "JPY":
+      return "¥";
+    case "MYR":
+      return "RM";
+    case "SGD":
+      return "S$";
+    default:
+      return `${code} `;
+  }
 }
 
 // ─── Date Formatting ───────────────────────────────────────────────────────────

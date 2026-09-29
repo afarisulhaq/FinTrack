@@ -12,8 +12,10 @@ import {
   Lock,
   Mail,
   User,
+  UserPlus,
 } from "lucide-react";
 import { Button } from "~/components/ui/button";
+import { DynamicIcon } from "~/components/ui/dynamic-icon";
 import { PendingApprovalCard } from "~/components/auth/pending-approval-card";
 import { Turnstile, resetTurnstile } from "~/components/auth/turnstile";
 import { useAuthStore, type RegisterResult } from "~/store/useAuthStore";
@@ -40,7 +42,7 @@ function strength(password: string) {
   if (score <= 1) return { level: 1, label: "Lemah", color: "#ef4444" };
   if (score === 2) return { level: 2, label: "Cukup", color: "#f59e0b" };
   if (score === 3) return { level: 3, label: "Kuat", color: "#22c55e" };
-  return { level: 4, label: "Sangat Kuat", color: "#FFD147" };
+  return { level: 4, label: "Sangat Kuat", color: "var(--primary)" };
 }
 
 export default function RegisterPage() {
@@ -132,8 +134,11 @@ export default function RegisterPage() {
           }}
         >
       <div className="mb-7">
+        <div className="bg-primary/15 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-xl">
+          <DynamicIcon name="UserPlus" className="h-5 w-5" />
+        </div>
         <h1 className="text-text-primary mb-1.5 text-2xl font-bold">
-          Buat akun baru 🚀
+          Buat akun baru
         </h1>
         <p className="text-text-secondary text-sm">
           Mulai perjalanan finansialmu bersama {config.appName}

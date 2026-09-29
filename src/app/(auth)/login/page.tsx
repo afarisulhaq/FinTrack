@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AlertCircle, Eye, EyeOff, Lock, Mail, Zap } from "lucide-react";
 import { Button } from "~/components/ui/button";
+import { DynamicIcon } from "~/components/ui/dynamic-icon";
 import { Turnstile, resetTurnstile } from "~/components/auth/turnstile";
 import { useAuthStore } from "~/store/useAuthStore";
 import { useAppConfigStore } from "~/store/useAppConfigStore";
@@ -105,8 +106,11 @@ export default function LoginPage() {
       }}
     >
       <div className="mb-8">
+        <div className="bg-primary/15 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-xl">
+          <DynamicIcon name="HandHeart" className="h-5 w-5" />
+        </div>
         <h1 className="text-text-primary mb-1.5 text-2xl font-bold">
-          Selamat datang kembali 👋
+          Selamat datang kembali
         </h1>
         <p className="text-text-secondary text-sm">
           Masuk ke akun {config.appName} kamu

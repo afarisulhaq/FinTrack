@@ -1,8 +1,10 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { BarChart3, Wallet, TrendingUp, MessageSquare } from "lucide-react";
+import { useEffect, type ReactNode } from "react";
+import { Wallet, TrendingUp, MessageSquare } from "lucide-react";
 import { useAppConfigStore } from "~/store/useAppConfigStore";
+import { DynamicIcon } from "~/components/ui/dynamic-icon";
+import { applyBrand } from "~/lib/brand";
 
 const FEATURES = [
   {
@@ -28,6 +30,10 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
   // useAppConfigStore.DEFAULT_CONFIG and can be overridden per
   // deployment via Pengaturan App.
   const { config } = useAppConfigStore();
+
+  useEffect(() => {
+    applyBrand(config.primaryColor, config.accentColor);
+  }, [config.primaryColor, config.accentColor]);
 
   return (
     <div className="bg-bg-base relative flex min-h-screen overflow-hidden">
@@ -114,7 +120,10 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
                 boxShadow: "0 0 24px var(--primary-glow)",
               }}
             >
-              <BarChart3 className="h-6 w-6 text-white" />
+              <DynamicIcon
+                name={config.logoIcon || "TrendingUp"}
+                className="h-6 w-6 text-on-primary"
+              />
             </div>
             <span
               className="text-3xl font-extrabold tracking-tight"
@@ -134,8 +143,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
             {config.tagline}{" "}
             <span
               style={{
-                background:
-                  "linear-gradient(135deg, #FFD147 0%, #FFB347 50%, #FF8A7A 100%)",
+                background: "var(--gradient-primary)",
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
                 backgroundClip: "text",

@@ -289,30 +289,26 @@ export default function StatisticsPage() {
         <StatCard
           title="Total Pemasukan"
           value={formatCurrency(totalIncome)}
-          icon={<TrendingUp />}
-          iconColor="#22c55e"
+          icon={<TrendingUp className="text-success" />}
           trend={{ value: 8.2, label: "vs bulan lalu" }}
         />
         <StatCard
           title="Total Pengeluaran"
           value={formatCurrency(totalExpense)}
-          icon={<TrendingDown />}
-          iconColor="#ef4444"
+          icon={<TrendingDown className="text-danger" />}
           trend={{ value: -3.1, label: "vs bulan lalu" }}
         />
         <StatCard
           title="Tabungan Rate"
           value={`${savingsRate}%`}
           subtitle={`${formatCurrency(totalIncome - totalExpense)} tersimpan`}
-          icon={<DollarSign />}
-          iconColor="#FFD147"
+          icon={<DollarSign className="text-primary" />}
         />
         <StatCard
           title="Debt-to-Income"
           value="18%"
           subtitle="Aman, di bawah 30%"
-          icon={<Activity />}
-          iconColor="#f59e0b"
+          icon={<Activity className="text-warning" />}
         />
       </div>
 

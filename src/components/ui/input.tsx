@@ -43,14 +43,14 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             className={cn(
               "w-full rounded-lg border text-sm",
               "bg-bg-surface border-border text-text-primary placeholder:text-text-muted",
-              "h-10 px-3",
-              "transition-all duration-200",
-              "focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary",
-              "disabled:opacity-50 disabled:cursor-not-allowed",
+              "h-10 px-3.5",
+              "transition-all duration-150 shadow-subtle",
+              "focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary",
+              "disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-bg-elevated/50",
               "autofill:bg-bg-surface",
               leftIcon && "pl-9",
               rightIcon && "pr-9",
-              error && "border-danger focus:ring-danger/50 focus:border-danger",
+              error && "border-danger focus:ring-danger/20 focus:border-danger",
               className
             )}
             {...props}

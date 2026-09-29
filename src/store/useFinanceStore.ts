@@ -14,6 +14,7 @@ import type {
   BillStatus,
   SavingGoal,
   Debt,
+  DebtContact,
   Card,
   WishlistItem,
   Reimbursement,
@@ -223,6 +224,7 @@ interface BootstrapData {
   bills?: Bill[];
   savingGoals?: SavingGoal[];
   debts?: Debt[];
+  debtContacts?: DebtContact[];
   cards?: Card[];
   wishlist?: WishlistItem[];
   reimbursements?: Reimbursement[];
@@ -244,6 +246,7 @@ interface FinanceStore {
   bills: Bill[];
   savingGoals: SavingGoal[];
   debts: Debt[];
+  debtContacts: DebtContact[];
   cards: Card[];
   wishlist: WishlistItem[];
   reimbursements: Reimbursement[];
@@ -358,6 +361,11 @@ interface FinanceStore {
   ) => void;
   settleDebt: (id: string) => void;
 
+  // ── Debt Contact Actions ───────────────────────────────────────────────────
+  addDebtContact: (contact: Omit<DebtContact, "id" | "createdAt">) => void;
+  updateDebtContact: (id: string, updates: Partial<DebtContact>) => void;
+  deleteDebtContact: (id: string) => void;
+
   // ── Card Actions ───────────────────────────────────────────────────────────
   addCard: (card: Omit<Card, "id">) => void;
   updateCard: (id: string, updates: Partial<Card>) => void;
@@ -432,6 +440,7 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
   bills: [],
   savingGoals: [],
   debts: [],
+  debtContacts: [],
   cards: [],
   wishlist: [],
   reimbursements: [],
@@ -471,6 +480,7 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
         bills: mergeById(state.bills, data.bills),
         savingGoals: mergeById(state.savingGoals, data.savingGoals),
         debts: mergeById(state.debts, data.debts),
+        debtContacts: mergeById(state.debtContacts, data.debtContacts),
         cards: mergeById(state.cards, data.cards),
         wishlist: mergeById(state.wishlist, data.wishlist),
         reimbursements: mergeById(state.reimbursements, data.reimbursements),
@@ -1231,6 +1241,69 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
         }));
       },
       errorTitle: "Gagal menutup utang",
+    });
+  },
+
+  // ── Debt Contact Actions ───────────────────────────────────────────────────
+
+  addDebtContact: (contact) => {
+    const item: DebtContact = {
+      ...contact,
+      id: genId(),
+      createdAt: new Date().toISOString(),
+    };
+    set((state) => ({ debtContacts: [...state.debtContacts, item] }));
+    void withPersist<DebtContact>("/debtContacts", "POST", item, {
+      onSuccess: (serverItem) => {
+        if (!serverItem?.id || serverItem.id === item.id) return;
+        set((state) => ({
+          debtContacts: state.debtContacts.map((c) =>
+            c.id === item.id ? serverItem : c,
+          ),
+        }));
+      },
+      onError: () => {
+        set((state) => ({
+          debtContacts: state.debtContacts.filter((c) => c.id !== item.id),
+        }));
+      },
+      errorTitle: "Gagal menambah kontak",
+    });
+  },
+
+  updateDebtContact: (id, updates) => {
+    const previous = get().debtContacts.find((c) => c.id === id);
+    set((state) => ({
+      debtContacts: state.debtContacts.map((c) =>
+        c.id === id ? { ...c, ...updates } : c,
+      ),
+    }));
+    void withPersist<DebtContact>(`/debtContacts/${id}`, "PUT", updates, {
+      onError: () => {
+        if (!previous) return;
+        set((state) => ({
+          debtContacts: state.debtContacts.map((c) =>
+            c.id === id ? previous : c,
+          ),
+        }));
+      },
+      errorTitle: "Gagal memperbarui kontak",
+    });
+  },
+
+  deleteDebtContact: (id) => {
+    const previous = get().debtContacts.find((c) => c.id === id);
+    set((state) => ({
+      debtContacts: state.debtContacts.filter((c) => c.id !== id),
+    }));
+    void withPersist(`/debtContacts/${id}`, "DELETE", undefined, {
+      onError: () => {
+        if (!previous) return;
+        set((state) => ({
+          debtContacts: [previous, ...state.debtContacts],
+        }));
+      },
+      errorTitle: "Gagal menghapus kontak",
     });
   },
 

@@ -19,12 +19,13 @@ export interface AppConfig {
   footerText: string;
   qrisStatic?: string;
 }
-
 interface AppConfigStore {
   config: AppConfig;
   updateConfig: (updates: Partial<AppConfig>) => void;
   resetConfig: () => void;
   hydrateFromBackend: (backendConfig: Partial<AppConfig>) => void;
+  hasHydrated: boolean;
+  setHasHydrated: (value: boolean) => void;
 }
 
 // ─── Defaults ──────────────────────────────────────────────────────────────────
@@ -50,6 +51,7 @@ export const useAppConfigStore = create<AppConfigStore>()(
   persist(
     (set) => ({
       config: DEFAULT_CONFIG,
+      hasHydrated: false,
 
       updateConfig: (updates) =>
         set((state) => ({ config: { ...state.config, ...updates } })),
@@ -73,12 +75,17 @@ export const useAppConfigStore = create<AppConfigStore>()(
           }
           return { config: merged };
         }),
+
+      setHasHydrated: (value) => set({ hasHydrated: value }),
     }),
     {
       name: "fintrack_app_config",
       storage: createJSONStorage(() => localStorage),
       // Only persist the config slice
       partialize: (state) => ({ config: state.config }),
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
     },
   ),
 );

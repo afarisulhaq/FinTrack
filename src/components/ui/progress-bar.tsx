@@ -42,11 +42,11 @@ function ProgressBar({
         <div className="flex items-center justify-between text-xs">
           <span className="text-text-muted font-medium">
             {rawPct > 100
-              ? `${Math.round(rawPct)}% — over limit`
+              ? `${Math.round(rawPct)}% (over limit)`
               : `${Math.round(rawPct)}%`}
           </span>
           <span className="text-text-muted tabular-nums">
-            {value.toLocaleString()} / {max.toLocaleString()}
+            {value.toLocaleString("id-ID")} / {max.toLocaleString("id-ID")}
           </span>
         </div>
       )}

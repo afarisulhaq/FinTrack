@@ -313,7 +313,7 @@ export default function BudgetPage() {
             <div className="bg-danger/10 border-danger/20 flex items-center gap-2 rounded-lg border px-3 py-2">
               <AlertTriangle className="text-danger h-4 w-4 shrink-0" />
               <span className="text-danger text-sm font-medium">
-                ⚠️ {overspentCount} kategori melebihi anggaran
+                {overspentCount} kategori melebihi anggaran
               </span>
             </div>
           )}
@@ -487,14 +487,14 @@ export default function BudgetPage() {
 
               {/* Footer: pct + alert badge */}
               <div className="flex items-center justify-between">
-                <span className="text-text-muted text-xs">{pct}% terpakai</span>
+                <span className="text-text-muted text-xs font-medium tabular-nums">{pct}% terpakai</span>
                 {isOverspent ? (
                   <Badge variant="danger" size="sm">
-                    🚨 Melebihi Batas
+                    Melebihi Batas
                   </Badge>
                 ) : isWarning ? (
                   <Badge variant="warning" size="sm">
-                    ⚠️ {Math.round(pct)}% Terpakai
+                    {Math.round(pct)}% Terpakai
                   </Badge>
                 ) : null}
               </div>
@@ -561,8 +561,17 @@ export default function BudgetPage() {
                     <div key={budget.id} className="space-y-1">
                       <div className="flex items-center justify-between text-xs">
                         <div className="flex min-w-0 items-center gap-2">
-                          <span className="shrink-0">
-                            {budget.categoryIcon}
+                          <span
+                            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
+                            style={{
+                              backgroundColor: `${budget.color}22`,
+                              color: budget.color,
+                            }}
+                          >
+                            <DynamicIcon
+                              name={budget.categoryIcon || "Tag"}
+                              className="h-3.5 w-3.5"
+                            />
                           </span>
                           <span className="text-text-secondary truncate font-medium">
                             {budget.category}
@@ -655,7 +664,7 @@ export default function BudgetPage() {
             <label className="text-text-secondary text-sm font-medium">
               Kategori (master){" "}
               <span className="text-text-muted font-normal">
-                — payung anggaran
+                (payung anggaran)
               </span>
             </label>
             {categories.filter((c) => c.type === "expense").length > 0 ? (
@@ -726,7 +735,7 @@ export default function BudgetPage() {
               <label className="text-text-secondary text-sm font-medium">
                 Jenis Anggaran{" "}
                 <span className="text-text-muted font-normal">
-                  — sub-kategori (mis. Gaji Pokok, Bonus)
+                  (sub-kategori, mis. Gaji Pokok, Bonus)
                 </span>
               </label>
               {(() => {
@@ -773,7 +782,7 @@ export default function BudgetPage() {
                 return null;
               })()}
               <Input
-                placeholder="Atau ketik jenis baru — otomatis dibuat di master"
+                placeholder="Atau ketik jenis baru (otomatis dibuat di master)"
                 value={form.newSubCategoryName}
                 onChange={(e) => {
                   fld("newSubCategoryName", e.target.value);
@@ -805,7 +814,7 @@ export default function BudgetPage() {
               ))}
             </div>
             <Input
-              placeholder="Atau ketik emoji kustom..."
+              placeholder="Atau ketik nama ikon Lucide..."
               value={form.categoryIcon}
               onChange={(e) => fld("categoryIcon", e.target.value)}
             />
@@ -820,7 +829,7 @@ export default function BudgetPage() {
               <select
                 value={form.period}
                 onChange={(e) => fld("period", e.target.value as BudgetPeriod)}
-                className="bg-bg-surface border-border text-text-primary focus:ring-primary/50 h-10 rounded-lg border px-3 text-sm focus:ring-2 focus:outline-none"
+                className="bg-bg-surface border-border text-text-primary focus:border-primary focus:ring-primary/20 h-10 rounded-lg border px-3 text-sm focus:ring-1 focus:outline-none transition-colors"
               >
                 <option value="monthly">Bulanan</option>
                 <option value="weekly">Mingguan</option>
@@ -856,9 +865,9 @@ export default function BudgetPage() {
             <select
               value={form.walletId}
               onChange={(e) => fld("walletId", e.target.value)}
-              className="bg-bg-surface border-border text-text-primary focus:ring-primary/50 h-10 rounded-lg border px-3 text-sm focus:ring-2 focus:outline-none"
+              className="bg-bg-surface border-border text-text-primary focus:border-primary focus:ring-primary/20 h-10 rounded-lg border px-3 text-sm focus:ring-1 focus:outline-none transition-colors"
             >
-              <option value="">— Semua Dompet —</option>
+              <option value="">(Semua Dompet)</option>
               {allWallets.map((w) => (
                 <option key={w.id} value={w.id}>
                   {w.name}
@@ -878,9 +887,9 @@ export default function BudgetPage() {
             >
               <div
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-lg"
-                style={{ backgroundColor: `${form.color}22` }}
+                style={{ backgroundColor: `${form.color}22`, color: form.color }}
               >
-                {form.categoryIcon}
+                <DynamicIcon name={form.categoryIcon} className="h-5 w-5" />
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-text-primary text-sm font-semibold">
@@ -888,7 +897,7 @@ export default function BudgetPage() {
                   {(form.subCategoryId || form.newSubCategoryName.trim()) && (
                     <span className="text-text-muted font-normal">
                       {" "}
-                      ·{" "}
+                      -{" "}
                       {form.subCategoryId
                         ? categories
                             .find((c) => c.id === form.categoryId)

@@ -77,22 +77,24 @@ export default function ReimbursementPage() {
         </Button>
       }
     >
-      {/* ── Summary ─────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatCard
           title="Total Aktif"
-          value={<span className="text-warning">{formatCurrency(totalActive)}</span>}
+          value={<span className="text-warning tabular-nums">{formatCurrency(totalActive)}</span>}
           subtitle="Belum dikembalikan"
-          icon={<Receipt />}
-          iconColor="#f59e0b"
+          icon={<Receipt className="text-warning" />}
         />
-        <StatCard title="Total Lunas" value={formatCurrency(totalSettled)} subtitle="Sudah dikembalikan" icon={<Check />} iconColor="#22c55e" />
+        <StatCard
+          title="Total Lunas"
+          value={<span className="tabular-nums">{formatCurrency(totalSettled)}</span>}
+          subtitle="Sudah dikembalikan"
+          icon={<Check className="text-success" />}
+        />
         <StatCard
           title="Grand Total"
-          value={formatCurrency(totalActive + totalSettled)}
+          value={<span className="tabular-nums">{formatCurrency(totalActive + totalSettled)}</span>}
           subtitle={`${reimbursements.length} pengajuan`}
-          icon={<Receipt />}
-          iconColor="#FFD147"
+          icon={<Receipt className="text-primary" />}
         />
       </div>
 
@@ -150,15 +152,15 @@ export default function ReimbursementPage() {
                       {r.status === "settled" && r.settledDate && (
                         <span className="text-success">Lunas: {formatDate(r.settledDate)}</span>
                       )}
-                    </div>
                     {r.notes && <p className="text-xs text-text-muted mt-1 italic">{r.notes}</p>}
                   </div>
-                  <span className="shrink-0 text-xl font-bold text-text-primary">{formatCurrency(r.amount)}</span>
+                  <span className="text-text-primary shrink-0 text-xl font-bold tabular-nums">
+                    {formatCurrency(r.amount)}
+                  </span>
                 </div>
               </div>
 
               {/* Actions */}
-              <div className="shrink-0 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 {r.status === "active" && (
                   <button
                     onClick={() => settleReimbursement(r.id)}

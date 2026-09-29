@@ -95,9 +95,7 @@ export function QrisImageUpload({
 
         const payload = result.data.trim();
         if (payload.length < 20) {
-          throw new Error(
-            "String QR terlalu pendek — bukan QRIS yang valid.",
-          );
+          throw new Error("String QR terlalu pendek: bukan QRIS yang valid.");
         }
 
         setSuccess(
@@ -105,8 +103,7 @@ export function QrisImageUpload({
         );
         onDecoded(payload);
       } catch (e) {
-        const msg =
-          e instanceof Error ? e.message : "Gagal membaca gambar.";
+        const msg = e instanceof Error ? e.message : "Gagal membaca gambar.";
         setError(msg);
         setPreview(null);
       } finally {

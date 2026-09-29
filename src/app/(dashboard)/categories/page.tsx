@@ -376,25 +376,25 @@ export default function CategoriesPage() {
         <StatTile
           label="Kategori Pengeluaran"
           value={stats.expenseCount}
-          icon="💸"
+          icon="TrendingDown"
           color="#f97316"
         />
         <StatTile
           label="Sub Pengeluaran"
           value={stats.expenseSubs}
-          icon="🏷️"
+          icon="Tags"
           color="#3b82f6"
         />
         <StatTile
           label="Kategori Pemasukan"
           value={stats.incomeCount}
-          icon="💰"
+          icon="TrendingUp"
           color="#22c55e"
         />
         <StatTile
           label="Sub Pemasukan"
           value={stats.incomeSubs}
-          icon="🏷️"
+          icon="Tag"
           color="#a855f7"
         />
       </div>
@@ -681,8 +681,7 @@ export default function CategoriesPage() {
         open={subModalOpen}
         onClose={() => setSubModalOpen(false)}
         title={subForm.id ? "Edit Sub-Kategori" : "Tambah Sub-Kategori"}
-        description="Sub-kategori merinci ‘jenis’ di bawah master — misal Gaji → Gaji Pokok, Bonus."
-        size="md"
+        description="Sub-kategori merinci 'jenis' di bawah master (misal Gaji -> Gaji Pokok, Bonus)."
       >
         <SubCategoryFormFields form={subForm} setForm={setSubForm} />
         <div className="flex justify-end gap-2 pt-4">
@@ -715,10 +714,10 @@ function StatTile({
     <Card padding="sm">
       <div className="flex items-center gap-3">
         <div
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl"
-          style={{ backgroundColor: `${color}22` }}
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+          style={{ backgroundColor: `${color}22`, color }}
         >
-          {icon}
+          <DynamicIcon name={icon} className="h-5 w-5" />
         </div>
         <div className="min-w-0">
           <p className="text-text-muted text-[11px] tracking-wide uppercase">
@@ -760,7 +759,7 @@ function CategoryFormFields({
           <select
             value={form.type}
             onChange={(e) => fld("type", e.target.value as CategoryKind)}
-            className="bg-bg-surface border-border text-text-primary focus:ring-primary/50 h-10 rounded-lg border px-3 text-sm focus:ring-2 focus:outline-none"
+            className="bg-bg-surface border-border text-text-primary focus:border-primary focus:ring-primary/20 h-10 rounded-lg border px-3 text-sm focus:ring-1 focus:outline-none transition-colors"
           >
             <option value="expense">Pengeluaran</option>
             <option value="income">Pemasukan</option>
