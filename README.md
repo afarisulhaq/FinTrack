@@ -161,9 +161,16 @@ Then run the seed (the first container boot will pick this up if you mount the s
 ### 3. Build & run
 
 ```bash
-docker compose up -d --build
+docker compose --env-file .env.production up -d --build
 docker compose logs -f app     # watch the first boot
 ```
+
+To show Cloudflare Turnstile on login and register, set
+`NEXT_PUBLIC_TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` in
+`.env.production` before building. Use the site key and secret from the same
+Cloudflare widget, with your deployment domain allowed. The public site key
+is embedded in the frontend during the build, so rebuild after changing it.
+For local development, set the keys in `.env` and restart `npm run dev`.
 
 The image is multi-stage: it builds the Next.js frontend (standalone output) and the Elysia backend (`tsc → server/dist`) in one go. Only port 3000 is published; `/api/*` calls are proxied internally to the Elysia backend on port 4000.
 

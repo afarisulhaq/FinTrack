@@ -3,7 +3,7 @@
 # Usage:
 #   1. cp .env.production.example .env.production
 #   2. edit .env.production (isi database, JWT, TURNSTILE_SECRET_KEY dll.)
-#   3. docker compose up -d --build
+#   3. docker compose --env-file .env.production up -d --build
 #   4. docker compose logs -f app   # to watch the first boot
 #
 # The image does NOT include Postgres. Set DATABASE_URL to an
@@ -20,8 +20,8 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        # Public key — aman dihardcode (dikirim ke browser).
-        # Kalau mau ganti, edit baris ini lalu rebuild.
+        # Diambil dari --env-file .env.production saat build.
+        # env_file pada service hanya berlaku saat container berjalan.
         - NEXT_PUBLIC_TURNSTILE_SITE_KEY
     image: fintrack:latest
     container_name: fintrack

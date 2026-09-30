@@ -1263,11 +1263,9 @@ function NotifikasiTab() {
                     if (authToken) {
                       const ok = await subscribeToPush(authToken);
                       if (ok) {
-                        setChannels((c) => {
-                          const next = { ...c, push: { enabled: true } };
-                          persist({ channels: next });
-                          return next;
-                        });
+                        const next = { ...channels, push: { enabled: true } };
+                        setChannels(next);
+                        persist({ channels: next });
                         toast.success("Push Notification aktif");
                       } else {
                         toast.error(
@@ -1279,11 +1277,9 @@ function NotifikasiTab() {
                   })();
                 } else {
                   if (authToken) void unsubscribeFromPush(authToken);
-                  setChannels((c) => {
-                    const next = { ...c, push: { enabled: false } };
-                    persist({ channels: next });
-                    return next;
-                  });
+                  const next = { ...channels, push: { enabled: false } };
+                  setChannels(next);
+                  persist({ channels: next });
                 }
               } else {
                 setChannels((c) => {

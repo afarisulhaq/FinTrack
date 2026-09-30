@@ -163,7 +163,7 @@ async function saveSubscription(
   subscription: PushSubscription,
   token: string,
 ): Promise<void> {
-  await fetch(`${getApiBaseUrl()}/user/push-subscription`, {
+  const response = await fetch(`${getApiBaseUrl()}/user/push-subscription`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -171,6 +171,7 @@ async function saveSubscription(
     },
     body: JSON.stringify(subscription.toJSON()),
   });
+  if (!response.ok) throw new Error(`Failed to save push subscription (${response.status})`);
 }
 
 /** Convert a URL-safe base64 string to a Uint8Array (for applicationServerKey). */
