@@ -1601,9 +1601,15 @@ async function updatePrismaResource(
         where: { id: resourceId },
         data: {
           ...data,
-          ...(body.name !== undefined ? { name: String(body.name).trim() } : {}),
-          ...(body.phone !== undefined ? { phone: body.phone ? String(body.phone).trim() : null } : {}),
-          ...(body.note !== undefined ? { note: body.note ? String(body.note).trim() : null } : {}),
+          ...(body.name !== undefined
+            ? { name: String(body.name).trim() }
+            : {}),
+          ...(body.phone !== undefined
+            ? { phone: body.phone ? String(body.phone).trim() : null }
+            : {}),
+          ...(body.note !== undefined
+            ? { note: body.note ? String(body.note).trim() : null }
+            : {}),
         } as never,
       });
       return serializeDebtContact(updated);
@@ -1789,7 +1795,10 @@ async function deletePrismaResource(
   }
 }
 
-async function getBootstrapFromDb(userId: string | null) {
+async function getBootstrapFromDb(
+  userId: string | null,
+  notificationUserId: string | null,
+) {
   const filter = userId ? { userId } : undefined;
   const [
     wallets,
@@ -1862,10 +1871,14 @@ async function getBootstrapFromDb(userId: string | null) {
   const setting =
     (await prisma.appSetting.findFirst()) ??
     (await prisma.appSetting.create({ data: {} }));
-  // Notification settings are per-user; skip for admin (userId=null)
-  const notifSetting = userId
-    ? ((await prisma.notificationSetting.findUnique({ where: { userId } })) ??
-      (await prisma.notificationSetting.create({ data: { userId } })))
+  // Admin sees all finance records, but notification settings belong to the logged-in account.
+  const notifSetting = notificationUserId
+    ? ((await prisma.notificationSetting.findUnique({
+        where: { userId: notificationUserId },
+      })) ??
+      (await prisma.notificationSetting.create({
+        data: { userId: notificationUserId },
+      })))
     : null;
   return {
     wallets: nestWallets(wallets.map(serializeWallet)),
@@ -1896,7 +1909,12 @@ export const financeRoutes = new Elysia({ prefix: "/api" })
   .use(requireAuth)
   .get("/bootstrap", async ({ request }) => {
     if (await canUseDatabase()) {
-      return ok(await getBootstrapFromDb(currentUserIdFromRequest(request)));
+      return ok(
+        await getBootstrapFromDb(
+          currentUserIdFromRequest(request),
+          strictUserIdFromRequest(request),
+        ),
+      );
     }
     return ok({ ...db, appConfig });
   })
@@ -2430,7 +2448,10 @@ export const financeRoutes = new Elysia({ prefix: "/api" })
       }
       return ok(serializeNotificationSetting(setting));
     }
-    return ok({});
+    set.status = 503;
+    return fail(
+      "Database tidak tersedia; pengaturan notifikasi belum tersimpan",
+    );
   })
   .put("/user/notification-settings", async ({ request, body, set }) => {
     const userId = strictUserIdFromRequest(request);
@@ -2457,7 +2478,10 @@ export const financeRoutes = new Elysia({ prefix: "/api" })
       });
       return ok(serializeNotificationSetting(created));
     }
-    return ok(flat);
+    set.status = 503;
+    return fail(
+      "Database tidak tersedia; pengaturan notifikasi belum tersimpan",
+    );
   })
   // ── Gamification ─────────────────────────────────────────────
   .get("/user/gamification", async ({ request, set }) => {
