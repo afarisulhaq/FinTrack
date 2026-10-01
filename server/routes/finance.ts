@@ -1161,6 +1161,7 @@ async function createPrismaResource(
   resource: ResourceKey,
   body: Record<string, unknown>,
   userId: string | null,
+  restore = false,
 ) {
   const data: Record<string, unknown> = {
     ...body,
@@ -1189,21 +1190,23 @@ async function createPrismaResource(
       });
       // Maintain wallet.balance and budget.spent aggregates so the user
       // sees the right totals without having to refresh.
-      await applyTransactionBalanceDelta({
-        type: String(created.type),
-        amount: created.amount,
-        walletId: String(created.walletId),
-        category: String(created.category ?? ""),
-      });
-      await applyTransactionBudgetDelta(
-        {
+      if (!restore) {
+        await applyTransactionBalanceDelta({
           type: String(created.type),
           amount: created.amount,
           walletId: String(created.walletId),
           category: String(created.category ?? ""),
-        },
-        1,
-      );
+        });
+        await applyTransactionBudgetDelta(
+          {
+            type: String(created.type),
+            amount: created.amount,
+            walletId: String(created.walletId),
+            category: String(created.category ?? ""),
+          },
+          1,
+        );
+      }
       return serializeTransaction(created);
     }
     case "budgets": {
@@ -1212,6 +1215,16 @@ async function createPrismaResource(
     }
     case "investments": {
       const investment = normalizeInvestmentBody(body);
+      if (restore && body.id) {
+        const created = await prisma.investment.create({
+          data: {
+            ...investment,
+            id: String(body.id),
+            userId: userId ?? undefined,
+          },
+        });
+        return serializeInvestment(created);
+      }
       // Only merge with positions that are still open. A fully
       // sold position (quantity = 0) or a partially sold position
       // (quantity > 0 with some soldQuantity) is still "open" in
@@ -1995,6 +2008,7 @@ export const financeRoutes = new Elysia({ prefix: "/api" })
       : [];
     const created = await (prisma as any).splitBill.create({
       data: {
+        id: data.id ? String(data.id) : undefined,
         title: String(data.title ?? "Split Bill"),
         description: String(data.description ?? ""),
         totalAmount: Number(data.totalAmount ?? 0),
@@ -2006,13 +2020,13 @@ export const financeRoutes = new Elysia({ prefix: "/api" })
         userId,
         participants: {
           create: participants.map((p) => ({
+            id: p.id ? String(p.id) : undefined,
             name: String(p.name ?? ""),
             contact: p.contact ? String(p.contact) : null,
             amount: Number(p.amount ?? 0),
             paid: Boolean(p.paid ?? false),
-            // Mint a unique public pay-link token per participant up front
-            // so the merchant can start sharing immediately.
-            payToken: generatePayToken(),
+            paidAt: p.paidAt ? new Date(String(p.paidAt)) : null,
+            payToken: p.payToken ? String(p.payToken) : generatePayToken(),
           })),
         },
       },
@@ -2661,6 +2675,7 @@ export const resourceRoutes = new Elysia({ prefix: "/api" })
         resource,
         body as Record<string, unknown>,
         currentUserIdFromRequest(request),
+        new URL(request.url).searchParams.get("restore") === "1",
       );
       set.status = 201;
       return ok(item);

@@ -44,6 +44,7 @@ import { QrisImageUpload } from "~/components/qris/qris-image-upload";
 import { useFinanceStore } from "~/store/useFinanceStore";
 import { useAppConfigStore } from "~/store/useAppConfigStore";
 import { getApiBaseUrl } from "~/lib/api";
+import { flattenWalletList, persistBackup, persistTransactions } from "~/lib/import-persist";
 import { cn } from "~/lib/utils";
 import {
   downloadBackupJSONTemplate,
@@ -1931,7 +1932,7 @@ function KeamananTab() {
 type ExportKey = "pdf" | "csv" | "json";
 type ImportKind = "csv" | "json";
 
-import type { Transaction } from "~/lib/types";
+import type { Transaction, Wallet } from "~/lib/types";
 import type { BackupBundle, ImportResult } from "~/lib/import-export";
 
 interface PendingImport {
@@ -1939,7 +1940,7 @@ interface PendingImport {
   fileName: string;
   fileSize: number;
   csvPreview?: ImportResult<
-    Omit<Transaction, "categoryIcon" | "walletName" | "id">
+    Omit<Transaction, "categoryIcon" | "walletName">
   >;
   jsonPreview?: {
     bundle: BackupBundle | null;
@@ -1997,6 +1998,7 @@ function DataEksporTab() {
     null,
   );
   const [importing, setImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState(0);
   const [resetting, setResetting] = useState<"transactions" | "all" | null>(
     null,
   );
@@ -2118,141 +2120,113 @@ function DataEksporTab() {
     if (file) void handleSelectedFile(file);
   }
 
+  function updateCsvWallet(index: number, walletId: string) {
+    setPendingImport((current) => {
+      if (!current?.csvPreview) return current;
+      return {
+        ...current,
+        csvPreview: {
+          ...current.csvPreview,
+          items: current.csvPreview.items.map((item, i) =>
+            i === index ? { ...item, walletId } : item,
+          ),
+        },
+      };
+    });
+  }
+
+  function updateBackupWallet(walletId: string, change: Partial<Wallet>) {
+    setPendingImport((current) => {
+      const bundle = current?.jsonPreview?.bundle;
+      if (!bundle || !current) return current;
+      const flat = flattenWalletList(bundle.wallets).map((wallet) =>
+        wallet.id === walletId ? { ...wallet, ...change } : wallet,
+      );
+      const importedIds = new Set(flat.map((wallet) => wallet.id));
+      const nested = flat
+        .filter((wallet) => !wallet.parentId || !importedIds.has(wallet.parentId))
+        .map((parent) => ({
+          ...parent,
+          children: flat.filter((wallet) => wallet.parentId === parent.id),
+        }));
+      return {
+        ...current,
+        jsonPreview: {
+          ...current.jsonPreview!,
+          bundle: {
+            ...bundle,
+            wallets: nested,
+            transactions: change.name === undefined
+              ? bundle.transactions
+              : bundle.transactions.map((item) =>
+                  item.walletId === walletId
+                    ? { ...item, walletName: change.name! }
+                    : item,
+                ),
+          },
+        },
+      };
+    });
+  }
+
+  function updateBackupTransaction(index: number, walletId: string) {
+    setPendingImport((current) => {
+      const bundle = current?.jsonPreview?.bundle;
+      if (!bundle || !current) return current;
+      const wallet = flattenWalletList(bundle.wallets).find((item) => item.id === walletId)
+        ?? flattenWalletList(wallets).find((item) => item.id === walletId);
+      return {
+        ...current,
+        jsonPreview: {
+          ...current.jsonPreview!,
+          bundle: {
+            ...bundle,
+            transactions: bundle.transactions.map((item, i) =>
+              i === index ? { ...item, walletId, walletName: wallet?.name ?? "" } : item,
+            ),
+          },
+        },
+      };
+    });
+  }
+
   async function confirmImport() {
-    if (!pendingImport) return;
+    if (!pendingImport || importing) return;
+    const token = useAuthStore.getState().token;
+    if (!token || token === "dev-fallback-token") {
+      toast.error("Import gagal", "Login ke server diperlukan untuk menyimpan data.");
+      return;
+    }
     setImporting(true);
+    setImportProgress(0);
     try {
       if (pendingImport.kind === "csv" && pendingImport.csvPreview) {
         const { items, issues } = pendingImport.csvPreview;
-        if (items.length === 0) {
-          toast.error(
-            "Import gagal",
-            issues.length
-              ? `${issues.length} baris bermasalah. ${issues
-                  .slice(0, 3)
-                  .map((i) => `Baris ${i.row}: ${i.message}`)
-                  .join(" · ")}`
-              : "File CSV tidak berisi transaksi valid.",
-          );
-          if (issues.length) console.warn("[import] issues:", issues);
-          setPendingImport(null);
-          return;
-        }
-
-        const beforeCount = transactions.length;
-        for (const tx of items) {
-          const wallet = wallets.find((w) => w.id === tx.walletId);
-          addTransaction({
-            ...tx,
-            categoryIcon: "Package",
-            walletName: wallet?.name ?? "",
-          } as Parameters<typeof addTransaction>[0]);
-        }
-        // Server returns rows asynchronously via withPersist; wait a
-        // tick so the success toast is grounded in a real network call
-        // rather than optimistic state that may roll back on failure.
-        await new Promise<void>((r) => window.setTimeout(r, 250));
-        const added = transactions.length - beforeCount;
-
-        if (added > 0 && issues.length === 0) {
-          toast.success(
-            "Import berhasil",
-            `${added} transaksi ditambahkan ke workspace.`,
-          );
-        } else if (added > 0 && issues.length > 0) {
-          toast.warning(
-            "Import sebagian berhasil",
-            `${added} transaksi ditambahkan · ${issues.length} baris dilewati (lihat console).`,
-          );
-          if (issues.length) console.warn("[import] issues:", issues);
-        } else {
-          toast.error(
-            "Import gagal",
-            "Tidak ada transaksi yang berhasil ditambahkan. Periksa dompet & kategori di file CSV.",
-          );
-        }
-      } else if (
-        pendingImport.kind === "json" &&
-        pendingImport.jsonPreview?.bundle
-      ) {
-        const bundle = pendingImport.jsonPreview.bundle;
-        // Merge-import via hydrateFromBackend so the server-side
-        // merge-by-id strategy applies. Wallets / transactions / etc.
-        // with the same id are left untouched on the server.
-        const before = {
-          wallets: wallets.length,
-          transactions: transactions.length,
-          budgets: budgets.length,
-          bills: bills.length,
-          savingGoals: savingGoals.length,
-          debts: debts.length,
-        };
-        hydrateFromBackend({
-          wallets: bundle.wallets,
-          transactions: bundle.transactions,
-          budgets: bundle.budgets,
-          investments: bundle.investments,
-          bills: bundle.bills,
-          savingGoals: bundle.savingGoals,
-          debts: bundle.debts,
-          cards: bundle.cards,
-          wishlist: bundle.wishlist,
-          reimbursements: bundle.reimbursements,
-          notes: bundle.notes,
-          recurringTransactions: bundle.recurringTransactions,
-          splitBills: bundle.splitBills,
-          categories: bundle.categories,
-          subCategories: bundle.subCategories,
+        if (items.length === 0) throw new Error("CSV tidak berisi transaksi valid.");
+        const allWallets = flattenWalletList(wallets);
+        const transactionsToSave = items.map((item) => {
+          const wallet = allWallets.find((candidate) => candidate.id === item.walletId);
+          if (!wallet) throw new Error(`Dompet tujuan untuk transaksi ${item.id} tidak tersedia.`);
+          return { ...item, walletName: wallet.name, categoryIcon: "Package" };
         });
-        const after = {
-          wallets: bundle.wallets.length,
-          transactions: bundle.transactions.length,
-          budgets: bundle.budgets.length,
-          bills: bundle.bills.length,
-          savingGoals: bundle.savingGoals.length,
-          debts: bundle.debts.length,
-        };
-        const lines = [
-          `Dompet ${after.wallets}`,
-          `Transaksi ${after.transactions}`,
-          `Anggaran ${after.budgets}`,
-          `Tagihan ${after.bills}`,
-          `Tabungan ${after.savingGoals}`,
-          `Utang ${after.debts}`,
-        ];
-        const delta =
-          (after.wallets - before.wallets) +
-          (after.transactions - before.transactions) +
-          (after.budgets - before.budgets) +
-          (after.bills - before.bills) +
-          (after.savingGoals - before.savingGoals) +
-          (after.debts - before.debts);
-        if (delta === 0 && after.wallets + after.transactions === 0) {
-          toast.error(
-            "Restore gagal",
-            "File backup tidak berisi data yang bisa di-restore.",
-          );
-        } else if (delta <= 0) {
-          toast.warning(
-            "Restore selesai (0 data baru)",
-            `Semua ID sudah ada di workspace. ${lines.join(" · ")}`,
-          );
-        } else {
-          toast.success(
-            "Restore berhasil",
-            `${delta} record baru ditambahkan. ${lines.join(" · ")}`,
-          );
-        }
-        // Fire-and-forget: pull the canonical state back from server
-        // so the UI reflects the merge, not the optimistic store.
-        void refreshAll();
+        const result = await persistTransactions(transactionsToSave, token, (progress) => setImportProgress(progress.added));
+        const synced = await refreshAll();
+        if (synced) toast.success("Import selesai", `${result.added} transaksi tersimpan, ${result.skipped} sudah ada${issues.length ? `, ${issues.length} catatan file` : ""}.`);
+        else toast.warning("Import tersimpan", `${result.added} transaksi tersimpan. Muat ulang halaman untuk melihat data terbaru.`);
+      } else if (pendingImport.kind === "json" && pendingImport.jsonPreview?.bundle) {
+        const bundle = pendingImport.jsonPreview.bundle;
+        const availableIds = new Set([...flattenWalletList(bundle.wallets), ...flattenWalletList(wallets)].map((wallet) => wallet.id));
+        const missing = bundle.transactions.find((item) => !availableIds.has(item.walletId));
+        if (missing) throw new Error(`Pilih dompet tujuan untuk transaksi ${missing.description || missing.id}.`);
+        const result = await persistBackup(bundle, token, (progress) => setImportProgress(progress.added));
+        const synced = await refreshAll();
+        if (synced) toast.success("Restore selesai", `${result.added} data tersimpan, ${result.skipped} sudah ada.`);
+        else toast.warning("Restore tersimpan", `${result.added} data tersimpan. Muat ulang halaman untuk melihat data terbaru.`);
       }
       setPendingImport(null);
     } catch (err) {
-      toast.error(
-        "Import gagal",
-        err instanceof Error ? err.message : "Unknown error",
-      );
+      await refreshAll();
+      toast.error("Import terhenti", err instanceof Error ? err.message : "Gagal menyimpan data.");
     } finally {
       setImporting(false);
     }
@@ -2498,6 +2472,7 @@ function DataEksporTab() {
       <Modal
         open={pendingImport !== null}
         onClose={() => (importing ? null : setPendingImport(null))}
+        size="lg"
         title={
           pendingImport?.kind === "csv"
             ? "Pratinjau Import CSV"
@@ -2524,31 +2499,47 @@ function DataEksporTab() {
                 {pendingImport.csvPreview.issues.length > 0 && (
                   <div className="border-warning/30 bg-warning/10 text-text-secondary rounded-lg border px-3 py-2 text-xs">
                     <p className="mb-1 font-semibold">
-                      {pendingImport.csvPreview.issues.length} baris dilewati:
+                      {pendingImport.csvPreview.issues.length} catatan file:
                     </p>
                     <ul className="list-disc space-y-0.5 pl-5">
                       {pendingImport.csvPreview.issues
-                        .slice(0, 5)
                         .map((issue, i) => (
                           <li key={i}>
                             Baris {issue.row}: {issue.message}
                           </li>
                         ))}
-                      {pendingImport.csvPreview.issues.length > 5 && (
-                        <li>
-                          …dan {pendingImport.csvPreview.issues.length - 5}{" "}
-                          lainnya
-                        </li>
-                      )}
                     </ul>
                   </div>
                 )}
                 <p className="text-text-secondary text-sm">
-                  <span className="text-text-primary font-semibold">
-                    {pendingImport.csvPreview.items.length}
-                  </span>{" "}
-                  transaksi akan ditambahkan ke workspace kamu.
+                  {pendingImport.csvPreview.items.length} transaksi siap diimpor. Periksa dompet tujuan setiap baris.
                 </p>
+                <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
+                  {pendingImport.csvPreview.items.map((item, index) => (
+                    <div key={`${item.id}-${index}`} className="border-border rounded-lg border p-3 text-sm">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-text-primary font-medium">{item.description || item.category}</p>
+                          <p className="text-text-muted text-xs">{item.date.slice(0, 10)} · {item.type} · {item.category}</p>
+                        </div>
+                        <span className="text-text-primary font-mono tabular-nums">{item.amount.toLocaleString("id-ID")}</span>
+                      </div>
+                      <label className="text-text-secondary mt-2 block text-xs">
+                        Dompet tujuan
+                        <select
+                          value={item.walletId}
+                          onChange={(event) => updateCsvWallet(index, event.target.value)}
+                          className="border-border bg-bg-surface text-text-primary mt-1 w-full rounded-lg border px-2 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                        >
+                          <option value="">Pilih dompet</option>
+                          {wallets.flatMap((wallet) => [wallet, ...(wallet.children ?? [])]).map((wallet) => (
+                            <option key={wallet.id} value={wallet.id}>{wallet.parentId ? "↳ " : ""}{wallet.name}</option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+                  ))}
+                </div>
               </>
             )}
 
@@ -2559,61 +2550,81 @@ function DataEksporTab() {
                     {pendingImport.jsonPreview.error}
                   </div>
                 )}
-                {pendingImport.jsonPreview.bundle && (
-                  <div className="text-text-secondary grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
-                    {(
-                      [
-                        [
-                          "Dompet",
-                          pendingImport.jsonPreview.bundle.wallets.length,
-                        ],
-                        [
-                          "Transaksi",
-                          pendingImport.jsonPreview.bundle.transactions.length,
-                        ],
-                        [
-                          "Anggaran",
-                          pendingImport.jsonPreview.bundle.budgets.length,
-                        ],
-                        [
-                          "Investasi",
-                          pendingImport.jsonPreview.bundle.investments.length,
-                        ],
-                        [
-                          "Tagihan",
-                          pendingImport.jsonPreview.bundle.bills.length,
-                        ],
-                        [
-                          "Tabungan",
-                          pendingImport.jsonPreview.bundle.savingGoals.length,
-                        ],
-                        [
-                          "Utang",
-                          pendingImport.jsonPreview.bundle.debts.length,
-                        ],
-                        [
-                          "Catatan",
-                          pendingImport.jsonPreview.bundle.notes.length,
-                        ],
-                      ] as Array<[string, number]>
-                    ).map(([label, n]) => (
-                      <div
-                        key={label}
-                        className="border-border bg-bg-elevated rounded-lg border px-3 py-2"
-                      >
-                        <p className="text-text-muted text-xs">{label}</p>
-                        <p className="text-text-primary font-semibold">{n}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                {pendingImport.jsonPreview.bundle && (() => {
+                  const bundle = pendingImport.jsonPreview.bundle;
+                  const importedWallets = flattenWalletList(bundle.wallets);
+                  const availableWallets = [...importedWallets, ...flattenWalletList(wallets).filter((wallet) => !importedWallets.some((item) => item.id === wallet.id))];
+                  const groups = [
+                    ["Dompet", importedWallets],
+                    ["Transaksi", bundle.transactions],
+                    ["Anggaran", bundle.budgets],
+                    ["Investasi", bundle.investments],
+                    ["Tagihan", bundle.bills],
+                    ["Tabungan", bundle.savingGoals],
+                    ["Utang", bundle.debts],
+                    ["Kartu", bundle.cards],
+                    ["Wishlist", bundle.wishlist],
+                    ["Reimbursement", bundle.reimbursements],
+                    ["Catatan", bundle.notes],
+                    ["Transaksi berulang", bundle.recurringTransactions],
+                    ["Split bill", bundle.splitBills],
+                    ["Kategori", bundle.categories],
+                    ["Subkategori", bundle.subCategories],
+                  ] as const;
+                  return (
+                    <div className="space-y-2">
+                      <p className="text-text-secondary text-sm">Periksa semua data sebelum restore. Buka kelompok untuk melihat dan mengubah tujuan transaksi atau induk dompet.</p>
+                      {groups.map(([label, entries]) => (
+                        <details key={label} className="border-border rounded-lg border" open={label === "Dompet" || label === "Transaksi"}>
+                          <summary className="text-text-primary cursor-pointer px-3 py-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">{label} <span className="text-text-muted">({entries.length})</span></summary>
+                          <div className="max-h-64 space-y-2 overflow-y-auto border-t border-border p-3">
+                            {entries.length === 0 && <p className="text-text-muted text-xs">Tidak ada data dalam file.</p>}
+                            {entries.map((entry, index) => {
+                              const row = entry as unknown as Record<string, unknown>;
+                              const title = String(row.name ?? row.title ?? row.description ?? row.category ?? row.id ?? `Data ${index + 1}`);
+                              return (
+                                <div key={`${String(row.id ?? index)}-${index}`} className="bg-bg-elevated rounded-lg px-3 py-2 text-xs">
+                                  <p className="text-text-primary break-words font-medium">{title}</p>
+                                  <p className="text-text-muted break-all">ID: {String(row.id ?? "—")}{row.amount !== undefined ? ` · ${Number(row.amount).toLocaleString("id-ID")}` : ""}</p>
+                                  {label === "Dompet" && (
+                                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                                      <label className="text-text-secondary">Nama dompet
+                                        <input value={String(row.name ?? "")} onChange={(event) => updateBackupWallet(String(row.id), { name: event.target.value })} className="border-border bg-bg-surface text-text-primary mt-1 w-full rounded-lg border px-2 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" />
+                                      </label>
+                                      <label className="text-text-secondary">Induk dompet
+                                        <select value={String(row.parentId ?? "")} onChange={(event) => updateBackupWallet(String(row.id), { parentId: event.target.value || undefined })} className="border-border bg-bg-surface text-text-primary mt-1 w-full rounded-lg border px-2 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                                          <option value="">Dompet utama</option>
+                                          {availableWallets.filter((wallet) => wallet.id !== row.id && !wallet.parentId).map((wallet) => <option key={wallet.id} value={wallet.id}>{wallet.name}</option>)}
+                                        </select>
+                                      </label>
+                                    </div>
+                                  )}
+                                  {label === "Transaksi" && (
+                                    <label className="text-text-secondary mt-2 block">Dompet tujuan
+                                      <select value={String(row.walletId ?? "")} onChange={(event) => updateBackupTransaction(index, event.target.value)} className="border-border bg-bg-surface text-text-primary mt-1 w-full rounded-lg border px-2 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                                        <option value="">Pilih dompet</option>
+                                        {availableWallets.map((wallet) => <option key={wallet.id} value={wallet.id}>{wallet.parentId ? "↳ " : ""}{wallet.name}</option>)}
+                                      </select>
+                                    </label>
+                                  )}
+                                  {label === "Split bill" && Array.isArray(row.participants) && <p className="text-text-muted mt-1">Peserta: {(row.participants as Array<{name: string}>).map((person) => person.name).join(", ") || "—"}</p>}
+                                  <details className="mt-1"><summary className="text-text-muted cursor-pointer">Detail data</summary><pre className="text-text-secondary mt-1 overflow-x-auto whitespace-pre-wrap break-all">{JSON.stringify(row, null, 2)}</pre></details>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </details>
+                      ))}
+                    </div>
+                  );
+                })()}
                 <p className="text-text-muted text-xs">
-                  Restore = merge. Record dengan id yang sama dibiarkan, sisanya
-                  ditambahkan. Refresh setelah import untuk sinkron ke server.
+                  Record dengan ID yang sama dilewati. Data baru disimpan ke server satu per satu.
                 </p>
               </>
             )}
 
+            {importing && <p role="status" className="text-text-secondary text-xs">{importProgress} data tersimpan...</p>}
             <div className="flex justify-end gap-2 pt-2">
               <Button
                 variant="outline"
@@ -2628,6 +2639,8 @@ function DataEksporTab() {
                 onClick={() => void confirmImport()}
                 loading={importing}
                 disabled={
+                  (pendingImport.kind === "csv" &&
+                    (!pendingImport.csvPreview?.items.length || pendingImport.csvPreview.items.some((item) => !item.walletId))) ||
                   pendingImport.kind === "json" &&
                   (!pendingImport.jsonPreview?.bundle ||
                     !!pendingImport.jsonPreview.error)

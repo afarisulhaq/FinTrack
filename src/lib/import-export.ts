@@ -184,7 +184,7 @@ function parseAmount(raw: string): number {
   // separators. Accept commas as decimal too.
   const cleaned = raw.replace(/\s/g, "").replace(/\.(?=\d{3}(\D|$))/g, "").replace(",", ".");
   const n = Number(cleaned);
-  return Number.isFinite(n) ? n : 0;
+  return n;
 }
 
 // ── Transactions → CSV ────────────────────────────────────────────────────
@@ -194,8 +194,10 @@ export function transactionsToCSV(
   wallets: readonly Wallet[],
   options: { month?: string } = {},
 ): string {
-  const walletById = new Map(wallets.map((w) => [w.id, w]));
-  const walletNameById = new Map(wallets.map((w) => [w.id, w.name]));
+  const walletNameById = new Map(wallets.flatMap((wallet) => [
+    [wallet.id, wallet.name] as const,
+    ...(wallet.children ?? []).map((child) => [child.id, `${wallet.name} / ${child.name}`] as const),
+  ]));
 
   const filtered = options.month
     ? transactions.filter((t) => t.date.startsWith(options.month!))
@@ -788,7 +790,13 @@ export function importTransactionsFromCSV(
     }
   }
 
-  const walletByName = new Map(wallets.map((w) => [w.name.toLowerCase(), w]));
+  const allWallets = wallets.flatMap((wallet) => [wallet, ...(wallet.children ?? [])]);
+  const walletByName = new Map(allWallets.map((w) => [w.name.toLowerCase(), w]));
+  for (const parent of wallets) {
+    for (const child of parent.children ?? []) {
+      walletByName.set(`${parent.name} / ${child.name}`.toLowerCase(), child);
+    }
+  }
 
   for (let i = 1; i < rows.length; i += 1) {
     const row = rows[i];
@@ -825,13 +833,12 @@ export function importTransactionsFromCSV(
     const walletRef = cells["wallet"].trim();
     const wallet =
       walletByName.get(walletRef.toLowerCase()) ??
-      wallets.find((w) => w.id === walletRef);
+      allWallets.find((w) => w.id === walletRef);
     if (!wallet) {
       issues.push({
         row: i + 1,
-        message: `Dompet tidak ditemukan: "${walletRef}"`,
+        message: `Pilih dompet tujuan untuk "${walletRef}" di pratinjau.`,
       });
-      continue;
     }
 
     const id = cells["id"]?.trim() || `txn-import-${Date.now()}-${i}`;
@@ -847,7 +854,7 @@ export function importTransactionsFromCSV(
       type: type as Transaction["type"],
       amount,
       category,
-      walletId: wallet.id,
+      walletId: wallet?.id ?? "",
       description: cells["description"] ?? "",
       date: new Date(date).toISOString(),
       tags: tags.length ? tags : undefined,
@@ -883,5 +890,20 @@ export function importBackupFromJSON(raw: string): {
       error: `Versi backup (${obj.version}) lebih baru dari yang didukung aplikasi (${EXPORT_FORMAT_VERSION}).`,
     };
   }
-  return { bundle: obj as BackupBundle, error: null };
+  const keys: Array<keyof Pick<BackupBundle,
+    "wallets" | "transactions" | "budgets" | "investments" | "bills" |
+    "savingGoals" | "debts" | "cards" | "wishlist" | "reimbursements" |
+    "notes" | "recurringTransactions" | "splitBills" | "categories" | "subCategories"
+  >> = [
+    "wallets", "transactions", "budgets", "investments", "bills",
+    "savingGoals", "debts", "cards", "wishlist", "reimbursements",
+    "notes", "recurringTransactions", "splitBills", "categories", "subCategories",
+  ];
+  for (const key of keys) {
+    if (obj[key] !== undefined && !Array.isArray(obj[key])) {
+      return { bundle: null, error: `Field '${key}' harus berupa daftar.` };
+    }
+  }
+  const bundle = Object.fromEntries(keys.map((key) => [key, obj[key] ?? []]));
+  return { bundle: { ...obj, ...bundle } as BackupBundle, error: null };
 }
