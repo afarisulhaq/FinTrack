@@ -8,6 +8,7 @@ import {
   TrendingDown,
   ArrowLeftRight,
   Trash2,
+  Pencil,
   Receipt,
 } from "lucide-react";
 import { DynamicIcon } from "~/components/ui/dynamic-icon";
@@ -203,6 +204,7 @@ export default function TransactionsPage() {
   const budgets = useFinanceStore((s) => s.budgets);
   const categories = useFinanceStore((s) => s.categories);
   const addTransaction = useFinanceStore((s) => s.addTransaction);
+  const updateTransaction = useFinanceStore((s) => s.updateTransaction);
   const ensureSubCategory = useFinanceStore((s) => s.ensureSubCategory);
   const deleteTransaction = useFinanceStore((s) => s.deleteTransaction);
 
@@ -214,6 +216,8 @@ export default function TransactionsPage() {
 
   // ── Modal state ──────────────────────────────────────────────────────────────
   const [showModal, setShowModal] = useState(false);
+  const [editingTransaction, setEditingTransaction] =
+    useState<Transaction | null>(null);
   const [form, setForm] = useState<TxForm>(DEFAULT_TX_FORM);
 
   const fld = <K extends keyof TxForm>(k: K, v: TxForm[K]) =>
@@ -283,6 +287,7 @@ export default function TransactionsPage() {
   // ── Form helpers ─────────────────────────────────────────────────────────────
 
   function openModal() {
+    setEditingTransaction(null);
     const firstWallet = allWallets[0];
     setForm({
       ...DEFAULT_TX_FORM,
@@ -294,8 +299,29 @@ export default function TransactionsPage() {
   }
 
   function closeModal() {
+    setEditingTransaction(null);
     setShowModal(false);
     setForm(DEFAULT_TX_FORM);
+  }
+
+  function openEdit(tx: Transaction) {
+    setEditingTransaction(tx);
+    const date = new Date(tx.date);
+    date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+    setForm({
+      ...DEFAULT_TX_FORM,
+      type: tx.type,
+      amount: String(tx.amount),
+      category: tx.category,
+      categoryIcon: tx.categoryIcon,
+      categoryId: tx.categoryId ?? "",
+      subCategoryId: tx.subCategoryId ?? "",
+      walletId: tx.walletId,
+      walletName: tx.walletName,
+      description: tx.description,
+      date: date.toISOString().slice(0, 10),
+    });
+    setShowModal(true);
   }
 
   function handleTypeChange(t: TransactionType) {
@@ -304,6 +330,7 @@ export default function TransactionsPage() {
     // expense transaction just because the form was already valid).
     fld("type", t);
     fld("category", "");
+    fld("categoryId", "");
     fld("categoryIcon", "Circle");
     fld("subCategoryId", "");
     fld("newSubCategoryName", "");
@@ -312,7 +339,7 @@ export default function TransactionsPage() {
   function handleCategorySelect(cat: CategoryOption) {
     fld("category", cat.name);
     fld("categoryIcon", cat.icon);
-    if (cat.id) fld("categoryId", cat.id);
+    fld("categoryId", cat.id ?? "");
     // Clear sub-category whenever a new master is picked.
     fld("subCategoryId", "");
     fld("newSubCategoryName", "");
@@ -338,7 +365,12 @@ export default function TransactionsPage() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.amount || !form.walletId) return;
+    if (
+      !Number.isFinite(Number(form.amount)) ||
+      Number(form.amount) <= 0 ||
+      !form.walletId
+    )
+      return;
     // If the user typed a brand-new sub-category, create it on the fly
     // (as a sub of the picked master). This keeps the master/sub
     // structure consistent and means the next transaction can re-pick
@@ -355,20 +387,26 @@ export default function TransactionsPage() {
         undefined,
       );
     }
-    addTransaction({
+    const updates = {
       type: form.type,
       amount: parseFloat(form.amount),
       category: form.category,
       categoryIcon: form.categoryIcon,
-      categoryId: form.categoryId || undefined,
-      subCategoryId: form.subCategoryId || undefined,
+      categoryId: form.categoryId || null,
+      subCategoryId: form.subCategoryId || null,
       walletId: form.walletId,
       walletName: form.walletName,
       description: form.description || form.category,
       date: new Date(
-        form.date + "T" + new Date().toTimeString().slice(0, 8),
+        form.date +
+          "T" +
+          new Date(editingTransaction?.date ?? Date.now())
+            .toTimeString()
+            .slice(0, 8),
       ).toISOString(),
-    });
+    };
+    if (editingTransaction) updateTransaction(editingTransaction.id, updates);
+    else addTransaction(updates);
     closeModal();
   }
 
@@ -503,7 +541,7 @@ export default function TransactionsPage() {
               <div className="space-y-2">
                 {txList.map((tx) => (
                   <Card key={tx.id} className="group">
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap sm:gap-3">
                       {/* Category icon */}
                       <div
                         className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg"
@@ -552,8 +590,18 @@ export default function TransactionsPage() {
 
                       {/* Delete */}
                       <button
+                        type="button"
+                        aria-label={`Edit transaksi ${tx.description || tx.category}`}
+                        onClick={() => openEdit(tx)}
+                        className="text-text-secondary hover:bg-bg-elevated focus-visible:ring-primary flex h-9 w-9 shrink-0 items-center justify-center rounded-lg focus-visible:ring-2"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`Hapus transaksi ${tx.description || tx.category}`}
                         onClick={() => deleteTransaction(tx.id)}
-                        className="text-text-muted hover:text-danger hover:bg-danger/10 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg opacity-0 transition-colors group-hover:opacity-100"
+                        className="text-text-secondary hover:text-danger hover:bg-danger/10 focus-visible:ring-primary flex h-9 w-9 shrink-0 items-center justify-center rounded-lg focus-visible:ring-2"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -581,7 +629,7 @@ export default function TransactionsPage() {
       <Modal
         open={showModal}
         onClose={closeModal}
-        title="Tambah Transaksi"
+        title={editingTransaction ? "Edit Transaksi" : "Tambah Transaksi"}
         size="md"
       >
         <form onSubmit={handleSubmit} className="space-y-4">

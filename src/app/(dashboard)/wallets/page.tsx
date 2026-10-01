@@ -52,6 +52,7 @@ interface WalletForm {
   type: WalletType;
   color: string;
   parentId: string;
+  balance: string;
 }
 
 const EMPTY_FORM: WalletForm = {
@@ -60,6 +61,7 @@ const EMPTY_FORM: WalletForm = {
   type: "bank",
   color: "#FFD147",
   parentId: "",
+  balance: "0",
 };
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -119,7 +121,9 @@ export default function WalletsPage() {
   }
 
   function openEdit(walletId: string) {
-    const w = wallets.find((x) => x.id === walletId);
+    const w = wallets
+      .flatMap((x) => [x, ...(x.children ?? [])])
+      .find((x) => x.id === walletId);
     if (!w) return;
     setEditingId(walletId);
     setForm({
@@ -128,6 +132,7 @@ export default function WalletsPage() {
       type: w.type,
       color: w.color,
       parentId: w.parentId ?? "",
+      balance: String(w.balance),
     });
     setShowModal(true);
   }
@@ -140,15 +145,26 @@ export default function WalletsPage() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.name.trim()) return;
+    if (
+      !form.name.trim() ||
+      !form.balance.trim() ||
+      !Number.isFinite(Number(form.balance))
+    )
+      return;
 
     if (editingId) {
+      const currentWallet = wallets
+        .flatMap((w) => [w, ...(w.children ?? [])])
+        .find((w) => w.id === editingId);
       updateWallet(editingId, {
         name: form.name,
         icon: form.icon,
         type: form.type,
         color: form.color,
         parentId: form.parentId || undefined,
+        ...(currentWallet?.balance !== Number(form.balance)
+          ? { balance: Number(form.balance) }
+          : {}),
       });
     } else {
       addWallet({
@@ -156,7 +172,7 @@ export default function WalletsPage() {
         icon: form.icon,
         type: form.type,
         color: form.color,
-        balance: 0,
+        balance: Number(form.balance),
         currency: "IDR",
         parentId: form.parentId || undefined,
       });
@@ -217,10 +233,10 @@ export default function WalletsPage() {
               <Card
                 key={wallet.id}
                 padding="none"
-                className="group relative overflow-hidden transition-all hover:border-primary/30"
+                className="group hover:border-primary/30 relative overflow-hidden transition-all"
               >
                 <div
-                  className="absolute left-0 top-0 bottom-0 w-1"
+                  className="absolute top-0 bottom-0 left-0 w-1"
                   style={{ backgroundColor: wallet.color }}
                 />
                 <div className="p-5 pl-6">
@@ -228,7 +244,7 @@ export default function WalletsPage() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-3.5">
                       <div
-                        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-xl shadow-subtle"
+                        className="shadow-subtle flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-xl"
                         style={{
                           backgroundColor: `${wallet.color}18`,
                           color: wallet.color,
@@ -259,14 +275,14 @@ export default function WalletsPage() {
                       <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                         <button
                           onClick={() => openEdit(wallet.id)}
-                          className="bg-bg-elevated text-text-secondary hover:text-primary hover:bg-primary/10 flex h-8 w-8 items-center justify-center rounded-lg border border-border/50 transition-colors"
+                          className="bg-bg-elevated text-text-secondary hover:text-primary hover:bg-primary/10 border-border/50 flex h-8 w-8 items-center justify-center rounded-lg border transition-colors"
                           title="Edit dompet"
                         >
                           <Pencil className="h-3.5 w-3.5" />
                         </button>
                         <button
                           onClick={() => deleteWallet(wallet.id)}
-                          className="bg-bg-elevated text-text-secondary hover:text-danger hover:bg-danger/10 flex h-8 w-8 items-center justify-center rounded-lg border border-border/50 transition-colors"
+                          className="bg-bg-elevated text-text-secondary hover:text-danger hover:bg-danger/10 border-border/50 flex h-8 w-8 items-center justify-center rounded-lg border transition-colors"
                           title="Hapus dompet"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -275,54 +291,62 @@ export default function WalletsPage() {
                     </div>
                   </div>
 
-                    {/* Children / kantong */}
-                    {children.length > 0 && (
-                      <div className="border-border mt-4 ml-6 space-y-2 border-l-2 pl-4">
-                        {children.map((child) => (
-                          <div
-                            key={child.id}
-                            className="bg-bg-elevated/70 border border-border/60 group/child flex items-center justify-between gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-bg-elevated"
-                          >
-                            <div className="flex min-w-0 items-center gap-2">
-                              <span className="shrink-0 text-text-secondary">
-                                <DynamicIcon
-                                  name={child.icon}
-                                  className="h-4 w-4"
-                                />
-                              </span>
-                              <span className="text-text-primary truncate text-sm font-medium">
-                                {child.name}
-                              </span>
-                              <Badge variant="purple" size="sm">
-                                Kantong
-                              </Badge>
-                            </div>
-                            <div className="flex shrink-0 items-center gap-2">
-                              <span className="text-text-primary text-sm font-semibold tabular-nums">
-                                {formatCurrency(child.balance)}
-                              </span>
-                              <button
-                                onClick={() => deleteWallet(child.id)}
-                                className="text-text-muted hover:text-danger hover:bg-danger/10 flex h-6 w-6 items-center justify-center rounded opacity-0 transition-colors group-hover/child:opacity-100"
-                                title="Hapus kantong"
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </button>
-                            </div>
+                  {/* Children / kantong */}
+                  {children.length > 0 && (
+                    <div className="border-border mt-4 ml-6 space-y-2 border-l-2 pl-4">
+                      {children.map((child) => (
+                        <div
+                          key={child.id}
+                          className="bg-bg-elevated/70 border-border/60 group/child hover:bg-bg-elevated flex items-center justify-between gap-3 rounded-lg border px-3 py-2 transition-colors"
+                        >
+                          <div className="flex min-w-0 items-center gap-2">
+                            <span className="text-text-secondary shrink-0">
+                              <DynamicIcon
+                                name={child.icon}
+                                className="h-4 w-4"
+                              />
+                            </span>
+                            <span className="text-text-primary truncate text-sm font-medium">
+                              {child.name}
+                            </span>
+                            <Badge variant="purple" size="sm">
+                              Kantong
+                            </Badge>
                           </div>
-                        ))}
-                      </div>
-                    )}
+                          <div className="flex shrink-0 items-center gap-2">
+                            <span className="text-text-primary text-sm font-semibold tabular-nums">
+                              {formatCurrency(child.balance)}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => openEdit(child.id)}
+                              className="text-text-secondary hover:bg-bg-elevated focus-visible:ring-primary flex h-9 w-9 items-center justify-center rounded-lg focus-visible:ring-2"
+                              aria-label={`Edit kantong ${child.name}`}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              onClick={() => deleteWallet(child.id)}
+                              className="text-text-muted hover:text-danger hover:bg-danger/10 flex h-6 w-6 items-center justify-center rounded opacity-0 transition-colors group-hover/child:opacity-100"
+                              title="Hapus kantong"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
-                    {/* Add kantong button */}
-                    <button
-                      onClick={() => openAdd(wallet.id)}
-                      className="text-text-muted hover:text-primary mt-3 ml-6 flex items-center gap-1.5 text-xs transition-colors"
-                    >
-                      <Plus className="h-3 w-3" />
-                      Tambah Kantong
-                    </button>
-                  </div>
+                  {/* Add kantong button */}
+                  <button
+                    onClick={() => openAdd(wallet.id)}
+                    className="text-text-muted hover:text-primary mt-3 ml-6 flex items-center gap-1.5 text-xs transition-colors"
+                  >
+                    <Plus className="h-3 w-3" />
+                    Tambah Kantong
+                  </button>
+                </div>
               </Card>
             );
           })}
@@ -436,6 +460,20 @@ export default function WalletsPage() {
             required
           />
 
+          <Input
+            label={editingId ? "Saldo setelah penyesuaian" : "Saldo awal"}
+            type="number"
+            step="0.01"
+            value={form.balance}
+            onChange={(e) => fld("balance", e.target.value)}
+            hint={
+              editingId
+                ? "Masukkan saldo aktual. Penyesuaian ini tidak dicatat sebagai pemasukan atau pengeluaran."
+                : "Masukkan jumlah uang yang sudah ada di dompet."
+            }
+            required
+          />
+
           {/* Icon picker */}
           <div className="flex flex-col gap-1.5">
             <label className="text-text-secondary text-sm font-medium">
@@ -473,7 +511,7 @@ export default function WalletsPage() {
               <select
                 value={form.type}
                 onChange={(e) => fld("type", e.target.value as WalletType)}
-                className="bg-bg-surface border-border text-text-primary focus:border-primary focus:ring-primary/20 h-10 rounded-lg border px-3 text-sm focus:ring-1 focus:outline-none transition-colors"
+                className="bg-bg-surface border-border text-text-primary focus:border-primary focus:ring-primary/20 h-10 rounded-lg border px-3 text-sm transition-colors focus:ring-1 focus:outline-none"
               >
                 {(
                   Object.entries(WALLET_TYPE_LABELS) as [WalletType, string][]
@@ -513,7 +551,7 @@ export default function WalletsPage() {
             <select
               value={form.parentId}
               onChange={(e) => fld("parentId", e.target.value)}
-              className="bg-bg-surface border-border text-text-primary focus:border-primary focus:ring-primary/20 h-10 rounded-lg border px-3 text-sm focus:ring-1 focus:outline-none transition-colors"
+              className="bg-bg-surface border-border text-text-primary focus:border-primary focus:ring-primary/20 h-10 rounded-lg border px-3 text-sm transition-colors focus:ring-1 focus:outline-none"
             >
               <option value="">(Jadikan Dompet Utama)</option>
               {parentWallets

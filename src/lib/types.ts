@@ -41,8 +41,8 @@ export interface Transaction {
   /// FK refs to the master Category / SubCategory. Both optional so legacy
   /// rows keep loading. Server keeps `category` in sync with the master
   /// name on create/update.
-  categoryId?: string;
-  subCategoryId?: string;
+  categoryId?: string | null;
+  subCategoryId?: string | null;
 }
 
 // ─── Master Category & Sub-Category ────────────────────────────────────────────

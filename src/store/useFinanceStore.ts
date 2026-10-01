@@ -534,16 +534,37 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
   updateWallet: (id, updates) => {
     // Snapshot the pre-update record so we can restore on failure.
     const previous = get().wallets.find((w) => w.id === id);
+    const previousParent = get().wallets.find((w) =>
+      w.children?.some((child) => child.id === id),
+    );
     set((state) => ({
       wallets: state.wallets.map((w) =>
-        w.id === id ? { ...w, ...updates } : w,
+        w.id === id
+          ? { ...w, ...updates }
+          : w.children?.some((child) => child.id === id)
+            ? {
+                ...w,
+                children: w.children.map((child) =>
+                  child.id === id ? { ...child, ...updates } : child,
+                ),
+              }
+            : w,
       ),
     }));
     void withPersist<Wallet>(`/wallets/${id}`, "PUT", updates, {
+      onSuccess: () => {
+        void get().refreshWallets();
+      },
       onError: () => {
-        if (!previous) return;
+        if (!previous && !previousParent) return;
         set((state) => ({
-          wallets: state.wallets.map((w) => (w.id === id ? previous : w)),
+          wallets: state.wallets.map((w) =>
+            w.id === id && previous
+              ? previous
+              : w.id === previousParent?.id
+                ? previousParent
+                : w,
+          ),
         }));
       },
       errorTitle: "Gagal memperbarui dompet",
@@ -625,7 +646,14 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
       ),
     }));
     void withPersist<Transaction>(`/transactions/${id}`, "PUT", updates, {
-      onSuccess: () => {
+      onSuccess: (serverItem) => {
+        if (serverItem) {
+          set((state) => ({
+            transactions: state.transactions.map((tx) =>
+              tx.id === id ? serverItem : tx,
+            ),
+          }));
+        }
         void Promise.all([get().refreshWallets(), get().refreshBudgets()]);
       },
       onError: () => {
