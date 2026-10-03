@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev --hostname 0.0.0.0",
+    "dev": "node scripts/dev.mjs",
     "dev:web": "next dev --hostname 0.0.0.0",
-    "dev:server": "tsx watch server/index.ts",
+    "dev:server": "tsx watch --import ./scripts/load-env.mjs server/index.ts",
     "build": "next build",
     "build:server": "tsc -p server/tsconfig.json",
     "build:web": "next build",

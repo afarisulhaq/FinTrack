@@ -2,8 +2,13 @@
 
 import { create } from "zustand";
 import { api, getApiBaseUrl } from "~/lib/api";
+import { createFinanceSync } from "~/lib/finance-sync";
 import { genId } from "~/lib/utils";
-import { flattenWalletTree, normalizeWalletTree, updateWalletTree } from "~/lib/wallets";
+import {
+  flattenWalletTree,
+  normalizeWalletTree,
+  updateWalletTree,
+} from "~/lib/wallets";
 import { toast } from "~/components/ui/toast";
 import { useAppConfigStore, type AppConfig } from "./useAppConfigStore";
 import type {
@@ -91,6 +96,36 @@ function getBackendToken() {
   }
 }
 
+const financeSync = createFinanceSync();
+const bootstrapRequests = new Map<string, Promise<boolean>>();
+
+async function readCurrent<T>(
+  token: string,
+  read: () => Promise<T>,
+): Promise<T | undefined> {
+  while (token === getBackendToken()) {
+    await financeSync.waitForWrites();
+    if (token !== getBackendToken()) return;
+    const revision = financeSync.snapshot();
+    const data = await read();
+    if (token !== getBackendToken()) return;
+    if (financeSync.isCurrent(revision)) return data;
+  }
+}
+
+async function persistResource<T = unknown>(
+  path: string,
+  method: "POST" | "PUT" | "DELETE",
+  body?: unknown,
+): Promise<PersistResult<T>> {
+  const finish = financeSync.beginWrite();
+  try {
+    return await executePersistResource<T>(path, method, body);
+  } finally {
+    finish();
+  }
+}
+
 export type PersistResult<T> =
   | { ok: true; data: T | null }
   | { ok: false; error: string; offline?: boolean };
@@ -105,7 +140,7 @@ export type PersistResult<T> =
  *   - `{ ok: false, error, offline: true }` on network / no-token failures
  *   - `{ ok: false, error }` on 4xx/5xx (error is the server message)
  */
-async function persistResource<T = unknown>(
+async function executePersistResource<T = unknown>(
   path: string,
   method: "POST" | "PUT" | "DELETE",
   body?: unknown,
@@ -192,12 +227,6 @@ async function withPersist<T = unknown>(
 
 // ── Store Interface ───────────────────────────────────────────────────────────
 
-/**
- * Merge-by-ID: keep local records (with their in-flight optimistic
- * updates), overlay whatever the server returned for the same id, and
- * append any server-only records. The order is preserved from the
- * client array so the user’s own sort/filter stays intact.
- */
 function mergeById<T extends { id: string }>(
   local: T[],
   remote: T[] | undefined,
@@ -206,11 +235,13 @@ function mergeById<T extends { id: string }>(
   if (!remote) return local;
   const remoteById = new Map(remote.map((r) => [r.id, r]));
   const seen = new Set<string>();
-  const merged = local.map((item) => {
-    seen.add(item.id);
-    const r = remoteById.get(item.id);
-    return r ? mergeItem(item, r) : item;
-  });
+  const merged = local
+    .filter((item) => remoteById.has(item.id))
+    .map((item) => {
+      seen.add(item.id);
+      const r = remoteById.get(item.id);
+      return r ? mergeItem(item, r) : item;
+    });
   for (const r of remote) {
     if (!seen.has(r.id)) merged.push(r);
   }
@@ -317,7 +348,7 @@ interface FinanceStore {
    * the merge-by-ID path. Used by the manual “Sync” button in the top
    * bar and exposed in case other surfaces want to force a refresh.
    */
-  refreshAll: () => Promise<boolean>;
+  refreshAll: (options?: { silent?: boolean }) => Promise<boolean>;
   /**
    * Convenience: find or create a master Category by name + type.
    * Returns the resulting Category (with sub-categories) so the caller
@@ -459,18 +490,22 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
   syncError: null,
 
   hydrateFromBackend: (data) => {
+    if (!financeSync.isCurrent(financeSync.snapshot())) return;
     if (data.appConfig) {
       useAppConfigStore
         .getState()
         .hydrateFromBackend(data.appConfig as Partial<AppConfig>);
     }
     return set((state) => {
-      // Merge-by-ID strategy: for every array the server sent, keep the
-      // local optimistic record if it has the same id (so in-flight edits
-      // don’t get clobbered), add any record we don’t have yet, and keep
-      // local records the server has not seen (e.g. offline writes).
       return {
-        wallets: data.wallets ? normalizeWalletTree(mergeById(flattenWalletTree(state.wallets), flattenWalletTree(data.wallets))) : state.wallets,
+        wallets: data.wallets
+          ? normalizeWalletTree(
+              mergeById(
+                flattenWalletTree(state.wallets),
+                flattenWalletTree(data.wallets),
+              ),
+            )
+          : state.wallets,
         transactions: mergeById(state.transactions, data.transactions),
         budgets: mergeById(state.budgets, data.budgets),
         investments: mergeById(
@@ -514,19 +549,27 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
     const item = { ...wallet, id: genId() };
     // Optimistic insert — if the server rejects (or we’re offline),
     // withPersist’s onError hook will remove it again.
-    set((state) => ({ wallets: normalizeWalletTree([...flattenWalletTree(state.wallets), item]) }));
+    set((state) => ({
+      wallets: normalizeWalletTree([...flattenWalletTree(state.wallets), item]),
+    }));
     void withPersist<Wallet>("/wallets", "POST", item, {
       onSuccess: (serverItem) => {
         if (!serverItem) return;
         // Server echoes the wallet back (with its own ID metadata). Swap
         // the optimistic record so subsequent fetches don’t see a ghost.
         set((state) => ({
-          wallets: normalizeWalletTree(flattenWalletTree(state.wallets).map((w) => w.id === item.id ? serverItem : w)),
+          wallets: normalizeWalletTree(
+            flattenWalletTree(state.wallets).map((w) =>
+              w.id === item.id ? serverItem : w,
+            ),
+          ),
         }));
       },
       onError: () => {
         set((state) => ({
-          wallets: normalizeWalletTree(flattenWalletTree(state.wallets).filter((w) => w.id !== item.id)),
+          wallets: normalizeWalletTree(
+            flattenWalletTree(state.wallets).filter((w) => w.id !== item.id),
+          ),
         }));
       },
       errorTitle: "Gagal menambah dompet",
@@ -543,7 +586,9 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
     void withPersist<Wallet>(`/wallets/${id}`, "PUT", payload, {
       onSuccess: (serverItem) => {
         if (!serverItem) return;
-        set((state) => ({ wallets: updateWalletTree(state.wallets, id, serverItem) }));
+        set((state) => ({
+          wallets: updateWalletTree(state.wallets, id, serverItem),
+        }));
       },
       onError: () => {
         if (previous) {
@@ -563,7 +608,11 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
       (w) => w.id === id || w.parentId === id,
     );
     set((state) => ({
-      wallets: normalizeWalletTree(flattenWalletTree(state.wallets).filter((w) => w.id !== id && w.parentId !== id)),
+      wallets: normalizeWalletTree(
+        flattenWalletTree(state.wallets).filter(
+          (w) => w.id !== id && w.parentId !== id,
+        ),
+      ),
     }));
     void withPersist(`/wallets/${id}`, "DELETE", undefined, {
       onError: () => {
@@ -692,8 +741,10 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
     const token = getBackendToken();
     if (!token) return;
     try {
-      const wallets = await api.get<Wallet[]>("/wallets", token);
-      set({ wallets: normalizeWalletTree(wallets) });
+      const wallets = await readCurrent(token, () =>
+        api.get<Wallet[]>("/wallets", token),
+      );
+      if (wallets) set({ wallets: normalizeWalletTree(wallets) });
     } catch (error) {
       console.warn("Failed to refresh wallets", error);
     }
@@ -704,8 +755,10 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
     const token = getBackendToken();
     if (!token) return;
     try {
-      const budgets = await api.get<Budget[]>("/budgets", token);
-      set({ budgets });
+      const budgets = await readCurrent(token, () =>
+        api.get<Budget[]>("/budgets", token),
+      );
+      if (budgets) set({ budgets });
     } catch (error) {
       console.warn("Failed to refresh budgets", error);
     }
@@ -1792,31 +1845,50 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
     const token = getBackendToken();
     if (!token) return;
     try {
-      const [categories, subCategories] = await Promise.all([
-        api.get<Category[]>("/categories", token),
-        api.get<SubCategory[]>("/subCategories", token),
-      ]);
-      set({ categories, subCategories });
+      const data = await readCurrent(token, () =>
+        Promise.all([
+          api.get<Category[]>("/categories", token),
+          api.get<SubCategory[]>("/subCategories", token),
+        ]),
+      );
+      if (data) set({ categories: data[0], subCategories: data[1] });
     } catch (error) {
       console.warn("Failed to refresh categories", error);
     }
   },
 
-  refreshAll: async () => {
+  refreshAll: async (options) => {
     const token = getBackendToken();
     if (!token || token === "dev-fallback-token") return false;
-    try {
-      const data = await api.bootstrap<BootstrapData>(token);
-      get().hydrateFromBackend(data);
-      return true;
-    } catch (error) {
-      console.warn("Failed to refresh all data", error);
-      toast.warning(
-        "Gagal sinkron",
-        error instanceof Error ? error.message : "Server tidak terjangkau",
-      );
-      return false;
-    }
+    const existing = bootstrapRequests.get(token);
+    if (existing) return existing;
+    const request = (async () => {
+      try {
+        const data = await readCurrent(token, () =>
+          api.bootstrap<BootstrapData>(token, AbortSignal.timeout(15000)),
+        );
+        if (!data) return false;
+        get().hydrateFromBackend(data);
+        return true;
+      } catch (error) {
+        console.warn("Failed to refresh all data", error);
+        if (token !== getBackendToken()) return false;
+        set({
+          syncError:
+            "Tidak bisa memuat data dari server. Sinkronisasi akan dicoba kembali.",
+        });
+        if (!options?.silent)
+          toast.warning(
+            "Gagal sinkron",
+            error instanceof Error ? error.message : "Server tidak terjangkau",
+          );
+        return false;
+      } finally {
+        bootstrapRequests.delete(token);
+      }
+    })();
+    bootstrapRequests.set(token, request);
+    return request;
   },
 
   addCategory: async (category) => {

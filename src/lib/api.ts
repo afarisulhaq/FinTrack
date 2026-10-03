@@ -30,6 +30,7 @@ export function getApiBaseUrl() {
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${getApiBaseUrl()}${path}`, {
+    cache: "no-store",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -65,8 +66,9 @@ export const api = {
       headers: { Authorization: `Bearer ${token}` },
     });
   },
-  bootstrap<T>(token: string) {
+  bootstrap<T>(token: string, signal?: AbortSignal) {
     return request<T>("/bootstrap", {
+      signal,
       headers: { Authorization: `Bearer ${token}` },
     });
   },

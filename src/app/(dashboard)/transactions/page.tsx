@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import Link from "next/link";
+import * as Select from "@radix-ui/react-select";
 import {
   Plus,
   Search,
@@ -24,6 +26,7 @@ import { localDateValue, transactionMonth } from "~/lib/date";
 import { useFinanceStore } from "~/store/useFinanceStore";
 import { formatCurrency, formatDate, groupByDate } from "~/lib/utils";
 import type { Transaction, TransactionType, Wallet } from "~/lib/types";
+import { flattenWalletTree } from "~/lib/wallets";
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
@@ -113,6 +116,56 @@ function getCategoriesByType(
 
 type TxTypeFilter = "Semua" | TransactionType;
 
+function WalletPicker({
+  id,
+  value,
+  onChange,
+  wallets,
+  placeholder,
+}: {
+  id: string;
+  value: string;
+  onChange: (value: string) => void;
+  wallets: Wallet[];
+  placeholder: string;
+}) {
+  return (
+    <Select.Root value={value} onValueChange={onChange} required>
+      <Select.Trigger
+        id={id}
+        className="bg-bg-surface border-border text-text-primary focus:ring-primary/50 flex h-10 w-full min-w-0 items-center justify-between rounded-lg border px-3 text-sm focus:ring-2 focus:outline-none"
+      >
+        <span className="truncate">
+          <Select.Value placeholder={placeholder} />
+        </span>
+        <Select.Icon aria-hidden>▾</Select.Icon>
+      </Select.Trigger>
+      <Select.Portal>
+        <Select.Content
+          position="popper"
+          sideOffset={4}
+          className="bg-bg-surface border-border text-text-primary pointer-events-auto z-[110] max-h-[var(--radix-select-content-available-height)] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-lg border shadow-md"
+        >
+          <Select.Viewport className="max-h-60 overflow-y-auto p-1">
+            {wallets.map((wallet) => (
+              <Select.Item
+                key={wallet.id}
+                value={wallet.id}
+                className="data-[highlighted]:bg-bg-elevated data-[highlighted]:text-text-primary cursor-pointer rounded-md px-3 py-2 text-sm outline-none"
+              >
+                <Select.ItemText>
+                  {wallet.parentId ? "↳ " : ""}
+                  {wallet.name}
+                </Select.ItemText>
+              </Select.Item>
+            ))}
+          </Select.Viewport>
+        </Select.Content>
+      </Select.Portal>
+    </Select.Root>
+  );
+}
+
 interface TxForm {
   type: TransactionType;
   amount: string;
@@ -129,6 +182,7 @@ interface TxForm {
   newSubCategoryName: string;
   walletId: string;
   walletName: string;
+  destinationWalletId: string;
   description: string;
   date: string;
 }
@@ -143,6 +197,7 @@ const DEFAULT_TX_FORM: TxForm = {
   newSubCategoryName: "",
   walletId: "",
   walletName: "",
+  destinationWalletId: "",
   description: "",
   date: localDateValue(),
 };
@@ -178,27 +233,6 @@ function getDayNet(txList: Transaction[]): number {
   }, 0);
 }
 
-/** Flatten wallets: parent wallets + embedded children + flat children */
-function flattenWallets(wallets: Wallet[]): Wallet[] {
-  const seen = new Set<string>();
-  const result: Wallet[] = [];
-  for (const w of wallets) {
-    if (!seen.has(w.id)) {
-      seen.add(w.id);
-      result.push(w);
-    }
-    if (w.children) {
-      for (const c of w.children) {
-        if (!seen.has(c.id)) {
-          seen.add(c.id);
-          result.push(c);
-        }
-      }
-    }
-  }
-  return result;
-}
-
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default function TransactionsPage() {
@@ -210,6 +244,7 @@ export default function TransactionsPage() {
   const updateTransaction = useFinanceStore((s) => s.updateTransaction);
   const ensureSubCategory = useFinanceStore((s) => s.ensureSubCategory);
   const deleteTransaction = useFinanceStore((s) => s.deleteTransaction);
+  const refreshWallets = useFinanceStore((s) => s.refreshWallets);
 
   // ── Filter state ─────────────────────────────────────────────────────────────
   const [search, setSearch] = useState("");
@@ -222,6 +257,7 @@ export default function TransactionsPage() {
 
   // ── Modal state ──────────────────────────────────────────────────────────────
   const [showModal, setShowModal] = useState(false);
+  const [loadingWallets, setLoadingWallets] = useState(false);
   const [editingTransaction, setEditingTransaction] =
     useState<Transaction | null>(null);
   const [form, setForm] = useState<TxForm>(DEFAULT_TX_FORM);
@@ -231,7 +267,32 @@ export default function TransactionsPage() {
 
   // ── Derived data ─────────────────────────────────────────────────────────────
 
-  const allWallets = useMemo(() => flattenWallets(wallets), [wallets]);
+  const allWallets = useMemo(() => flattenWalletTree(wallets), [wallets]);
+
+  useEffect(() => {
+    if (!showModal || loadingWallets) return;
+    setForm((current) => {
+      const source =
+        allWallets.find((wallet) => wallet.id === current.walletId) ??
+        (editingTransaction ? undefined : allWallets[0]);
+      const destination = allWallets.find(
+        (wallet) =>
+          wallet.id === current.destinationWalletId && wallet.id !== source?.id,
+      );
+      if (
+        current.walletId === (source?.id ?? "") &&
+        current.walletName === (source?.name ?? "") &&
+        current.destinationWalletId === (destination?.id ?? "")
+      )
+        return current;
+      return {
+        ...current,
+        walletId: source?.id ?? "",
+        walletName: source?.name ?? "",
+        destinationWalletId: destination?.id ?? "",
+      };
+    });
+  }, [allWallets, showModal, loadingWallets, editingTransaction]);
 
   /** Current month income / expense / net */
   const monthStats = useMemo(() => {
@@ -306,6 +367,8 @@ export default function TransactionsPage() {
       walletName: firstWallet?.name ?? "",
     });
     setShowModal(true);
+    setLoadingWallets(true);
+    void refreshWallets().finally(() => setLoadingWallets(false));
   }
 
   function closeModal() {
@@ -328,10 +391,13 @@ export default function TransactionsPage() {
       subCategoryId: tx.subCategoryId ?? "",
       walletId: tx.walletId,
       walletName: tx.walletName,
+      destinationWalletId: tx.destinationWalletId ?? "",
       description: tx.description,
       date: date.toISOString().slice(0, 10),
     });
     setShowModal(true);
+    setLoadingWallets(true);
+    void refreshWallets().finally(() => setLoadingWallets(false));
   }
 
   function handleTypeChange(t: TransactionType) {
@@ -339,7 +405,7 @@ export default function TransactionsPage() {
     // a fresh chip for the new type (avoids "Gaji" leaking into an
     // expense transaction just because the form was already valid).
     fld("type", t);
-    fld("category", "");
+    fld("category", t === "transfer" ? "Transfer" : "");
     fld("categoryId", "");
     fld("categoryIcon", "Circle");
     fld("subCategoryId", "");
@@ -371,6 +437,7 @@ export default function TransactionsPage() {
     const w = allWallets.find((x) => x.id === walletId);
     fld("walletId", walletId);
     fld("walletName", w?.name ?? "");
+    if (walletId === form.destinationWalletId) fld("destinationWalletId", "");
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -378,7 +445,10 @@ export default function TransactionsPage() {
     if (
       !Number.isFinite(Number(form.amount)) ||
       Number(form.amount) <= 0 ||
-      !form.walletId
+      !allWallets.some((w) => w.id === form.walletId) ||
+      (form.type === "transfer" &&
+        (!allWallets.some((w) => w.id === form.destinationWalletId) ||
+          form.destinationWalletId === form.walletId))
     )
       return;
     // If the user typed a brand-new sub-category, create it on the fly
@@ -405,7 +475,14 @@ export default function TransactionsPage() {
       categoryId: form.categoryId || null,
       subCategoryId: form.subCategoryId || null,
       walletId: form.walletId,
-      walletName: form.walletName,
+      walletName: allWallets.find((w) => w.id === form.walletId)?.name ?? "",
+      destinationWalletId:
+        form.type === "transfer" ? form.destinationWalletId : null,
+      destinationWalletName:
+        form.type === "transfer"
+          ? (allWallets.find((w) => w.id === form.destinationWalletId)?.name ??
+            "")
+          : null,
       description: form.description || form.category,
       date: new Date(
         form.date +
@@ -585,6 +662,9 @@ export default function TransactionsPage() {
                         </p>
                         <p className="text-text-muted mt-0.5 truncate text-xs">
                           {tx.category} · {tx.walletName}
+                          {tx.destinationWalletName
+                            ? ` → ${tx.destinationWalletName}`
+                            : ""}
                         </p>
                       </div>
 
@@ -823,26 +903,41 @@ export default function TransactionsPage() {
               )}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {/* Wallet */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-text-secondary text-sm font-medium">
-                Dompet
-              </label>
-              <select
-                value={form.walletId}
-                onChange={(e) => handleWalletChange(e.target.value)}
-                required
-                className="bg-bg-surface border-border text-text-primary focus:ring-primary/50 h-10 rounded-lg border px-3 text-sm focus:ring-2 focus:outline-none"
+              <label
+                htmlFor="transaction-wallet"
+                className="text-text-secondary text-sm font-medium"
               >
-                <option value="">Pilih dompet...</option>
-                {allWallets.map((w) => (
-                  <option key={w.id} value={w.id}>
-                    {w.name}
-                  </option>
-                ))}
-              </select>
+                {form.type === "transfer" ? "Dompet asal" : "Dompet"}
+              </label>
+              <WalletPicker
+                id="transaction-wallet"
+                value={form.walletId}
+                onChange={handleWalletChange}
+                wallets={allWallets}
+                placeholder="Pilih dompet..."
+              />
             </div>
+
+            {form.type === "transfer" && (
+              <div className="flex flex-col gap-1.5">
+                <label
+                  htmlFor="transaction-destination"
+                  className="text-text-secondary text-sm font-medium"
+                >
+                  Dompet tujuan
+                </label>
+                <WalletPicker
+                  id="transaction-destination"
+                  value={form.destinationWalletId}
+                  onChange={(value) => fld("destinationWalletId", value)}
+                  wallets={allWallets.filter((w) => w.id !== form.walletId)}
+                  placeholder="Pilih dompet tujuan..."
+                />
+              </div>
+            )}
 
             {/* Date */}
             <DatePicker
@@ -852,6 +947,30 @@ export default function TransactionsPage() {
               required
             />
           </div>
+
+          {loadingWallets && (
+            <p role="status" className="text-text-secondary text-sm">
+              Memuat pilihan dompet...
+            </p>
+          )}
+          {!loadingWallets && allWallets.length === 0 && (
+            <p className="text-text-secondary text-sm">
+              Dompet belum tersedia.{" "}
+              <Link href="/wallets" className="text-primary underline">
+                Periksa atau tambah dompet
+              </Link>
+              , lalu buka kembali formulir.
+            </p>
+          )}
+          {form.type === "transfer" && (
+            <p className="text-text-secondary text-sm">
+              Saldo dompet asal berkurang dan saldo dompet tujuan bertambah
+              dengan nominal yang sama.
+              {allWallets.length < 2
+                ? " Tambahkan minimal dua dompet untuk transfer."
+                : ""}
+            </p>
+          )}
 
           {/* Description */}
           <Input
@@ -865,7 +984,15 @@ export default function TransactionsPage() {
             <Button type="button" variant="outline" onClick={closeModal}>
               Batal
             </Button>
-            <Button type="submit">Simpan Transaksi</Button>
+            <Button
+              type="submit"
+              disabled={
+                allWallets.length === 0 ||
+                (form.type === "transfer" && allWallets.length < 2)
+              }
+            >
+              Simpan Transaksi
+            </Button>
           </div>
         </form>
       </Modal>

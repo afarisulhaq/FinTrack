@@ -32,6 +32,8 @@ export interface Transaction {
   categoryIcon: string;
   walletId: string;
   walletName: string;
+  destinationWalletId?: string | null;
+  destinationWalletName?: string | null;
   description: string;
   date: string; // ISO string
   tags?: string[];

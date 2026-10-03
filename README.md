@@ -51,11 +51,15 @@ cp .env.example .env
 # .env.production.
 
 # 3. Run frontend + backend together
-npm run dev              # frontend on :3000
-npm run dev:server       # Elysia backend on :4000
+npm run dev              # frontend on :3000 + Elysia backend on :4000
+# Alternatively, run dev:web and dev:server in separate terminals.
 
-# Or run both side by side via two terminals.
 ```
+
+`npm run dev` loads `.env` and `.env.local` for both services. It stops with a
+clear message if port 3000 or 4000 is already occupied. Stop the old server
+before restarting. Without `DATABASE_URL`, data uses the temporary development
+store and does not survive backend restarts.
 
 ## Deployment (Docker)
 
@@ -66,7 +70,8 @@ A single-container image is provided. See [Deployment](#deployment-1) below for 
 
 | Script                | Description                                |
 | --------------------- | ------------------------------------------ |
-| `npm run dev`         | Next.js dev server (frontend)              |
+| `npm run dev`         | Next.js frontend + Elysia backend          |
+| `npm run dev:web`     | Next.js frontend only                     |
 | `npm run dev:server`  | Elysia backend (watch mode)                |
 | `npm run build`       | Build frontend                             |
 | `npm run build:server`| Compile Elysia to `server/dist`            |

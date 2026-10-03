@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { Sidebar } from "~/components/layout/sidebar";
 import AuthGuard from "~/components/auth/auth-guard";
 import { ToastContainer } from "~/components/ui/toast";
@@ -10,7 +11,6 @@ import { useAuthStore } from "~/store/useAuthStore";
 import { useFinanceStore } from "~/store/useFinanceStore";
 import { useAppConfigStore } from "~/store/useAppConfigStore";
 import { applyBrand } from "~/lib/brand";
-import { api } from "~/lib/api";
 
 export default function DashboardLayout({
   children,
@@ -19,10 +19,21 @@ export default function DashboardLayout({
 }) {
   const { collapsed, mobileOpen, closeMobile } = useSidebarStore();
   const token = useAuthStore((state) => state.token);
-  const hydrateFromBackend = useFinanceStore(
-    (state) => state.hydrateFromBackend,
+  const refreshAll = useFinanceStore((state) => state.refreshAll);
+  const lastSyncedAt = useFinanceStore((state) => state.lastSyncedAt);
+  const syncError = useFinanceStore((state) => state.syncError);
+  const hasData = useFinanceStore((state) =>
+    [
+      state.wallets,
+      state.transactions,
+      state.budgets,
+      state.investments,
+      state.bills,
+      state.notes,
+      state.categories,
+    ].some((items) => items.length > 0),
   );
-  const refreshCategories = useFinanceStore((s) => s.refreshCategories);
+  const pathname = usePathname();
   // Read once at render — `useAppConfigStore` already persists the
   // config to localStorage, so a refresh preserves the footer text
   // without needing a server round-trip on every navigation.
@@ -30,32 +41,15 @@ export default function DashboardLayout({
   const [isMobile, setIsMobile] = useState(false);
   const brandPrimary = useAppConfigStore((s) => s.config.primaryColor);
   const brandAccent = useAppConfigStore((s) => s.config.accentColor);
-  const syncing = useRef(false);
 
   useEffect(() => {
     applyBrand(brandPrimary, brandAccent);
   }, [brandPrimary, brandAccent]);
 
-  /** Reusable bootstrap fetcher */
   const fetchData = useCallback(() => {
     if (!token || token === "dev-fallback-token") return;
-    if (syncing.current) return;
-    syncing.current = true;
-    api
-      .bootstrap<Parameters<typeof hydrateFromBackend>[0]>(token)
-      .then((data) => {
-        hydrateFromBackend(data);
-      })
-      .catch((error) => {
-        console.warn("Backend bootstrap failed", error);
-        useFinanceStore.setState({
-          syncError: "Tidak bisa memuat data dari server. Silakan coba lagi.",
-        });
-      })
-      .finally(() => {
-        syncing.current = false;
-      });
-  }, [token, hydrateFromBackend]);
+    void refreshAll({ silent: true });
+  }, [token, refreshAll]);
 
   useEffect(() => {
     const sync = () => setIsMobile(window.innerWidth < 768);
@@ -68,11 +62,7 @@ export default function DashboardLayout({
     if (!token || token === "dev-fallback-token") return;
 
     fetchData();
-    // Categories live in their own table; make sure pickers across the
-    // app (budget, transactions, …) have fresh data even if no master
-    // CRUD has happened yet.
-    void refreshCategories();
-  }, [fetchData, token, refreshCategories]);
+  }, [fetchData, token, pathname]);
 
   // Refetch when the tab regains focus (user switched back from another
   // tab/window/app). Catches the "I made a change on my phone, now I'm
@@ -84,9 +74,13 @@ export default function DashboardLayout({
     };
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("focus", onVisible);
+    window.addEventListener("online", onVisible);
+    const interval = window.setInterval(onVisible, 15000);
     return () => {
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("focus", onVisible);
+      window.removeEventListener("online", onVisible);
+      window.clearInterval(interval);
     };
   }, [fetchData, token]);
 
@@ -108,7 +102,35 @@ export default function DashboardLayout({
           style={{ marginLeft: isMobile ? 0 : sidebarWidth }}
         >
           <div className="min-h-screen">
-            {children}
+            {syncError && (
+              <div
+                role="status"
+                className="border-border bg-bg-surface text-text-secondary mx-4 mt-4 flex flex-wrap items-center gap-3 rounded-lg border p-3 text-sm"
+              >
+                <p className="flex-1">
+                  {syncError} Data yang sudah dimuat tetap ditampilkan.
+                </p>
+                <button
+                  type="button"
+                  onClick={fetchData}
+                  className="text-text-primary border-border focus-visible:ring-primary rounded-lg border px-3 py-2 focus-visible:ring-2 focus-visible:outline-none"
+                >
+                  Coba sinkronkan
+                </button>
+              </div>
+            )}
+            {!lastSyncedAt &&
+            !hasData &&
+            token &&
+            token !== "dev-fallback-token" ? (
+              <div role="status" className="text-text-secondary p-6 text-sm">
+                {syncError
+                  ? "Data belum berhasil dimuat. Coba sinkronkan kembali."
+                  : "Memuat data keuangan..."}
+              </div>
+            ) : (
+              children
+            )}
             {footerText && (
               <footer className="text-text-muted border-border/60 mt-10 border-t pt-4 pb-6 text-center text-[11px]">
                 {footerText}

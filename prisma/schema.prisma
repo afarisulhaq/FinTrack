@@ -106,6 +106,8 @@ model Transaction {
     categoryIcon String   @default("💸")
     walletId     String
     walletName   String
+    destinationWalletId String?
+    destinationWalletName String?
     description  String
     date         DateTime
     userId       String?

@@ -3,7 +3,11 @@ import bcrypt from "bcryptjs";
 import { appConfig, db, setAppConfig, users } from "../data.js";
 import { extractToken, verifyToken } from "../auth.js";
 import { requireAdmin, requireAuth } from "../auth-middleware.js";
-import { canUseDatabase, db as prisma } from "../prisma-client.js";
+import {
+  canUseDatabase,
+  isDatabaseConfigured,
+  db as prisma,
+} from "../prisma-client.js";
 import {
   getYahooFinancePrice,
   getYahooFinanceQuote,
@@ -130,20 +134,29 @@ function serializeWallet(w: {
 
 function nestWallets(flat: ReturnType<typeof serializeWallet>[]) {
   type Node = ReturnType<typeof serializeWallet> & { children: Node[] };
-  const records = new Map<string, Node>(flat.map((wallet) => [wallet.id, { ...wallet, children: [] }]));
+  const records = new Map<string, Node>(
+    flat.map((wallet) => [wallet.id, { ...wallet, children: [] }]),
+  );
   const roots: Node[] = [];
   for (const wallet of records.values()) {
     const seen = new Set([wallet.id]);
     let ancestor = wallet.parentId;
     let cyclic = false;
     while (ancestor && records.has(ancestor)) {
-      if (seen.has(ancestor)) { cyclic = true; break; }
+      if (seen.has(ancestor)) {
+        cyclic = true;
+        break;
+      }
       seen.add(ancestor);
       ancestor = records.get(ancestor)?.parentId;
     }
-    const parent = wallet.parentId && !cyclic ? records.get(wallet.parentId) : undefined;
+    const parent =
+      wallet.parentId && !cyclic ? records.get(wallet.parentId) : undefined;
     if (parent) parent.children.push(wallet);
-    else { wallet.parentId = undefined; roots.push(wallet); }
+    else {
+      wallet.parentId = undefined;
+      roots.push(wallet);
+    }
   }
   return roots;
 }
@@ -173,6 +186,8 @@ function serializeTransaction(t: {
   categoryIcon: string;
   walletId: string;
   walletName: string;
+  destinationWalletId?: string | null;
+  destinationWalletName?: string | null;
   description: string;
   date: Date | string;
   tags?: unknown;
@@ -190,6 +205,8 @@ function serializeTransaction(t: {
     categoryIcon: t.categoryIcon,
     walletId: t.walletId,
     walletName: t.walletName,
+    destinationWalletId: t.destinationWalletId ?? null,
+    destinationWalletName: t.destinationWalletName ?? null,
     description: t.description,
     date: toIso(t.date),
     tags: Array.isArray(t.tags) ? (t.tags as string[]) : [],
@@ -660,61 +677,58 @@ function walletDelta(tx: TxLikeForBalance): number {
   const amount = toNumber(tx.amount);
   if (tx.type === "income") return amount;
   if (tx.type === "expense") return -amount;
-  if (tx.type === "transfer") return -amount; // source-side; dest tracked separately
+  if (tx.type === "transfer") return -amount;
   return 0;
 }
 
-async function applyTransactionBalanceDelta(tx: TxLikeForBalance) {
-  const delta = walletDelta(tx);
-  if (delta === 0 || !tx.walletId) return;
-  try {
-    await (prisma as any).wallet.update({
-      where: { id: tx.walletId },
-      data: { balance: { increment: delta } },
-    });
-  } catch (e) {
-    console.warn("[tx] wallet balance update failed", tx.walletId, e);
+async function validateTransactionWallets(
+  client: any,
+  data: any,
+  userId: string | null,
+) {
+  if (!Number.isFinite(toNumber(data.amount)) || toNumber(data.amount) <= 0)
+    throw new Error("Nominal transaksi harus lebih dari nol");
+  const source = await client.wallet.findFirst({
+    where: scopedWhere(userId, data.walletId),
+  });
+  if (!source) throw new Error("Dompet asal tidak tersedia");
+  data.walletName = source.name;
+  if (data.type !== "transfer") {
+    data.destinationWalletId = null;
+    data.destinationWalletName = null;
+    return;
   }
+  if (!data.destinationWalletId || data.destinationWalletId === data.walletId)
+    throw new Error("Pilih dompet tujuan yang berbeda dari dompet asal");
+  const destination = await client.wallet.findFirst({
+    where: scopedWhere(userId, data.destinationWalletId),
+  });
+  if (!destination) throw new Error("Dompet tujuan tidak tersedia");
+  if (source.currency !== destination.currency)
+    throw new Error("Transfer memerlukan dompet dengan mata uang yang sama");
+  data.destinationWalletName = destination.name;
 }
 
-async function revertTransactionBalanceDelta(tx: TxLikeForBalance) {
-  const delta = -walletDelta(tx);
-  if (delta === 0 || !tx.walletId) return;
-  try {
-    await (prisma as any).wallet.update({
-      where: { id: tx.walletId },
-      data: { balance: { increment: delta } },
+async function changeTransactionBalances(
+  client: any,
+  transaction: any,
+  sign: 1 | -1,
+) {
+  await client.wallet.update({
+    where: { id: transaction.walletId },
+    data: { balance: { increment: walletDelta(transaction) * sign } },
+  });
+  if (transaction.type === "transfer" && transaction.destinationWalletId) {
+    await client.wallet.update({
+      where: { id: transaction.destinationWalletId },
+      data: { balance: { increment: toNumber(transaction.amount) * sign } },
     });
-  } catch (e) {
-    console.warn("[tx] wallet balance revert failed", tx.walletId, e);
   }
-}
-
-/**
- * The Budget model has a `spent` aggregate that is the sum of all
- * matching expense transactions. When a user creates a budget for
- * category X and then logs a transaction with category X, the budget's
- * spent should reflect that. This matches the user's mental model:
- * "I budgeted Rp X for category Y, how much have I spent so far?"
- *
- * NOTE: the period reset is not implemented here — `spent` is cumulative
- * since the budget was created. The user can manually adjust if needed.
- */
-async function applyTransactionBudgetDelta(tx: TxLikeForBalance, sign: 1 | -1) {
-  if (tx.type !== "expense" || !tx.category) return;
-  try {
-    const budgets = await (prisma as any).budget.findMany({
-      where: { category: tx.category },
+  if (transaction.type === "expense" && transaction.category) {
+    await client.budget.updateMany({
+      where: { category: transaction.category, userId: transaction.userId },
+      data: { spent: { increment: toNumber(transaction.amount) * sign } },
     });
-    for (const b of budgets) {
-      const amount = toNumber(tx.amount) * sign;
-      await (prisma as any).budget.update({
-        where: { id: b.id },
-        data: { spent: { increment: amount } },
-      });
-    }
-  } catch (e) {
-    console.warn("[tx] budget spent update failed", tx.category, e);
   }
 }
 
@@ -1196,29 +1210,15 @@ async function createPrismaResource(
       return serializeWallet(created);
     }
     case "transactions": {
-      const created = await prisma.transaction.create({
-        data: { ...resolved, date: new Date(body.date as string) } as never,
-      });
-      // Maintain wallet.balance and budget.spent aggregates so the user
-      // sees the right totals without having to refresh.
-      if (!restore) {
-        await applyTransactionBalanceDelta({
-          type: String(created.type),
-          amount: created.amount,
-          walletId: String(created.walletId),
-          category: String(created.category ?? ""),
+      return prisma.$transaction(async (client) => {
+        const data = { ...resolved, date: new Date(body.date as string) };
+        await validateTransactionWallets(client, data, userId);
+        const created = await client.transaction.create({
+          data: data as never,
         });
-        await applyTransactionBudgetDelta(
-          {
-            type: String(created.type),
-            amount: created.amount,
-            walletId: String(created.walletId),
-            category: String(created.category ?? ""),
-          },
-          1,
-        );
-      }
-      return serializeTransaction(created);
+        if (!restore) await changeTransactionBalances(client, created, 1);
+        return serializeTransaction(created);
+      });
     }
     case "budgets": {
       const created = await prisma.budget.create({ data: resolved as never });
@@ -1429,44 +1429,24 @@ async function updatePrismaResource(
       return serializeWallet(updated);
     }
     case "transactions": {
-      // For updates we need to reverse the old transaction's effect on
-      // wallet + budget, then apply the new effect — otherwise the
-      // aggregates drift every time the user edits a transaction.
-      const existing = await (prisma as any).transaction.findFirst({ where });
-      if (!existing) throw new Error("Data tidak ditemukan");
-      const updated = await (prisma as any).transaction.update({
-        where: { id: resourceId },
-        data: resolved as never,
+      return prisma.$transaction(async (client) => {
+        const existing = await client.transaction.findFirst({ where });
+        if (!existing) throw new Error("Data tidak ditemukan");
+        const merged = { ...existing, ...resolved };
+        await validateTransactionWallets(client, merged, userId);
+        const updated = await client.transaction.update({
+          where: { id: resourceId },
+          data: {
+            ...resolved,
+            walletName: merged.walletName,
+            destinationWalletId: merged.destinationWalletId,
+            destinationWalletName: merged.destinationWalletName,
+          } as never,
+        });
+        await changeTransactionBalances(client, existing, -1);
+        await changeTransactionBalances(client, updated, 1);
+        return serializeTransaction(updated);
       });
-      await revertTransactionBalanceDelta({
-        type: String(existing.type),
-        amount: existing.amount,
-        walletId: String(existing.walletId),
-      });
-      await applyTransactionBudgetDelta(
-        {
-          type: String(existing.type),
-          amount: existing.amount,
-          walletId: String(existing.walletId),
-          category: String(existing.category ?? ""),
-        },
-        -1,
-      );
-      await applyTransactionBalanceDelta({
-        type: String(updated.type),
-        amount: updated.amount,
-        walletId: String(updated.walletId),
-      });
-      await applyTransactionBudgetDelta(
-        {
-          type: String(updated.type),
-          amount: updated.amount,
-          walletId: String(updated.walletId),
-          category: String(updated.category ?? ""),
-        },
-        1,
-      );
-      return serializeTransaction(updated);
     }
     case "budgets": {
       const existing = await prisma.budget.findFirst({ where });
@@ -1716,27 +1696,11 @@ async function deletePrismaResource(
       return;
     }
     case "transactions": {
-      // Reverse the transaction's effect on wallet + budget before
-      // deleting, otherwise the aggregates stay "frozen" at the
-      // pre-delete values.
-      const existing = await (prisma as any).transaction.findFirst({ where });
-      if (!existing) throw new Error("Data tidak ditemukan");
-      await revertTransactionBalanceDelta({
-        type: String(existing.type),
-        amount: existing.amount,
-        walletId: String(existing.walletId),
-      });
-      await applyTransactionBudgetDelta(
-        {
-          type: String(existing.type),
-          amount: existing.amount,
-          walletId: String(existing.walletId),
-          category: String(existing.category ?? ""),
-        },
-        -1,
-      );
-      await (prisma as any).transaction.delete({
-        where: { id: resourceId },
+      await prisma.$transaction(async (client) => {
+        const existing = await client.transaction.findFirst({ where });
+        if (!existing) throw new Error("Data tidak ditemukan");
+        await changeTransactionBalances(client, existing, -1);
+        await client.transaction.delete({ where: { id: resourceId } });
       });
       return;
     }
@@ -1931,13 +1895,19 @@ async function getBootstrapFromDb(
 
 export const financeRoutes = new Elysia({ prefix: "/api" })
   .use(requireAuth)
-  .get("/bootstrap", async ({ request }) => {
+  .get("/bootstrap", async ({ request, set }) => {
     if (await canUseDatabase()) {
       return ok(
         await getBootstrapFromDb(
           currentUserIdFromRequest(request),
           strictUserIdFromRequest(request),
         ),
+      );
+    }
+    if (isDatabaseConfigured()) {
+      set.status = 503;
+      return fail(
+        "Database sementara tidak tersedia. Coba sinkronkan kembali.",
       );
     }
     return ok({ ...db, appConfig });
@@ -2662,6 +2632,19 @@ const resources = Object.keys(db) as ResourceKey[];
 
 export const resourceRoutes = new Elysia({ prefix: "/api" })
   .use(requireAuth)
+  .onBeforeHandle(async ({ params, set }) => {
+    const resource = (params as { resource?: string }).resource as ResourceKey;
+    if (
+      prismaResources.has(resource) &&
+      isDatabaseConfigured() &&
+      !(await canUseDatabase())
+    ) {
+      set.status = 503;
+      return fail(
+        "Database sementara tidak tersedia. Coba sinkronkan kembali.",
+      );
+    }
+  })
   .get("/:resource", async ({ request, params, set }) => {
     const resource = params.resource as ResourceKey;
     if (!resources.includes(resource)) {
@@ -2682,16 +2665,23 @@ export const resourceRoutes = new Elysia({ prefix: "/api" })
       return fail("Resource tidak ditemukan");
     }
     if ((await canUseDatabase()) && prismaResources.has(resource)) {
-      const item = await createPrismaResource(
-        resource,
-        body as Record<string, unknown>,
-        resource === "wallets"
-          ? strictUserIdFromRequest(request)
-          : currentUserIdFromRequest(request),
-        new URL(request.url).searchParams.get("restore") === "1",
-      );
-      set.status = 201;
-      return ok(item);
+      try {
+        const item = await createPrismaResource(
+          resource,
+          body as Record<string, unknown>,
+          resource === "wallets"
+            ? strictUserIdFromRequest(request)
+            : currentUserIdFromRequest(request),
+          new URL(request.url).searchParams.get("restore") === "1",
+        );
+        set.status = 201;
+        return ok(item);
+      } catch (error) {
+        set.status = 400;
+        return fail(
+          error instanceof Error ? error.message : "Gagal menyimpan data",
+        );
+      }
     }
 
     if (resource === "wallets") {
@@ -2705,6 +2695,10 @@ export const resourceRoutes = new Elysia({ prefix: "/api" })
       return ok(body);
     }
 
+    if (resource === "transactions" && (body as any).type === "transfer") {
+      set.status = 503;
+      return fail("Database belum tersedia untuk transfer antar dompet");
+    }
     const item = { id: id(resource), ...(body as object) };
     (db[resource] as unknown[]).unshift(item);
     set.status = 201;
@@ -2740,6 +2734,13 @@ export const resourceRoutes = new Elysia({ prefix: "/api" })
     if (index === -1) {
       set.status = 404;
       return fail("Data tidak ditemukan");
+    }
+    if (
+      resource === "transactions" &&
+      ((body as any).type === "transfer" || list[index]?.type === "transfer")
+    ) {
+      set.status = 503;
+      return fail("Database belum tersedia untuk transfer antar dompet");
     }
     list[index] = { ...list[index], ...(body as object) };
     return ok(list[index]);
