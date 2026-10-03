@@ -392,6 +392,12 @@ interface FinanceStore {
     installment: { amount: number; date: string; note?: string },
   ) => void;
   settleDebt: (id: string) => void;
+  updateDebtInstallment: (
+    debtId: string,
+    installmentId: string,
+    updates: { amount: number; date: string; note?: string },
+  ) => void;
+  deleteDebtInstallment: (debtId: string, installmentId: string) => void;
 
   // ── Debt Contact Actions ───────────────────────────────────────────────────
   addDebtContact: (contact: Omit<DebtContact, "id" | "createdAt">) => void;
@@ -1291,6 +1297,72 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
     });
   },
 
+  updateDebtInstallment: (debtId, installmentId, changes) => {
+    const previous = get().debts.find((debt) => debt.id === debtId);
+    const old = previous?.installments.find(
+      (item) => item.id === installmentId,
+    );
+    if (
+      !previous ||
+      !old ||
+      !Number.isFinite(changes.amount) ||
+      changes.amount <= 0
+    )
+      return;
+    const paidAmount = previous.paidAmount - old.amount + changes.amount;
+    const updates = {
+      paidAmount,
+      isSettled: paidAmount >= previous.amount,
+      installments: previous.installments.map((item) =>
+        item.id === installmentId ? { ...item, ...changes } : item,
+      ),
+    };
+    set((state) => ({
+      debts: state.debts.map((debt) =>
+        debt.id === debtId ? { ...debt, ...updates } : debt,
+      ),
+    }));
+    void withPersist(`/debts/${debtId}`, "PUT", updates, {
+      onError: () =>
+        set((state) => ({
+          debts: state.debts.map((debt) =>
+            debt.id === debtId ? previous : debt,
+          ),
+        })),
+      errorTitle: "Gagal memperbarui cicilan",
+    });
+  },
+
+  deleteDebtInstallment: (debtId, installmentId) => {
+    const previous = get().debts.find((debt) => debt.id === debtId);
+    const old = previous?.installments.find(
+      (item) => item.id === installmentId,
+    );
+    if (!previous || !old) return;
+    const paidAmount = Math.max(0, previous.paidAmount - old.amount);
+    const updates = {
+      paidAmount,
+      isSettled: paidAmount >= previous.amount,
+      installments: previous.installments.filter(
+        (item) => item.id !== installmentId,
+      ),
+    };
+    set((state) => ({
+      debts: state.debts.map((debt) =>
+        debt.id === debtId ? { ...debt, ...updates } : debt,
+      ),
+    }));
+    void withPersist(`/debts/${debtId}`, "PUT", updates, {
+      onError: () =>
+        set((state) => ({
+          debts: state.debts.map((debt) =>
+            debt.id === debtId ? previous : debt,
+          ),
+        })),
+      errorTitle: "Gagal menghapus cicilan",
+    });
+  },
+
   settleDebt: (id) => {
     const previous = get().debts.find((d) => d.id === id);
     const updates = { isSettled: true, paidAmount: undefined };
@@ -1946,7 +2018,20 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
       return;
     }
     toast.success("Kategori diperbarui");
-    await get().refreshCategories();
+    if (result.data) {
+      const saved = result.data;
+      set((state) => ({
+        categories: state.categories.map((category) =>
+          category.id === id
+            ? {
+                ...category,
+                ...saved,
+                subCategories: saved.subCategories ?? category.subCategories,
+              }
+            : category,
+        ),
+      }));
+    }
   },
 
   deleteCategory: async (id) => {
@@ -2057,7 +2142,21 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
       return;
     }
     toast.success("Sub-kategori diperbarui");
-    await get().refreshCategories();
+    if (result.data) {
+      const saved = result.data;
+      set((state) => ({
+        subCategories: state.subCategories.map((sub) =>
+          sub.id === id ? saved : sub,
+        ),
+        categories: state.categories.map((category) => ({
+          ...category,
+          subCategories: [
+            ...category.subCategories.filter((sub) => sub.id !== id),
+            ...(category.id === saved.categoryId ? [saved] : []),
+          ],
+        })),
+      }));
+    }
   },
 
   deleteSubCategory: async (id) => {

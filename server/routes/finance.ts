@@ -1160,7 +1160,7 @@ async function listPrismaResource(
     }
     case "categories": {
       const rows = await (prisma as any).category.findMany({
-        where: filter,
+        where: userId ? { userId } : undefined,
         orderBy: [{ type: "asc" }, { sortOrder: "asc" }, { name: "asc" }],
         include: {
           subCategories: {
@@ -1172,7 +1172,7 @@ async function listPrismaResource(
     }
     case "subCategories": {
       const rows = await (prisma as any).subCategory.findMany({
-        where: filter,
+        where: userId ? { userId } : undefined,
         orderBy: [{ categoryId: "asc" }, { sortOrder: "asc" }, { name: "asc" }],
       });
       return rows.map(serializeSubCategory);

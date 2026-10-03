@@ -23,6 +23,7 @@ import { Card } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { DatePicker } from "~/components/ui/date-picker";
 import { Modal } from "~/components/ui/modal";
+import { confirm } from "~/components/ui/confirm-dialog";
 import { ProgressBar } from "~/components/ui/progress-bar";
 import { StatCard } from "~/components/ui/stat-card";
 import { useFinanceStore } from "~/store/useFinanceStore";
@@ -97,6 +98,11 @@ export default function DebtsPage() {
   const addDebt = useFinanceStore((s) => s.addDebt);
   const deleteDebt = useFinanceStore((s) => s.deleteDebt);
   const addDebtInstallment = useFinanceStore((s) => s.addDebtInstallment);
+  const updateDebtInstallment = useFinanceStore((s) => s.updateDebtInstallment);
+  const deleteDebtInstallment = useFinanceStore((s) => s.deleteDebtInstallment);
+  const [editingInstallmentId, setEditingInstallmentId] = useState<
+    string | null
+  >(null);
   const settleDebt = useFinanceStore((s) => s.settleDebt);
   const debtContacts = useFinanceStore((s) => s.debtContacts);
   const addDebtContact = useFinanceStore((s) => s.addDebtContact);
@@ -261,9 +267,18 @@ export default function DebtsPage() {
     setContactForm({ name: "", phone: "", note: "" });
   }
 
-  function handleDeleteContact(id: string) {
+  async function handleDeleteContact(id: string) {
     const contactToDelete = allContacts.find((c) => c.id === id);
     if (!contactToDelete) return;
+    if (
+      !(await confirm({
+        title: "Hapus kontak?",
+        message: `Hapus ${contactToDelete.name} dari daftar kontak? Catatan utang tetap tersimpan.`,
+        variant: "danger",
+        confirmText: "Hapus kontak",
+      }))
+    )
+      return;
 
     if (debtContacts.some((c) => c.id === id)) {
       deleteDebtContact(id);
@@ -407,13 +422,23 @@ export default function DebtsPage() {
     e.preventDefault();
     if (!showInstallmentModal || !installmentForm.amount) return;
 
-    addDebtInstallment(showInstallmentModal, {
-      amount: parseFloat(installmentForm.amount),
+    const amount = Number(installmentForm.amount);
+    if (!Number.isFinite(amount) || amount <= 0) return;
+    const installment = {
+      amount,
       date: installmentForm.date
         ? new Date(installmentForm.date).toISOString()
         : new Date().toISOString(),
       note: installmentForm.note || undefined,
-    });
+    };
+    if (editingInstallmentId)
+      updateDebtInstallment(
+        showInstallmentModal,
+        editingInstallmentId,
+        installment,
+      );
+    else addDebtInstallment(showInstallmentModal, installment);
+    setEditingInstallmentId(null);
     setInstallmentForm({ amount: "", date: "", note: "" });
     setShowInstallmentModal(null);
   }
@@ -698,9 +723,15 @@ export default function DebtsPage() {
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  onClick={() =>
-                                    setShowInstallmentModal(debt.id)
-                                  }
+                                  onClick={() => {
+                                    setEditingInstallmentId(null);
+                                    setInstallmentForm({
+                                      amount: "",
+                                      date: "",
+                                      note: "",
+                                    });
+                                    setShowInstallmentModal(debt.id);
+                                  }}
                                 >
                                   <Plus className="h-3.5 w-3.5" />
                                   Catat Cicilan
@@ -714,7 +745,18 @@ export default function DebtsPage() {
                                   Lunas
                                 </Button>
                                 <button
-                                  onClick={() => deleteDebt(debt.id)}
+                                  onClick={async () => {
+                                    if (
+                                      await confirm({
+                                        title: "Hapus transaksi utang?",
+                                        message:
+                                          "Transaksi ini beserta seluruh catatan cicilannya akan dihapus.",
+                                        variant: "danger",
+                                        confirmText: "Hapus utang",
+                                      })
+                                    )
+                                      deleteDebt(debt.id);
+                                  }}
                                   className="text-text-muted hover:bg-danger/10 hover:text-danger flex h-8 w-8 items-center justify-center rounded-lg transition-colors"
                                   aria-label="Hapus transaksi utang"
                                 >
@@ -746,7 +788,7 @@ export default function DebtsPage() {
                                 {debt.installments.map((inst) => (
                                   <div
                                     key={inst.id}
-                                    className="flex items-center justify-between text-xs"
+                                    className="flex flex-wrap items-center justify-between gap-2 text-xs"
                                   >
                                     <div>
                                       <p className="text-text-secondary">
@@ -759,6 +801,43 @@ export default function DebtsPage() {
                                     <span className="text-success font-semibold">
                                       +{formatCurrency(inst.amount)}
                                     </span>
+                                    <div className="flex shrink-0 gap-1">
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => {
+                                          setEditingInstallmentId(inst.id);
+                                          setInstallmentForm({
+                                            amount: String(inst.amount),
+                                            date: inst.date.slice(0, 10),
+                                            note: inst.note ?? "",
+                                          });
+                                          setShowInstallmentModal(debt.id);
+                                        }}
+                                      >
+                                        Edit
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={async () => {
+                                          if (
+                                            await confirm({
+                                              title: "Hapus cicilan?",
+                                              message: `Cicilan ${formatCurrency(inst.amount)} akan dihapus dan sisa utang dihitung ulang.`,
+                                              variant: "danger",
+                                              confirmText: "Hapus cicilan",
+                                            })
+                                          )
+                                            deleteDebtInstallment(
+                                              debt.id,
+                                              inst.id,
+                                            );
+                                        }}
+                                      >
+                                        Hapus
+                                      </Button>
+                                    </div>
                                   </div>
                                 ))}
                               </div>
@@ -830,6 +909,7 @@ export default function DebtsPage() {
               </button>
             </div>
             <select
+              required
               value={selectedContactId}
               onChange={(e) => {
                 const id = e.target.value;
@@ -847,38 +927,14 @@ export default function DebtsPage() {
               }}
               className="bg-bg-surface border-border text-text-primary focus:ring-primary/50 w-full rounded-lg border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
             >
-              <option value="">
-                Pilih kontak ({allContacts.length}) atau ketik manual di bawah
-              </option>
+              <option value="">Pilih kontak</option>
               {allContacts.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.name} {c.phone ? `(${c.phone})` : ""} {c.note ? `(${c.note})` : ""}
+                  {c.name} {c.phone ? `(${c.phone})` : ""}{" "}
+                  {c.note ? `(${c.note})` : ""}
                 </option>
               ))}
             </select>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label="Nama Kontak"
-              placeholder="cth. Ahmad Fauzi"
-              value={debtForm.personName}
-              onChange={(e) => {
-                df("personName", e.target.value);
-                const match = allContacts.find(
-                  (c) =>
-                    normalizeContactName(c.name) ===
-                    normalizeContactName(e.target.value),
-                );
-                setSelectedContactId(match ? match.id : "");
-              }}
-              required
-            />
-            <Input
-              label="Kontak (WA)"
-              placeholder="0812..."
-              value={debtForm.contact}
-              onChange={(e) => df("contact", e.target.value)}
-            />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <Input
@@ -925,7 +981,7 @@ export default function DebtsPage() {
       <Modal
         open={!!showInstallmentModal}
         onClose={() => setShowInstallmentModal(null)}
-        title={`Catat Cicilan - ${currentDebtForInstallment?.personName || ""}`}
+        title={`${editingInstallmentId ? "Edit Cicilan" : "Catat Cicilan"} - ${currentDebtForInstallment?.personName || ""}`}
       >
         <form onSubmit={handleInstallmentSubmit} className="space-y-4">
           {currentDebtForInstallment && (
@@ -955,6 +1011,7 @@ export default function DebtsPage() {
             label="Jumlah Cicilan (Rp)"
             currency
             type="number"
+            min="1"
             placeholder="0"
             value={installmentForm.amount}
             onChange={(e) =>
@@ -985,7 +1042,9 @@ export default function DebtsPage() {
             >
               Batal
             </Button>
-            <Button type="submit">Catat Cicilan</Button>
+            <Button type="submit">
+              {editingInstallmentId ? "Simpan Perubahan" : "Catat Cicilan"}
+            </Button>
           </div>
         </form>
       </Modal>
@@ -1002,7 +1061,7 @@ export default function DebtsPage() {
       >
         <div className="space-y-5">
           <div className="bg-bg-elevated/60 border-border rounded-xl border p-4">
-            <h4 className="text-text-primary mb-3 text-xs font-semibold uppercase tracking-wider">
+            <h4 className="text-text-primary mb-3 text-xs font-semibold tracking-wider uppercase">
               {editingContactId ? "Perbarui Kontak" : "Tambah Kontak Baru"}
             </h4>
             <form onSubmit={handleSaveContact} className="space-y-3">
@@ -1070,19 +1129,19 @@ export default function DebtsPage() {
                 Daftar Kontak ({filteredContactsList.length})
               </h4>
               <div className="relative w-full sm:w-64">
-                <Search className="text-text-muted absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2" />
+                <Search className="text-text-muted absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2" />
                 <input
                   type="text"
                   placeholder="Cari kontak..."
                   value={contactSearchQuery}
                   onChange={(e) => setContactSearchQuery(e.target.value)}
-                  className="bg-bg-surface border-border text-text-primary placeholder:text-text-muted focus:ring-primary/50 w-full rounded-lg border py-1.5 pl-8 pr-7 text-xs focus:ring-2 focus:outline-none"
+                  className="bg-bg-surface border-border text-text-primary placeholder:text-text-muted focus:ring-primary/50 w-full rounded-lg border py-1.5 pr-7 pl-8 text-xs focus:ring-2 focus:outline-none"
                 />
                 {contactSearchQuery && (
                   <button
                     type="button"
                     onClick={() => setContactSearchQuery("")}
-                    className="text-text-muted hover:text-text-primary absolute right-2 top-1/2 -translate-y-1/2"
+                    className="text-text-muted hover:text-text-primary absolute top-1/2 right-2 -translate-y-1/2"
                   >
                     <X className="h-3 w-3" />
                   </button>

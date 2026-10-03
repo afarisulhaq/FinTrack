@@ -55,8 +55,14 @@ export const AmountInput = forwardRef<
             message = `Gunakan kelipatan ${formatAmountInput(String(step))}.`;
         }
         input.setCustomValidity(message);
-        input.value = raw;
-        onChange?.(event);
+        const snapshot = new Proxy(input, {
+          get(target, property) {
+            if (property === "value") return raw;
+            const value = Reflect.get(target, property, target);
+            return typeof value === "function" ? value.bind(target) : value;
+          },
+        });
+        onChange?.({ ...event, target: snapshot, currentTarget: snapshot });
         input.value = formatted;
         let position = 0;
         let consumed = 0;
