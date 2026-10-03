@@ -1,3 +1,4 @@
+import { toggleSplitWalletPayment } from "../services/split-wallet-payments.js";
 /**
  * Public split-bill routes.
  *
@@ -200,36 +201,17 @@ export const publicSplitBillRoutes = new Elysia({
       });
     }
 
-    const updated = await (db as any).splitBillParticipant.update({
-      where: { id: me.id },
-      data: {
-        paid: desired,
-        paidAt: desired ? new Date() : null,
-      },
-    });
-
-    // Auto-settle the bill when everyone has paid.
-    const refreshed = await (db as any).splitBill.findUnique({
-      where: { id: bill.id },
-      include: { participants: true },
-    });
-    if (refreshed) {
-      const allPaid =
-        refreshed.participants.length > 0 &&
-        refreshed.participants.every((p: any) => p.paid);
-      const anyUnpaid = refreshed.participants.some((p: any) => !p.paid);
-      const newStatus = allPaid
-        ? "settled"
-        : anyUnpaid && refreshed.status === "settled"
-          ? "active"
-          : refreshed.status;
-      if (newStatus !== refreshed.status) {
-        await (db as any).splitBill.update({
-          where: { id: refreshed.id },
-          data: { status: newStatus },
-        });
-      }
-    }
+    const updated = await db.$transaction((client) =>
+      toggleSplitWalletPayment(
+        client,
+        bill.id,
+        me.id,
+        desired,
+        undefined,
+        bill.userId,
+        true,
+      ),
+    );
 
     return ok({
       participantId: updated.id,

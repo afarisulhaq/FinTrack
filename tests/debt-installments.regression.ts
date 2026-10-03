@@ -4,7 +4,10 @@ import type { Debt } from "../src/lib/types";
 import { AmountInput } from "../src/components/ui/amount-input";
 
 let deferred: () => void = () => {};
-Object.defineProperty(globalThis, "React", { value: React, configurable: true });
+Object.defineProperty(globalThis, "React", {
+  value: React,
+  configurable: true,
+});
 let raw = "";
 const input = {
   value: "",
@@ -50,6 +53,8 @@ const originalFetch = globalThis.fetch;
 let reject = false;
 let payload: any;
 globalThis.fetch = async (_url, options) => {
+  if (!options?.method || options.method === "GET")
+    return Response.json({ success: true, data: [] });
   payload = JSON.parse(String(options?.body));
   return reject
     ? Response.json({ success: false, error: "Rejected" }, { status: 400 })
@@ -73,13 +78,11 @@ const debt: Debt = {
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 try {
   useFinanceStore.setState({ debts: [debt] });
-  useFinanceStore
-    .getState()
-    .updateDebtInstallment("debt", "second", {
-      amount: 1000000,
-      date: "2026-10-04",
-      note: "Edited",
-    });
+  useFinanceStore.getState().updateDebtInstallment("debt", "second", {
+    amount: 1000000,
+    date: "2026-10-04",
+    note: "Edited",
+  });
   await settle();
   assert.equal(payload.paidAmount, 2000000);
   assert.equal(useFinanceStore.getState().debts[0]!.isSettled, true);

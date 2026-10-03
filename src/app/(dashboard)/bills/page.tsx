@@ -17,6 +17,8 @@ import { Button } from "~/components/ui/button";
 import { Card, CardHeader, CardBody } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
 import { Modal } from "~/components/ui/modal";
+import { WalletSelect } from "~/components/ui/wallet-select";
+import { confirm } from "~/components/ui/confirm-dialog";
 import { StatCard } from "~/components/ui/stat-card";
 import { Input } from "~/components/ui/input";
 import { DatePicker } from "~/components/ui/date-picker";
@@ -33,6 +35,8 @@ const STATUS_LABELS: Record<BillStatus, string> = {
 };
 
 export default function BillsPage() {
+  const [paymentBillId, setPaymentBillId] = useState<string | null>(null);
+  const [paymentWalletId, setPaymentWalletId] = useState("");
   const bills = useFinanceStore((s) => s.bills);
   const addBill = useFinanceStore((s) => s.addBill);
   const updateBillStatus = useFinanceStore((s) => s.updateBillStatus);
@@ -278,18 +282,41 @@ export default function BillsPage() {
                       </p>
                     </div>
                     {/* Actions */}
-                    <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                      {bill.status !== "paid" && (
+                    <div className="flex shrink-0 items-center gap-1">
+                      {(bill.status !== "paid" || !bill.walletId) && (
                         <button
-                          onClick={() => updateBillStatus(bill.id, "paid")}
+                          onClick={() => {
+                            setPaymentWalletId(bill.walletId ?? "");
+                            setPaymentBillId(bill.id);
+                          }}
                           className="bg-success/10 text-success hover:bg-success/20 flex h-8 w-8 items-center justify-center rounded-lg transition-colors"
-                          title="Bayar Sekarang"
+                          title={
+                            bill.status === "paid"
+                              ? "Catat pembayaran ke dompet"
+                              : "Bayar Sekarang"
+                          }
+                          aria-label={
+                            bill.status === "paid"
+                              ? "Catat pembayaran ke dompet"
+                              : "Bayar Sekarang"
+                          }
                         >
                           <Check className="h-4 w-4" />
                         </button>
                       )}
                       <button
-                        onClick={() => deleteBill(bill.id)}
+                        onClick={async () => {
+                          if (
+                            await confirm({
+                              title: "Hapus tagihan?",
+                              message:
+                                "Tagihan dihapus. Pembayaran yang terhubung akan dikembalikan ke saldo dompet.",
+                              variant: "danger",
+                              confirmText: "Hapus tagihan",
+                            })
+                          )
+                            deleteBill(bill.id);
+                        }}
                         className="bg-danger/10 text-danger hover:bg-danger/20 flex h-8 w-8 items-center justify-center rounded-lg transition-colors"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -502,6 +529,37 @@ export default function BillsPage() {
             </Button>
             <Button type="submit">Simpan Tagihan</Button>
           </div>
+        </form>
+      </Modal>
+      <Modal
+        open={!!paymentBillId}
+        onClose={() => setPaymentBillId(null)}
+        title="Bayar Tagihan"
+      >
+        <form
+          className="space-y-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!paymentBillId || !paymentWalletId) return;
+            updateBillStatus(paymentBillId, "paid", paymentWalletId);
+            setPaymentBillId(null);
+          }}
+        >
+          <p className="text-text-secondary text-sm">
+            {bills.find((bill) => bill.id === paymentBillId)?.name} ·{" "}
+            {formatCurrency(
+              bills.find((bill) => bill.id === paymentBillId)?.amount ?? 0,
+            )}
+            . Saldo dompet akan berkurang sebesar tagihan.
+          </p>
+          <WalletSelect
+            value={paymentWalletId}
+            onChange={setPaymentWalletId}
+            label="Dompet pembayaran"
+          />
+          <Button type="submit" disabled={!paymentWalletId}>
+            Catat Pembayaran
+          </Button>
         </form>
       </Modal>
     </PageWrapper>

@@ -16,6 +16,9 @@ import { Button } from "~/components/ui/button";
 import { Card, CardHeader, CardBody } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
 import { Modal } from "~/components/ui/modal";
+import { WalletSelect } from "~/components/ui/wallet-select";
+import { confirm } from "~/components/ui/confirm-dialog";
+import { flattenWalletTree } from "~/lib/wallets";
 import { StatCard } from "~/components/ui/stat-card";
 import { Input } from "~/components/ui/input";
 import { DatePicker } from "~/components/ui/date-picker";
@@ -49,16 +52,11 @@ const GOAL_COLORS = [
   "#FFB347",
   "#f97316",
 ];
-const WALLETS = [
-  "BCA Tabungan",
-  "Mandiri Tabungan",
-  "BRI Tabungan",
-  "Dana",
-  "GoPay",
-  "OVO",
-];
 
 export default function SavingsPage() {
+  const wallets = useFinanceStore((state) => state.wallets);
+  const [fundsSourceId, setFundsSourceId] = useState("");
+  const [fundsDestinationId, setFundsDestinationId] = useState("");
   const savingGoals = useFinanceStore((s) => s.savingGoals);
   const addSavingGoal = useFinanceStore((s) => s.addSavingGoal);
   const deleteSavingGoal = useFinanceStore((s) => s.deleteSavingGoal);
@@ -73,7 +71,7 @@ export default function SavingsPage() {
     deadline: "",
     autoSave: false,
     autoSaveAmount: "",
-    walletId: "BCA Tabungan",
+    walletId: "",
     color: "#FFD147",
   });
   const [fundsForm, setFundsForm] = useState({ amount: "", note: "" });
@@ -114,7 +112,7 @@ export default function SavingsPage() {
       deadline: "",
       autoSave: false,
       autoSaveAmount: "",
-      walletId: "BCA Tabungan",
+      walletId: "",
       color: "#FFD147",
     });
     setShowGoalModal(false);
@@ -123,7 +121,18 @@ export default function SavingsPage() {
   function handleFundsSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!showFundsModal || !fundsForm.amount) return;
-    contributeToGoal(showFundsModal, parseFloat(fundsForm.amount));
+    if (
+      !fundsSourceId ||
+      !fundsDestinationId ||
+      fundsSourceId === fundsDestinationId
+    )
+      return;
+    contributeToGoal(
+      showFundsModal,
+      Number(fundsForm.amount),
+      fundsSourceId,
+      fundsDestinationId,
+    );
     setFundsForm({ amount: "", note: "" });
     setShowFundsModal(null);
   }
@@ -195,14 +204,27 @@ export default function SavingsPage() {
                     </h3>
                     {goal.walletId && (
                       <p className="text-text-muted mt-0.5 text-xs">
-                        {goal.walletId}
+                        {flattenWalletTree(wallets).find(
+                          (wallet) => wallet.id === goal.walletId,
+                        )?.name ?? "Dompet belum dipilih"}
                       </p>
                     )}
                   </div>
                 </div>
                 <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                   <button
-                    onClick={() => deleteSavingGoal(goal.id)}
+                    onClick={async () => {
+                      if (
+                        await confirm({
+                          title: "Hapus target tabungan?",
+                          message:
+                            "Target dihapus dan dana yang terhubung dipindahkan kembali ke dompet sumbernya.",
+                          variant: "danger",
+                          confirmText: "Hapus target",
+                        })
+                      )
+                        deleteSavingGoal(goal.id);
+                    }}
                     className="text-text-muted hover:text-danger hover:bg-danger/10 flex h-7 w-7 items-center justify-center rounded-lg transition-colors"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -264,7 +286,11 @@ export default function SavingsPage() {
                 variant="outline"
                 size="sm"
                 className="w-full"
-                onClick={() => setShowFundsModal(goal.id)}
+                onClick={() => {
+                  setFundsSourceId("");
+                  setFundsDestinationId(goal.walletId ?? "");
+                  setShowFundsModal(goal.id);
+                }}
               >
                 <Plus className="h-3.5 w-3.5" />
                 Tambah Dana
@@ -351,20 +377,11 @@ export default function SavingsPage() {
               ))}
             </div>
           </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-text-secondary text-sm font-medium">
-              Wallet Sumber
-            </label>
-            <select
-              value={goalForm.walletId}
-              onChange={(e) => gf("walletId", e.target.value)}
-              className="bg-bg-surface border-border text-text-primary focus:ring-primary/50 h-10 rounded-lg border px-3 text-sm focus:ring-2 focus:outline-none"
-            >
-              {WALLETS.map((w) => (
-                <option key={w}>{w}</option>
-              ))}
-            </select>
-          </div>
+          <WalletSelect
+            value={goalForm.walletId}
+            onChange={(value) => gf("walletId", value)}
+            label="Dompet tabungan"
+          />
           <div className="bg-bg-elevated flex items-center justify-between rounded-lg p-3">
             <div>
               <p className="text-text-primary text-sm font-medium">Auto-save</p>
@@ -412,6 +429,22 @@ export default function SavingsPage() {
         title={`Tambah Dana - ${savingGoals.find((g) => g.id === showFundsModal)?.name || ""}`}
       >
         <form onSubmit={handleFundsSubmit} className="space-y-4">
+          <WalletSelect
+            value={fundsSourceId}
+            onChange={setFundsSourceId}
+            label="Dompet sumber"
+            excludeId={fundsDestinationId}
+          />
+          <WalletSelect
+            value={fundsDestinationId}
+            onChange={setFundsDestinationId}
+            label="Dompet tabungan"
+            excludeId={fundsSourceId}
+          />
+          <p className="text-text-secondary text-xs">
+            Dana dipindahkan ke dompet tabungan dengan nominal yang sama. Total
+            saldo seluruh dompet tetap.
+          </p>
           <Input
             label="Jumlah (Rp)"
             currency
@@ -443,9 +476,7 @@ export default function SavingsPage() {
                 <div className="bg-bg-elevated rounded-lg p-3 text-xs">
                   <div className="text-text-muted mb-1 flex justify-between tabular-nums">
                     <span>Setelah ditambah</span>
-                    <span>
-                      {formatCurrency(Math.min(newAmount, goal.targetAmount))}
-                    </span>
+                    <span>{formatCurrency(newAmount)}</span>
                   </div>
                   <ProgressBar
                     value={newAmount}

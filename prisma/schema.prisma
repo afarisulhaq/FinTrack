@@ -225,6 +225,8 @@ model Investment {
 }
 
 model Bill {
+    walletId        String?
+    walletEffects   Json @default("[]")
     id              String   @id @default(cuid())
     name            String
     amount          Decimal
@@ -242,6 +244,10 @@ model Bill {
 }
 
 model SavingGoal {
+    walletId      String?
+    walletEffects Json @default("[]")
+    autoSave      Boolean @default(false)
+    autoSaveAmount Decimal?
     id            String   @id @default(cuid())
     name          String
     icon          String   @default("🎯")
@@ -296,6 +302,8 @@ model BotConnection {
 }
 
 model Debt {
+    walletId    String?
+    walletEffects Json @default("[]")
     id          String   @id @default(cuid())
     direction   String   // owe | lent
     personName  String
@@ -324,6 +332,8 @@ model DebtContact {
 }
 
 model SplitBill {
+    walletId    String?
+    walletEffects Json @default("[]")
     id          String   @id @default(cuid())
     title       String
     description String   @default("")
@@ -340,6 +350,8 @@ model SplitBill {
 }
 
 model SplitBillParticipant {
+    walletId    String?
+    walletEffects Json @default("[]")
     id          String   @id @default(cuid())
     splitBillId String
     name        String

@@ -169,6 +169,7 @@ export interface SavingGoal {
 export type DebtDirection = "owe" | "lent";
 
 export interface DebtInstallment {
+  walletId?: string;
   id: string;
   amount: number;
   date: string;
@@ -176,6 +177,7 @@ export interface DebtInstallment {
 }
 
 export interface Debt {
+  walletId?: string;
   id: string;
   direction: DebtDirection;
   personName: string;
@@ -203,6 +205,7 @@ export type SplitMethod = "equal" | "percentage" | "custom";
 export type SplitBillStatus = "active" | "settled" | "cancelled";
 
 export interface SplitBillParticipant {
+  walletId?: string;
   id: string;
   name: string;
   contact?: string;
@@ -218,6 +221,7 @@ export interface SplitBillParticipant {
 }
 
 export interface SplitBill {
+  walletId?: string;
   id: string;
   title: string;
   description: string;

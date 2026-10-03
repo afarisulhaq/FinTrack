@@ -220,6 +220,8 @@ async function withPersist<T = unknown>(
     );
   } else {
     opts.onSuccess?.(result.data);
+    if (/^\/(bills|savingGoals|debts)(\/|$)/.test(path))
+      void useFinanceStore.getState().refreshWallets();
     if (opts.successTitle) toast.success(opts.successTitle);
   }
   return result;
@@ -318,6 +320,7 @@ interface FinanceStore {
     billId: string,
     participantId: string,
     paid: boolean,
+    walletId?: string,
   ) => Promise<void>;
   deleteSplitBill: (id: string) => Promise<void>;
   refreshSplitBills: () => Promise<void>;
@@ -373,7 +376,7 @@ interface FinanceStore {
 
   // ── Bill Actions ───────────────────────────────────────────────────────────
   addBill: (bill: Omit<Bill, "id">) => void;
-  updateBillStatus: (id: string, status: BillStatus) => void;
+  updateBillStatus: (id: string, status: BillStatus, walletId?: string) => void;
   updateBill: (id: string, updates: Partial<Bill>) => void;
   deleteBill: (id: string) => void;
 
@@ -381,7 +384,12 @@ interface FinanceStore {
   addSavingGoal: (goal: Omit<SavingGoal, "id">) => void;
   updateSavingGoal: (id: string, updates: Partial<SavingGoal>) => void;
   deleteSavingGoal: (id: string) => void;
-  contributeToGoal: (id: string, amount: number) => void;
+  contributeToGoal: (
+    id: string,
+    amount: number,
+    sourceWalletId: string,
+    walletId: string,
+  ) => void;
 
   // ── Debt Actions ───────────────────────────────────────────────────────────
   addDebt: (debt: Omit<Debt, "id">) => void;
@@ -389,13 +397,18 @@ interface FinanceStore {
   deleteDebt: (id: string) => void;
   addDebtInstallment: (
     debtId: string,
-    installment: { amount: number; date: string; note?: string },
+    installment: {
+      amount: number;
+      date: string;
+      note?: string;
+      walletId?: string;
+    },
   ) => void;
   settleDebt: (id: string) => void;
   updateDebtInstallment: (
     debtId: string,
     installmentId: string,
-    updates: { amount: number; date: string; note?: string },
+    updates: { amount: number; date: string; note?: string; walletId?: string },
   ) => void;
   deleteDebtInstallment: (debtId: string, installmentId: string) => void;
 
@@ -947,17 +960,10 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
 
   // ── Split Bill Actions ─────────────────────────────────────────────────────────
   addSplitBill: async (bill) => {
-    // Local-only fallback when no token (offline-first).
     if (!getBackendToken()) {
-      const item = {
-        ...bill,
-        id: genId(),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      set((state) => ({ splitBills: [item, ...state.splitBills] }));
-      toast.warning("Split bill tersimpan lokal", "Tidak ada sesi login.");
-      return;
+      throw new Error(
+        "Sesi login tidak tersedia. Masuk kembali untuk mencatat pembayaran dompet.",
+      );
     }
     // We need the server-assigned bill to populate payTokens, so do an
     // awaited create and only insert into state on success.
@@ -969,8 +975,10 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
     if (result.ok && result.data) {
       set((state) => ({ splitBills: [result.data!, ...state.splitBills] }));
       toast.success("Split bill dibuat");
+      await get().refreshWallets();
     } else if (!result.ok) {
       toast.error("Gagal membuat split bill", result.error);
+      throw new Error(result.error);
     }
   },
 
@@ -993,10 +1001,10 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
         }));
       }
       toast.error("Gagal memperbarui split bill", result.error);
-    }
+    } else await get().refreshWallets();
   },
 
-  toggleParticipantPaid: async (billId, participantId, paid) => {
+  toggleParticipantPaid: async (billId, participantId, paid, walletId) => {
     const previous = get().splitBills.find((b) => b.id === billId);
     set((state) => ({
       splitBills: state.splitBills.map((b) => {
@@ -1006,6 +1014,7 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
             ? {
                 ...p,
                 paid,
+                walletId: paid ? walletId : undefined,
                 paidAt: paid ? new Date().toISOString() : undefined,
               }
             : p,
@@ -1022,7 +1031,7 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
     const result = await persistResource(
       `/split-bills/${billId}/participants/${participantId}`,
       "PUT",
-      { paid },
+      { paid, walletId },
     );
     if (!result.ok) {
       if (previous) {
@@ -1033,7 +1042,9 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
         }));
       }
       toast.error("Gagal mengubah status peserta", result.error);
+      throw new Error(result.error);
     }
+    await get().refreshWallets();
   },
 
   deleteSplitBill: async (id) => {
@@ -1049,6 +1060,7 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
       toast.error("Gagal menghapus split bill", result.error);
     } else {
       toast.success("Split bill dihapus");
+      await get().refreshWallets();
     }
   },
 
@@ -1056,8 +1068,10 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
     const token = getBackendToken();
     if (!token || token === "dev-fallback-token") return;
     try {
-      const bills = await api.get<SplitBill[]>("/split-bills", token);
-      set({ splitBills: bills });
+      const bills = await readCurrent(token, () =>
+        api.get<SplitBill[]>("/split-bills", token),
+      );
+      if (bills) set({ splitBills: bills });
     } catch (error) {
       console.warn("Failed to refresh split bills", error);
     }
@@ -1085,7 +1099,7 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
     });
   },
 
-  updateBillStatus: (id, status) => {
+  updateBillStatus: (id, status, walletId) => {
     const previous = get().bills.find((b) => b.id === id);
     set((state) => ({
       bills: state.bills.map((b) => (b.id === id ? { ...b, status } : b)),
@@ -1093,7 +1107,7 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
     void withPersist(
       `/bills/${id}`,
       "PUT",
-      { status },
+      { status, ...(walletId ? { walletId } : {}) },
       {
         onError: () => {
           if (!previous) return;
@@ -1194,22 +1208,31 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
     });
   },
 
-  contributeToGoal: (id, amount) => {
+  contributeToGoal: (id, amount, sourceWalletId, walletId) => {
+    if (
+      !Number.isFinite(amount) ||
+      amount <= 0 ||
+      !sourceWalletId ||
+      !walletId ||
+      sourceWalletId === walletId
+    )
+      return;
     const previous = get().savingGoals.find((g) => g.id === id);
     set((state) => ({
       savingGoals: state.savingGoals.map((g) => {
         if (g.id !== id) return g;
         const updates = {
-          currentAmount: Math.min(g.currentAmount + amount, g.targetAmount),
+          currentAmount: g.currentAmount + amount,
+          walletId,
         };
         return { ...g, ...updates };
       }),
     }));
     const updates = {
-      currentAmount: Math.min(
-        (previous?.currentAmount ?? 0) + amount,
-        previous?.targetAmount ?? Infinity,
-      ),
+      contributionAmount: amount,
+      contributionId: genId(),
+      sourceWalletId,
+      walletId,
     };
     void withPersist(`/savingGoals/${id}`, "PUT", updates, {
       onSuccess: () => {
@@ -1235,8 +1258,10 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
     const token = getBackendToken();
     if (!token) return;
     try {
-      const savingGoals = await api.get<SavingGoal[]>("/savingGoals", token);
-      set({ savingGoals });
+      const savingGoals = await readCurrent(token, () =>
+        api.get<SavingGoal[]>("/savingGoals", token),
+      );
+      if (savingGoals) set({ savingGoals });
     } catch (error) {
       console.warn("Failed to refresh saving goals", error);
     }
@@ -1246,8 +1271,22 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
 
   addDebt: (debt) => {
     const item = { ...debt, id: genId() };
-    void persistResource("/debts", "POST", item);
     set((state) => ({ debts: [...state.debts, item] }));
+    void withPersist<Debt>("/debts", "POST", item, {
+      onSuccess: (saved) => {
+        if (saved)
+          set((state) => ({
+            debts: state.debts.map((debt) =>
+              debt.id === item.id ? saved : debt,
+            ),
+          }));
+      },
+      onError: () =>
+        set((state) => ({
+          debts: state.debts.filter((debt) => debt.id !== item.id),
+        })),
+      errorTitle: "Gagal menambah utang",
+    });
   },
 
   updateDebt: (id, updates) => {

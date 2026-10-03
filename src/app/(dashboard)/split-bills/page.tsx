@@ -23,6 +23,7 @@ import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { DatePicker } from "~/components/ui/date-picker";
 import { Modal } from "~/components/ui/modal";
+import { WalletSelect } from "~/components/ui/wallet-select";
 import { Badge } from "~/components/ui/badge";
 import { QrisModal } from "~/components/qris/qris-modal";
 import { useFinanceStore } from "~/store/useFinanceStore";
@@ -177,8 +178,13 @@ export default function SplitBillsPage() {
           bill={selected}
           qrisStatic={qrisStatic}
           onClose={() => setSelected(null)}
-          onTogglePaid={async (participantId, paid) => {
-            await toggleParticipantPaid(selected.id, participantId, paid);
+          onTogglePaid={async (participantId, paid, walletId) => {
+            await toggleParticipantPaid(
+              selected.id,
+              participantId,
+              paid,
+              walletId,
+            );
             setSelected((current) =>
               current
                 ? {
@@ -188,6 +194,7 @@ export default function SplitBillsPage() {
                         ? {
                             ...p,
                             paid,
+                            walletId: paid ? walletId : undefined,
                             paidAt: paid ? new Date().toISOString() : undefined,
                           }
                         : p,
@@ -287,12 +294,14 @@ function CreateSplitBillModal({
   const [description, setDescription] = useState("");
   const [totalAmount, setTotalAmount] = useState("");
   const [paidBy, setPaidBy] = useState("");
+  const [walletId, setWalletId] = useState("");
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [method, setMethod] = useState<SplitMethod>("equal");
   const [participants, setParticipants] = useState<DraftParticipant[]>([
     { name: "", amount: "" },
   ]);
   const [submitting, setSubmitting] = useState(false);
+  const [createError, setCreateError] = useState("");
 
   function addParticipant() {
     setParticipants((prev) => [...prev, { name: "", amount: "" }]);
@@ -342,9 +351,11 @@ function CreateSplitBillModal({
 
   async function handleSubmit() {
     if (!valid || submitting) return;
+    setCreateError("");
     setSubmitting(true);
     try {
       await onSubmit({
+        walletId,
         title: title.trim(),
         description: description.trim(),
         totalAmount: declaredTotal,
@@ -360,6 +371,12 @@ function CreateSplitBillModal({
           paid: false,
         })),
       });
+    } catch (error) {
+      setCreateError(
+        error instanceof Error
+          ? error.message
+          : "Patungan gagal disimpan. Coba lagi.",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -398,11 +415,7 @@ function CreateSplitBillModal({
             value={totalAmount}
             onChange={(e) => setTotalAmount(e.target.value)}
           />
-          <DatePicker
-            label="Tanggal"
-            value={date}
-            onValueChange={setDate}
-          />
+          <DatePicker label="Tanggal" value={date} onValueChange={setDate} />
           <div className="flex flex-col gap-1.5">
             <label className="text-text-secondary text-sm font-medium">
               Metode
@@ -498,13 +511,27 @@ function CreateSplitBillModal({
           )}
         </div>
 
+        <WalletSelect
+          value={walletId}
+          onChange={setWalletId}
+          label="Dompet pembayaran awal"
+        />
+        {createError && (
+          <p role="alert" className="text-danger text-sm">
+            {createError}
+          </p>
+        )}
+        <p className="text-text-secondary text-xs">
+          Saldo dompet berkurang sebesar total tagihan. Pembayaran peserta
+          dicatat ke dompet penerima.
+        </p>
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="outline" onClick={onClose}>
             Batal
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={!valid}
+            disabled={!valid || !walletId}
             loading={submitting}
             leftIcon={<Check className="h-4 w-4" />}
           >
@@ -529,7 +556,11 @@ function SplitBillDetailModal({
   bill: SplitBill;
   qrisStatic: string;
   onClose: () => void;
-  onTogglePaid: (participantId: string, paid: boolean) => Promise<void>;
+  onTogglePaid: (
+    participantId: string,
+    paid: boolean,
+    walletId?: string,
+  ) => Promise<void>;
   onDelete: () => Promise<void>;
   onShowQris: (participant: SplitBillParticipant) => void;
 }) {
@@ -542,6 +573,11 @@ function SplitBillDetailModal({
 
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showShare, setShowShare] = useState(false);
+  const [receiptParticipantId, setReceiptParticipantId] = useState<
+    string | null
+  >(null);
+  const [receiptWalletId, setReceiptWalletId] = useState("");
+  const [paymentError, setPaymentError] = useState("");
 
   return (
     <Modal
@@ -586,7 +622,21 @@ function SplitBillDetailModal({
               >
                 <button
                   type="button"
-                  onClick={() => onTogglePaid(p.id, !p.paid)}
+                  onClick={async () => {
+                    setPaymentError("");
+                    if (p.paid) {
+                      try {
+                        await onTogglePaid(p.id, false);
+                      } catch {
+                        setPaymentError(
+                          "Pembatalan pembayaran gagal. Coba lagi.",
+                        );
+                      }
+                    } else {
+                      setReceiptWalletId("");
+                      setReceiptParticipantId(p.id);
+                    }
+                  }}
                   className={
                     "flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors " +
                     (p.paid
@@ -614,6 +664,18 @@ function SplitBillDetailModal({
                       ` · lunas ${new Date(p.paidAt).toLocaleDateString("id-ID")}`}
                   </p>
                 </div>
+                {p.paid && !p.walletId && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setReceiptWalletId("");
+                      setReceiptParticipantId(p.id);
+                    }}
+                  >
+                    Catat ke Dompet
+                  </Button>
+                )}
                 {!p.paid && (
                   <Button
                     type="button"
@@ -643,6 +705,53 @@ function SplitBillDetailModal({
           )}
         </div>
 
+        {receiptParticipantId && (
+          <div className="border-border space-y-3 rounded-lg border p-3">
+            <p className="text-text-primary text-sm">
+              Terima pembayaran dari{" "}
+              {
+                bill.participants.find(
+                  (participant) => participant.id === receiptParticipantId,
+                )?.name
+              }
+            </p>
+            <WalletSelect
+              value={receiptWalletId}
+              onChange={setReceiptWalletId}
+              label="Dompet penerima"
+            />
+            <div className="flex flex-wrap gap-2">
+              <Button
+                disabled={!receiptWalletId}
+                onClick={async () => {
+                  try {
+                    await onTogglePaid(
+                      receiptParticipantId,
+                      true,
+                      receiptWalletId,
+                    );
+                    setReceiptParticipantId(null);
+                  } catch {
+                    setPaymentError("Pembayaran gagal disimpan. Coba lagi.");
+                  }
+                }}
+              >
+                Catat Penerimaan
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setReceiptParticipantId(null)}
+              >
+                Batal
+              </Button>
+            </div>
+          </div>
+        )}
+        {paymentError && (
+          <p role="alert" className="text-danger text-sm">
+            {paymentError}
+          </p>
+        )}
         <div className="border-border flex items-center justify-between border-t pt-3">
           <Button
             variant="ghost"
@@ -674,7 +783,8 @@ function SplitBillDetailModal({
               Hapus split bill ini?
             </p>
             <p className="text-text-muted mt-1 text-xs">
-              Tindakan ini tidak dapat dibatalkan.
+              Patungan dihapus dan seluruh perubahan saldo yang terhubung akan
+              dibalik.
             </p>
             <div className="mt-2 flex justify-end gap-2">
               <Button

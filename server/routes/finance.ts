@@ -1,3 +1,10 @@
+import { toggleSplitWalletPayment } from "../services/split-wallet-payments.js";
+import {
+  reconcileWalletEffects,
+  readWalletEffects,
+  resourceWalletUpdate,
+  lockFinanceRecord,
+} from "../services/wallet-effects.js";
 import { Elysia, t } from "elysia";
 import bcrypt from "bcryptjs";
 import { appConfig, db, setAppConfig, users } from "../data.js";
@@ -445,6 +452,7 @@ function normalizeInvestmentBody(body: Record<string, unknown>) {
 }
 
 function serializeBill(b: {
+  walletId?: string | null;
   id: string;
   name: string;
   amount: Decimalish;
@@ -456,6 +464,7 @@ function serializeBill(b: {
   recurringPeriod?: string | null;
 }) {
   return {
+    walletId: b.walletId ?? undefined,
     id: b.id,
     name: b.name,
     amount: toNumber(b.amount),
@@ -469,6 +478,9 @@ function serializeBill(b: {
 }
 
 function serializeSavingGoal(g: {
+  walletId?: string | null;
+  autoSave?: boolean;
+  autoSaveAmount?: Decimalish;
   id: string;
   name: string;
   icon: string;
@@ -478,6 +490,10 @@ function serializeSavingGoal(g: {
   color: string;
 }) {
   return {
+    walletId: g.walletId ?? undefined,
+    autoSave: g.autoSave ?? false,
+    autoSaveAmount:
+      g.autoSaveAmount == null ? undefined : toNumber(g.autoSaveAmount),
     id: g.id,
     name: g.name,
     icon: g.icon,
@@ -535,6 +551,7 @@ function serializeRecurring(r: {
 }
 
 function serializeDebt(d: {
+  walletId?: string | null;
   id: string;
   direction: string;
   personName: string;
@@ -548,6 +565,7 @@ function serializeDebt(d: {
   createdAt: Date;
 }) {
   return {
+    walletId: d.walletId ?? undefined,
     id: d.id,
     direction: d.direction,
     personName: d.personName,
@@ -579,6 +597,7 @@ function serializeDebtContact(c: {
 }
 
 function serializeSplitBillParticipant(p: {
+  walletId?: string | null;
   id: string;
   name: string;
   contact: string | null;
@@ -588,6 +607,7 @@ function serializeSplitBillParticipant(p: {
   payToken?: string | null;
 }) {
   return {
+    walletId: p.walletId ?? undefined,
     id: p.id,
     name: p.name,
     contact: p.contact ?? undefined,
@@ -733,6 +753,7 @@ async function changeTransactionBalances(
 }
 
 function serializeSplitBill(b: {
+  walletId?: string | null;
   id: string;
   title: string;
   description: string;
@@ -754,6 +775,7 @@ function serializeSplitBill(b: {
   }>;
 }) {
   return {
+    walletId: b.walletId ?? undefined,
     id: b.id,
     title: b.title,
     description: b.description,
@@ -1204,6 +1226,32 @@ async function createPrismaResource(
   const resolved = categoryAware.includes(resource)
     ? await resolveCategoryNames(data)
     : data;
+  if (
+    resource === "bills" ||
+    resource === "savingGoals" ||
+    resource === "debts"
+  ) {
+    const model = { bills: "bill", savingGoals: "savingGoal", debts: "debt" }[
+      resource
+    ];
+    return prisma.$transaction(async (client) => {
+      const prepared = resourceWalletUpdate(resource, null, resolved);
+      if (resource === "bills")
+        prepared.dueDate = new Date(String(prepared.dueDate));
+      if (resource === "savingGoals")
+        prepared.deadline = new Date(String(prepared.deadline));
+      if (resource === "debts" && prepared.dueDate)
+        prepared.dueDate = new Date(String(prepared.dueDate));
+      if (restore) prepared.walletEffects = [];
+      await reconcileWalletEffects(client, [], prepared.walletEffects, userId);
+      const created = await (client as any)[model].create({ data: prepared });
+      return resource === "bills"
+        ? serializeBill(created)
+        : resource === "savingGoals"
+          ? serializeSavingGoal(created)
+          : serializeDebt(created);
+    });
+  }
   switch (resource) {
     case "wallets": {
       const created = await prisma.wallet.create({ data: data as never });
@@ -1284,24 +1332,6 @@ async function createPrismaResource(
       });
       return serializeInvestment(created);
     }
-    case "bills": {
-      const created = await prisma.bill.create({
-        data: {
-          ...resolved,
-          dueDate: new Date(body.dueDate as string),
-        } as never,
-      });
-      return serializeBill(created);
-    }
-    case "savingGoals": {
-      const created = await prisma.savingGoal.create({
-        data: {
-          ...data,
-          deadline: new Date(body.deadline as string),
-        } as never,
-      });
-      return serializeSavingGoal(created);
-    }
     case "notes": {
       const created = await prisma.note.create({ data: data as never });
       return serializeNote(created);
@@ -1314,10 +1344,6 @@ async function createPrismaResource(
         } as never,
       });
       return serializeRecurring(created);
-    }
-    case "debts": {
-      const created = await prisma.debt.create({ data: data as never });
-      return serializeDebt(created);
     }
     case "debtContacts": {
       const created = await prisma.debtContact.create({
@@ -1418,6 +1444,36 @@ async function updatePrismaResource(
   // avoid leaking ownership info.
   const where = scopedWhere(userId, resourceId);
 
+  if (
+    resource === "bills" ||
+    resource === "savingGoals" ||
+    resource === "debts"
+  ) {
+    const model = { bills: "bill", savingGoals: "savingGoal", debts: "debt" }[
+      resource
+    ];
+    return prisma.$transaction(async (client) => {
+      await lockFinanceRecord(client, resource, resourceId);
+      const existing = await (client as any)[model].findFirst({ where });
+      if (!existing) throw new Error("Data tidak ditemukan");
+      const prepared = resourceWalletUpdate(resource, existing, resolved);
+      await reconcileWalletEffects(
+        client,
+        existing.walletEffects,
+        prepared.walletEffects,
+        userId,
+      );
+      const updated = await (client as any)[model].update({
+        where: { id: resourceId },
+        data: prepared,
+      });
+      return resource === "bills"
+        ? serializeBill(updated)
+        : resource === "savingGoals"
+          ? serializeSavingGoal(updated)
+          : serializeDebt(updated);
+    });
+  }
   switch (resource) {
     case "wallets": {
       const existing = await prisma.wallet.findFirst({ where });
@@ -1551,24 +1607,6 @@ async function updatePrismaResource(
       });
       return serializeInvestment(updated);
     }
-    case "bills": {
-      const existing = await prisma.bill.findFirst({ where });
-      if (!existing) throw new Error("Data tidak ditemukan");
-      const updated = await prisma.bill.update({
-        where: { id: resourceId },
-        data: resolved as never,
-      });
-      return serializeBill(updated);
-    }
-    case "savingGoals": {
-      const existing = await prisma.savingGoal.findFirst({ where });
-      if (!existing) throw new Error("Data tidak ditemukan");
-      const updated = await prisma.savingGoal.update({
-        where: { id: resourceId },
-        data: data as never,
-      });
-      return serializeSavingGoal(updated);
-    }
     case "notes": {
       const existing = await prisma.note.findFirst({ where });
       if (!existing) throw new Error("Data tidak ditemukan");
@@ -1588,15 +1626,6 @@ async function updatePrismaResource(
         data: resolved as never,
       });
       return serializeRecurring(updated);
-    }
-    case "debts": {
-      const existing = await prisma.debt.findFirst({ where });
-      if (!existing) throw new Error("Data tidak ditemukan");
-      const updated = await prisma.debt.update({
-        where: { id: resourceId },
-        data: data as never,
-      });
-      return serializeDebt(updated);
     }
     case "debtContacts": {
       const existing = await prisma.debtContact.findFirst({ where });
@@ -1689,6 +1718,23 @@ async function deletePrismaResource(
   // delta before the row disappears.
   const where = scopedWhere(userId, resourceId);
 
+  if (
+    resource === "bills" ||
+    resource === "savingGoals" ||
+    resource === "debts"
+  ) {
+    const model = { bills: "bill", savingGoals: "savingGoal", debts: "debt" }[
+      resource
+    ];
+    await prisma.$transaction(async (client) => {
+      await lockFinanceRecord(client, resource, resourceId);
+      const existing = await (client as any)[model].findFirst({ where });
+      if (!existing) throw new Error("Data tidak ditemukan");
+      await reconcileWalletEffects(client, existing.walletEffects, [], userId);
+      await (client as any)[model].delete({ where: { id: resourceId } });
+    });
+    return;
+  }
   switch (resource) {
     case "wallets": {
       const result = await prisma.wallet.deleteMany({ where });
@@ -1714,16 +1760,6 @@ async function deletePrismaResource(
       if (result.count === 0) throw new Error("Data tidak ditemukan");
       return;
     }
-    case "bills": {
-      const result = await prisma.bill.deleteMany({ where });
-      if (result.count === 0) throw new Error("Data tidak ditemukan");
-      return;
-    }
-    case "savingGoals": {
-      const result = await prisma.savingGoal.deleteMany({ where });
-      if (result.count === 0) throw new Error("Data tidak ditemukan");
-      return;
-    }
     case "notes": {
       const result = await prisma.note.deleteMany({ where });
       if (result.count === 0) throw new Error("Data tidak ditemukan");
@@ -1733,11 +1769,6 @@ async function deletePrismaResource(
       const result = await (prisma as any).recurringTransaction.deleteMany({
         where,
       });
-      if (result.count === 0) throw new Error("Data tidak ditemukan");
-      return;
-    }
-    case "debts": {
-      const result = await prisma.debt.deleteMany({ where });
       if (result.count === 0) throw new Error("Data tidak ditemukan");
       return;
     }
@@ -1965,6 +1996,7 @@ export const financeRoutes = new Elysia({ prefix: "/api" })
   // Split Bill CRUD
   .get("/split-bills", async ({ request, set }) => {
     if (!(await canUseDatabase())) {
+      if (!isDatabaseConfigured()) return ok(db.splitBills);
       set.status = 503;
       return fail("Database belum tersedia");
     }
@@ -1978,144 +2010,267 @@ export const financeRoutes = new Elysia({ prefix: "/api" })
     return ok(rows.map(serializeSplitBill));
   })
   .post("/split-bills", async ({ request, body, set }) => {
-    if (!(await canUseDatabase())) {
-      set.status = 503;
-      return fail("Database belum tersedia");
-    }
+    const data = body as any;
     const userId = currentUserIdFromRequest(request);
-    const data = body as Record<string, unknown>;
-    const participants = Array.isArray(data.participants)
-      ? (data.participants as Array<Record<string, unknown>>)
-      : [];
-    const created = await (prisma as any).splitBill.create({
-      data: {
-        id: data.id ? String(data.id) : undefined,
-        title: String(data.title ?? "Split Bill"),
-        description: String(data.description ?? ""),
-        totalAmount: Number(data.totalAmount ?? 0),
-        currency: String(data.currency ?? "IDR"),
-        paidBy: String(data.paidBy ?? ""),
-        date: data.date ? new Date(String(data.date)) : new Date(),
-        splitMethod: String(data.splitMethod ?? "equal"),
-        status: String(data.status ?? "active"),
-        userId,
-        participants: {
-          create: participants.map((p) => ({
-            id: p.id ? String(p.id) : undefined,
-            name: String(p.name ?? ""),
-            contact: p.contact ? String(p.contact) : null,
-            amount: Number(p.amount ?? 0),
-            paid: Boolean(p.paid ?? false),
-            paidAt: p.paidAt ? new Date(String(p.paidAt)) : null,
-            payToken: p.payToken ? String(p.payToken) : generatePayToken(),
-          })),
-        },
-      },
-      include: { participants: true },
-    });
-    return ok(serializeSplitBill(created));
-  })
-  .put("/split-bills/:id", async ({ params, body, set }) => {
-    if (!(await canUseDatabase())) {
-      set.status = 503;
-      return fail("Database belum tersedia");
+    const amount = Number(data.totalAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      set.status = 400;
+      return fail("Nominal patungan tidak valid");
     }
-    const data = body as Record<string, unknown>;
-    const updated = await (prisma as any).splitBill.update({
-      where: { id: params.id },
-      data: {
-        title: data.title === undefined ? undefined : String(data.title),
-        description:
-          data.description === undefined ? undefined : String(data.description),
-        totalAmount:
-          data.totalAmount === undefined ? undefined : Number(data.totalAmount),
-        paidBy: data.paidBy === undefined ? undefined : String(data.paidBy),
-        date: data.date === undefined ? undefined : new Date(String(data.date)),
-        splitMethod:
-          data.splitMethod === undefined ? undefined : String(data.splitMethod),
-        status: data.status === undefined ? undefined : String(data.status),
-      },
-      include: { participants: true },
-    });
-    return ok(serializeSplitBill(updated));
+    const effects = data.walletId
+      ? [{ key: "initial", walletId: String(data.walletId), amount: -amount }]
+      : [];
+    const participants = (
+      Array.isArray(data.participants) ? data.participants : []
+    ).map((participant: any) => ({
+      id: participant.id || id("participant"),
+      name: String(participant.name ?? ""),
+      contact: participant.contact || null,
+      amount: Number(participant.amount),
+      paid: false,
+      paidAt: null,
+      payToken: generatePayToken(),
+    }));
+    const prepared = {
+      id: data.id || id("splitBill"),
+      title: String(data.title ?? "Patungan"),
+      description: String(data.description ?? ""),
+      totalAmount: amount,
+      currency: "IDR",
+      paidBy: String(data.paidBy ?? ""),
+      date: new Date(data.date ?? Date.now()),
+      splitMethod: data.splitMethod ?? "equal",
+      status: "active",
+      userId,
+      walletId: data.walletId || null,
+      walletEffects: effects,
+    };
+    try {
+      if (!(await canUseDatabase())) {
+        if (isDatabaseConfigured()) {
+          set.status = 503;
+          return fail("Database tidak tersedia");
+        }
+        updateMemoryWalletEffects([], effects);
+        const created = {
+          ...prepared,
+          date: prepared.date.toISOString(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          participants,
+        };
+        (db.splitBills as any[]).unshift(created);
+        return ok(created);
+      }
+      const created = await prisma.$transaction(async (client) => {
+        await reconcileWalletEffects(client, [], effects, userId);
+        return client.splitBill.create({
+          data: { ...prepared, participants: { create: participants } },
+          include: { participants: true },
+        });
+      });
+      return ok(serializeSplitBill(created));
+    } catch (error) {
+      set.status = 400;
+      return fail(
+        error instanceof Error ? error.message : "Gagal membuat patungan",
+      );
+    }
+  })
+  .put("/split-bills/:id", async ({ request, params, body, set }) => {
+    const data = body as any;
+    try {
+      if (!(await canUseDatabase())) {
+        if (isDatabaseConfigured()) {
+          set.status = 503;
+          return fail("Database tidak tersedia");
+        }
+        const existing = (db.splitBills as any[]).find(
+          (bill) => bill.id === params.id,
+        );
+        if (!existing) throw new Error("Patungan tidak ditemukan");
+        const merged = { ...existing, ...data };
+        const effects = merged.walletId
+          ? [
+              {
+                key: "initial",
+                walletId: merged.walletId,
+                amount: -Number(merged.totalAmount),
+              },
+            ]
+          : [];
+        updateMemoryWalletEffects(existing.walletEffects, effects);
+        Object.assign(existing, {
+          title: merged.title,
+          description: merged.description,
+          totalAmount: merged.totalAmount,
+          paidBy: merged.paidBy,
+          status: merged.status,
+          walletId: merged.walletId,
+          walletEffects: effects,
+        });
+        return ok(existing);
+      }
+      const updated = await prisma.$transaction(async (client) => {
+        await lockFinanceRecord(client, "splitBills", params.id);
+        const existing = await client.splitBill.findFirst({
+          where: scopedWhere(currentUserIdFromRequest(request), params.id),
+        });
+        if (!existing) throw new Error("Patungan tidak ditemukan");
+        const merged = { ...existing, ...data };
+        const effects = merged.walletId
+          ? [
+              {
+                key: "initial",
+                walletId: merged.walletId,
+                amount: -Number(merged.totalAmount),
+              },
+            ]
+          : [];
+        await reconcileWalletEffects(
+          client,
+          existing.walletEffects,
+          effects,
+          existing.userId,
+        );
+        return client.splitBill.update({
+          where: { id: params.id },
+          data: {
+            title: data.title,
+            description: data.description,
+            totalAmount: data.totalAmount,
+            paidBy: data.paidBy,
+            date: data.date ? new Date(data.date) : undefined,
+            splitMethod: data.splitMethod,
+            status: data.status,
+            walletId: merged.walletId,
+            walletEffects: effects,
+          },
+          include: { participants: true },
+        });
+      });
+      return ok(serializeSplitBill(updated));
+    } catch (error) {
+      set.status = 400;
+      return fail(
+        error instanceof Error ? error.message : "Gagal mengubah patungan",
+      );
+    }
   })
   .put(
     "/split-bills/:id/participants/:participantId",
-    async ({ params, body, set }) => {
+    async ({ request, params, body, set }) => {
       if (!(await canUseDatabase())) {
-        set.status = 503;
-        return fail("Database belum tersedia");
+        if (isDatabaseConfigured()) {
+          set.status = 503;
+          return fail("Database tidak tersedia");
+        }
+        try {
+          const data = body as any;
+          const bill = (db.splitBills as any[]).find(
+            (item) => item.id === params.id,
+          );
+          const participant = bill?.participants.find(
+            (item: any) => item.id === params.participantId,
+          );
+          if (!participant) throw new Error("Peserta tidak ditemukan");
+          if (data.paid && !data.walletId)
+            throw new Error("Pilih dompet penerima pembayaran");
+          const effects = data.paid
+            ? [
+                {
+                  key: "receipt",
+                  walletId: String(data.walletId),
+                  amount: Number(participant.amount),
+                },
+              ]
+            : [];
+          updateMemoryWalletEffects(participant.walletEffects, effects);
+          Object.assign(participant, {
+            paid: Boolean(data.paid),
+            paidAt: data.paid ? new Date().toISOString() : undefined,
+            walletId: data.paid ? data.walletId : undefined,
+            walletEffects: effects,
+          });
+          bill.status = bill.participants.every((item: any) => item.paid)
+            ? "settled"
+            : "active";
+          return ok(participant);
+        } catch (error) {
+          set.status = 400;
+          return fail(
+            error instanceof Error
+              ? error.message
+              : "Gagal mencatat pembayaran",
+          );
+        }
       }
       try {
-        const data = body as Record<string, unknown>;
-        const updated = await (prisma as any).splitBillParticipant.update({
-          where: { id: params.participantId },
-          data: {
-            paid: data.paid === undefined ? undefined : Boolean(data.paid),
-            paidAt:
-              data.paid === false
-                ? null
-                : data.paid === true
-                  ? new Date()
-                  : undefined,
-          },
-        });
-
-        // Auto-settle / un-settle the parent bill so the server state
-        // matches what the client store does locally. Without this, the
-        // summary card "Sudah Diterima" would jump to 0 the moment the
-        // last participant is marked paid, then snap back on refresh
-        // (because the server still has the bill as "active").
-        try {
-          const bill = await (prisma as any).splitBill.findUnique({
-            where: { id: params.id },
-            include: { participants: true },
-          });
-          if (
-            bill &&
-            Array.isArray(bill.participants) &&
-            bill.participants.length > 0
-          ) {
-            const allPaid = bill.participants.every((p: any) => p.paid);
-            const anyUnpaid = bill.participants.some((p: any) => !p.paid);
-            let nextStatus: string | undefined;
-            if (allPaid && bill.status !== "settled") {
-              nextStatus = "settled";
-            } else if (
-              anyUnpaid &&
-              bill.status === "settled" &&
-              data.paid === false
-            ) {
-              // Someone was just unmarked — re-open the bill.
-              nextStatus = "active";
-            }
-            if (nextStatus) {
-              await (prisma as any).splitBill.update({
-                where: { id: bill.id },
-                data: { status: nextStatus },
-              });
-            }
-          }
-        } catch (e) {
-          console.warn("[split-bills] auto-settle failed", e);
-        }
-
+        const data = body as any;
+        const updated = await prisma.$transaction((client) =>
+          toggleSplitWalletPayment(
+            client,
+            params.id,
+            params.participantId,
+            Boolean(data.paid),
+            data.walletId,
+            currentUserIdFromRequest(request),
+          ),
+        );
         return ok(serializeSplitBillParticipant(updated));
       } catch (error) {
-        console.error("[split-bills] participant update error", error);
-        set.status = 500;
+        set.status = 400;
         return fail(
-          error instanceof Error ? error.message : "Gagal memperbarui peserta",
+          error instanceof Error ? error.message : "Gagal mencatat pembayaran",
         );
       }
     },
   )
-  .delete("/split-bills/:id", async ({ params, set }) => {
+  .delete("/split-bills/:id", async ({ request, params, set }) => {
     if (!(await canUseDatabase())) {
-      set.status = 503;
-      return fail("Database belum tersedia");
+      if (isDatabaseConfigured()) {
+        set.status = 503;
+        return fail("Database tidak tersedia");
+      }
+      const bills = db.splitBills as any[];
+      const index = bills.findIndex((bill) => bill.id === params.id);
+      if (index < 0) {
+        set.status = 404;
+        return fail("Patungan tidak ditemukan");
+      }
+      const bill = bills[index];
+      updateMemoryWalletEffects(
+        [
+          ...readWalletEffects(bill.walletEffects),
+          ...bill.participants.flatMap((participant: any) =>
+            readWalletEffects(participant.walletEffects),
+          ),
+        ],
+        [],
+      );
+      bills.splice(index, 1);
+      return ok({ id: params.id });
     }
-    await (prisma as any).splitBill.delete({ where: { id: params.id } });
+    await prisma.$transaction(async (client) => {
+      await lockFinanceRecord(client, "splitBills", params.id);
+      const bill = await client.splitBill.findFirst({
+        where: scopedWhere(currentUserIdFromRequest(request), params.id),
+        include: { participants: true },
+      });
+      if (!bill) throw new Error("Patungan tidak ditemukan");
+      await reconcileWalletEffects(
+        client,
+        [
+          ...readWalletEffects(bill.walletEffects),
+          ...bill.participants.flatMap((participant) =>
+            readWalletEffects(participant.walletEffects),
+          ),
+        ],
+        [],
+        bill.userId,
+      );
+      await client.splitBill.delete({ where: { id: params.id } });
+    });
     return ok({ id: params.id });
   })
   // User list (for admin)
@@ -2630,6 +2785,41 @@ export const financeRoutes = new Elysia({ prefix: "/api" })
 // Resource CRUD (GET/POST/PUT/DELETE) for all resources
 const resources = Object.keys(db) as ResourceKey[];
 
+function updateMemoryWalletEffects(
+  previous: unknown,
+  next: ReturnType<typeof readWalletEffects>,
+) {
+  const findWallet = (id: string, wallets: any[] = db.wallets): any => {
+    for (const wallet of wallets) {
+      if (wallet.id === id) return wallet;
+      const child = findWallet(id, wallet.children ?? []);
+      if (child) return child;
+    }
+  };
+  const deltas = new Map<string, number>();
+  for (const effect of readWalletEffects(previous))
+    deltas.set(
+      effect.walletId,
+      (deltas.get(effect.walletId) ?? 0) - effect.amount,
+    );
+  for (const effect of next) {
+    if (!effect.walletId || !Number.isFinite(effect.amount))
+      throw new Error("Dompet dan nominal pembayaran tidak valid");
+    deltas.set(
+      effect.walletId,
+      (deltas.get(effect.walletId) ?? 0) + effect.amount,
+    );
+  }
+  for (const [walletId, delta] of deltas) {
+    if (delta === 0) continue;
+    const wallet = findWallet(walletId);
+    if (!wallet || wallet.currency !== "IDR")
+      throw new Error("Dompet Rupiah pembayaran tidak tersedia");
+  }
+  for (const [walletId, delta] of deltas)
+    if (delta !== 0) findWallet(walletId).balance += delta;
+}
+
 export const resourceRoutes = new Elysia({ prefix: "/api" })
   .use(requireAuth)
   .onBeforeHandle(async ({ params, set }) => {
@@ -2699,7 +2889,24 @@ export const resourceRoutes = new Elysia({ prefix: "/api" })
       set.status = 503;
       return fail("Database belum tersedia untuk transfer antar dompet");
     }
-    const item = { id: id(resource), ...(body as object) };
+    let item: any = { id: id(resource), ...(body as object) };
+    if (
+      resource === "bills" ||
+      resource === "savingGoals" ||
+      resource === "debts"
+    ) {
+      try {
+        item = resourceWalletUpdate(resource, null, item);
+        if (new URL(request.url).searchParams.get("restore") === "1")
+          item.walletEffects = [];
+        updateMemoryWalletEffects([], item.walletEffects);
+      } catch (error) {
+        set.status = 400;
+        return fail(
+          error instanceof Error ? error.message : "Gagal memperbarui dompet",
+        );
+      }
+    }
     (db[resource] as unknown[]).unshift(item);
     set.status = 201;
     return ok(item);
@@ -2742,7 +2949,26 @@ export const resourceRoutes = new Elysia({ prefix: "/api" })
       set.status = 503;
       return fail("Database belum tersedia untuk transfer antar dompet");
     }
-    list[index] = { ...list[index], ...(body as object) };
+    let updates: any = body;
+    if (
+      resource === "bills" ||
+      resource === "savingGoals" ||
+      resource === "debts"
+    ) {
+      try {
+        updates = resourceWalletUpdate(resource, list[index], updates);
+        updateMemoryWalletEffects(
+          list[index]?.walletEffects,
+          updates.walletEffects,
+        );
+      } catch (error) {
+        set.status = 400;
+        return fail(
+          error instanceof Error ? error.message : "Gagal memperbarui dompet",
+        );
+      }
+    }
+    list[index] = { ...list[index], ...updates };
     return ok(list[index]);
   })
   .delete("/:resource/:id", async ({ request, params, set }) => {
@@ -2773,6 +2999,20 @@ export const resourceRoutes = new Elysia({ prefix: "/api" })
     if (index === -1) {
       set.status = 404;
       return fail("Data tidak ditemukan");
+    }
+    if (
+      resource === "bills" ||
+      resource === "savingGoals" ||
+      resource === "debts"
+    ) {
+      try {
+        updateMemoryWalletEffects(list[index]?.walletEffects, []);
+      } catch (error) {
+        set.status = 400;
+        return fail(
+          error instanceof Error ? error.message : "Gagal memperbarui dompet",
+        );
+      }
     }
     const [removed] = list.splice(index, 1);
     return ok(removed);

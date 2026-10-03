@@ -23,6 +23,7 @@ import { Card } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { DatePicker } from "~/components/ui/date-picker";
 import { Modal } from "~/components/ui/modal";
+import { WalletSelect } from "~/components/ui/wallet-select";
 import { confirm } from "~/components/ui/confirm-dialog";
 import { ProgressBar } from "~/components/ui/progress-bar";
 import { StatCard } from "~/components/ui/stat-card";
@@ -94,6 +95,8 @@ function contactKey(debt: Debt) {
 }
 
 export default function DebtsPage() {
+  const [debtWalletId, setDebtWalletId] = useState("");
+  const [installmentWalletId, setInstallmentWalletId] = useState("");
   const debts = useFinanceStore((s) => s.debts);
   const addDebt = useFinanceStore((s) => s.addDebt);
   const deleteDebt = useFinanceStore((s) => s.deleteDebt);
@@ -103,7 +106,6 @@ export default function DebtsPage() {
   const [editingInstallmentId, setEditingInstallmentId] = useState<
     string | null
   >(null);
-  const settleDebt = useFinanceStore((s) => s.settleDebt);
   const debtContacts = useFinanceStore((s) => s.debtContacts);
   const addDebtContact = useFinanceStore((s) => s.addDebtContact);
   const updateDebtContact = useFinanceStore((s) => s.updateDebtContact);
@@ -360,13 +362,19 @@ export default function DebtsPage() {
 
   function handleDebtSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!debtForm.personName || !debtForm.amount || !debtForm.description)
+    if (
+      !debtForm.personName ||
+      !debtForm.amount ||
+      !debtForm.description ||
+      !debtWalletId
+    )
       return;
 
     const cleanName = debtForm.personName.trim().replace(/\s+/g, " ");
     const cleanContact = debtForm.contact.trim() || undefined;
 
     addDebt({
+      walletId: debtWalletId,
       direction: debtForm.direction,
       personName: cleanName,
       personContact: cleanContact,
@@ -426,11 +434,13 @@ export default function DebtsPage() {
     if (!Number.isFinite(amount) || amount <= 0) return;
     const installment = {
       amount,
+      walletId: installmentWalletId,
       date: installmentForm.date
         ? new Date(installmentForm.date).toISOString()
         : new Date().toISOString(),
       note: installmentForm.note || undefined,
     };
+    if (!installmentWalletId) return;
     if (editingInstallmentId)
       updateDebtInstallment(
         showInstallmentModal,
@@ -450,6 +460,7 @@ export default function DebtsPage() {
     setDebtForm((f) => ({ ...f, direction: activeTab }));
     setSelectedContactId("");
     setShowDebtModal(true);
+    setDebtWalletId("");
   }
 
   const currentDebtForInstallment = debts.find(
@@ -725,6 +736,7 @@ export default function DebtsPage() {
                                   variant="outline"
                                   onClick={() => {
                                     setEditingInstallmentId(null);
+                                    setInstallmentWalletId("");
                                     setInstallmentForm({
                                       amount: "",
                                       date: "",
@@ -739,7 +751,21 @@ export default function DebtsPage() {
                                 <Button
                                   size="sm"
                                   variant="success"
-                                  onClick={() => settleDebt(debt.id)}
+                                  onClick={() => {
+                                    setEditingInstallmentId(null);
+                                    setInstallmentWalletId("");
+                                    setInstallmentForm({
+                                      amount: String(
+                                        Math.max(
+                                          0,
+                                          debt.amount - debt.paidAmount,
+                                        ),
+                                      ),
+                                      date: "",
+                                      note: "Pelunasan",
+                                    });
+                                    setShowInstallmentModal(debt.id);
+                                  }}
                                 >
                                   <Check className="h-3.5 w-3.5" />
                                   Lunas
@@ -807,6 +833,9 @@ export default function DebtsPage() {
                                         variant="outline"
                                         onClick={() => {
                                           setEditingInstallmentId(inst.id);
+                                          setInstallmentWalletId(
+                                            inst.walletId ?? "",
+                                          );
                                           setInstallmentForm({
                                             amount: String(inst.amount),
                                             date: inst.date.slice(0, 10),
@@ -952,6 +981,20 @@ export default function DebtsPage() {
               onValueChange={(value) => df("dueDate", value)}
             />
           </div>
+          <WalletSelect
+            value={debtWalletId}
+            onChange={setDebtWalletId}
+            label={
+              debtForm.direction === "owe"
+                ? "Dompet penerima pinjaman"
+                : "Dompet sumber pinjaman"
+            }
+          />
+          <p className="text-text-secondary text-xs">
+            {debtForm.direction === "owe"
+              ? "Pinjaman menambah saldo dompet penerima."
+              : "Uang yang dipinjamkan mengurangi saldo dompet sumber."}
+          </p>
           <div className="flex flex-col gap-1.5">
             <label className="text-text-secondary text-sm font-medium">
               Keterangan Transaksi
@@ -984,6 +1027,15 @@ export default function DebtsPage() {
         title={`${editingInstallmentId ? "Edit Cicilan" : "Catat Cicilan"} - ${currentDebtForInstallment?.personName || ""}`}
       >
         <form onSubmit={handleInstallmentSubmit} className="space-y-4">
+          <WalletSelect
+            value={installmentWalletId}
+            onChange={setInstallmentWalletId}
+            label={
+              currentDebtForInstallment?.direction === "lent"
+                ? "Dompet penerima cicilan"
+                : "Dompet pembayaran"
+            }
+          />
           {currentDebtForInstallment && (
             <div className="bg-bg-elevated space-y-1 rounded-lg p-3 text-xs">
               <div className="text-text-muted flex justify-between">
