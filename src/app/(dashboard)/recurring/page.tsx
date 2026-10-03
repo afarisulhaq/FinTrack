@@ -730,6 +730,7 @@ export default function RecurringPage() {
           {/* Amount */}
           <Input
             label="Jumlah (Rp)"
+            currency
             type="number"
             placeholder="0"
             min={0}

@@ -464,6 +464,7 @@ export default function WalletsPage() {
 
           <Input
             label={editingId ? "Saldo setelah penyesuaian" : "Saldo awal"}
+            currency
             type="number"
             step="0.01"
             value={form.balance}

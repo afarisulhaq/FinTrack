@@ -462,6 +462,7 @@ export default function CardsPage() {
             <>
               <Input
                 label="Limit (Rp)"
+                currency
                 type="number"
                 placeholder="0"
                 value={form.limit}

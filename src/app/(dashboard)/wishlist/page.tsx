@@ -17,6 +17,7 @@ import { Card, CardHeader, CardBody } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
 import { Modal } from "~/components/ui/modal";
 import { StatCard } from "~/components/ui/stat-card";
+import { AmountInput } from "~/components/ui/amount-input";
 import { Input } from "~/components/ui/input";
 import { useFinanceStore } from "~/store/useFinanceStore";
 import { formatCurrency } from "~/lib/utils";
@@ -202,7 +203,7 @@ export default function WishlistPage() {
           </div>
           <div className="flex shrink-0 items-center gap-3">
             <span className="text-text-muted text-sm">Rp</span>
-            <input
+            <AmountInput
               type="number"
               value={dailyIncome}
               onChange={(e) => setDailyIncome(Number(e.target.value))}
@@ -394,6 +395,7 @@ export default function WishlistPage() {
             />
             <Input
               label="Harga (Rp)"
+              currency
               type="number"
               placeholder="0"
               value={form.price}

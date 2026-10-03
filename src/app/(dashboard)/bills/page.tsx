@@ -404,6 +404,7 @@ export default function BillsPage() {
             />
             <Input
               label="Jumlah (Rp)"
+              currency
               type="number"
               placeholder="0"
               value={form.amount}

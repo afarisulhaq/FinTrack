@@ -17,6 +17,7 @@ import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
 import { Modal } from "~/components/ui/modal";
 import { StatCard } from "~/components/ui/stat-card";
+import { AmountInput } from "~/components/ui/amount-input";
 import { Input } from "~/components/ui/input";
 import { DatePicker } from "~/components/ui/date-picker";
 import { localDateValue, transactionMonth } from "~/lib/date";
@@ -688,7 +689,7 @@ export default function TransactionsPage() {
             <label className="text-text-secondary text-sm font-medium">
               Jumlah (Rp)
             </label>
-            <input
+            <AmountInput
               type="number"
               min="0"
               step="any"

@@ -109,7 +109,7 @@ export function DatePicker({
             align="start"
             sideOffset={8}
             collisionPadding={12}
-            className="border-border bg-bg-surface text-text-primary z-[120] w-[min(320px,calc(100vw-24px))] rounded-xl border p-3 shadow-md focus:outline-none"
+            className="border-border bg-bg-surface text-text-primary pointer-events-auto z-[120] w-[min(320px,calc(100vw-24px))] rounded-xl border p-3 shadow-md focus:outline-none"
           >
             {mode === "month" ? (
               <>

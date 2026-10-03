@@ -883,6 +883,7 @@ export default function DebtsPage() {
           <div className="grid grid-cols-2 gap-4">
             <Input
               label="Jumlah Transaksi (Rp)"
+              currency
               type="number"
               placeholder="0"
               value={debtForm.amount}
@@ -952,6 +953,7 @@ export default function DebtsPage() {
           )}
           <Input
             label="Jumlah Cicilan (Rp)"
+            currency
             type="number"
             placeholder="0"
             value={installmentForm.amount}

@@ -193,6 +193,7 @@ export default function AvgCalculatorPage() {
             <div className="grid grid-cols-2 gap-4">
               <Input
                 label="Avg Price (Rp)"
+                currency
                 type="number"
                 step="any"
                 placeholder="0"
@@ -222,6 +223,7 @@ export default function AvgCalculatorPage() {
             <div className="grid grid-cols-2 gap-4">
               <Input
                 label="Harga Beli (Rp)"
+                currency
                 type="number"
                 step="any"
                 placeholder="0"

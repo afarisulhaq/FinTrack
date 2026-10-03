@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { businessSummary, formatBusinessReturn } from "~/lib/business-summary";
 import { PageWrapper } from "~/components/layout/page-wrapper";
 import { Button } from "~/components/ui/button";
+import { DatePicker } from "~/components/ui/date-picker";
 import { Input } from "~/components/ui/input";
 import { Modal } from "~/components/ui/modal";
 import { confirm } from "~/components/ui/confirm-dialog";
@@ -581,6 +582,7 @@ export function BusinessesView({ businessId }: { businessId?: string }) {
           </div>
           <Input
             label="Nominal (Rp)"
+            currency
             type="number"
             min="0.01"
             max="1000000000000"
@@ -600,13 +602,12 @@ export function BusinessesView({ businessId }: { businessId?: string }) {
               setEntryForm({ ...entryForm, description: e.target.value })
             }
           />
-          <Input
+          <DatePicker
             label="Tanggal"
-            type="date"
             required
             value={entryForm.date}
-            onChange={(e) =>
-              setEntryForm({ ...entryForm, date: e.target.value })
+            onValueChange={(value) =>
+              setEntryForm({ ...entryForm, date: value })
             }
           />
           <div>

@@ -391,6 +391,7 @@ function CreateSplitBillModal({
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <Input
             label="Total Tagihan (Rp)"
+            currency
             type="number"
             step="any"
             placeholder="0"
@@ -462,6 +463,7 @@ function CreateSplitBillModal({
                   }
                 />
                 <Input
+                  currency
                   type="number"
                   step="any"
                   placeholder="0"

@@ -304,6 +304,7 @@ export default function SavingsPage() {
             />
             <Input
               label="Target (Rp)"
+              currency
               type="number"
               placeholder="0"
               value={goalForm.targetAmount}
@@ -384,6 +385,7 @@ export default function SavingsPage() {
           {goalForm.autoSave && (
             <Input
               label="Jumlah Auto-save / bulan (Rp)"
+              currency
               type="number"
               placeholder="0"
               value={goalForm.autoSaveAmount}
@@ -412,6 +414,7 @@ export default function SavingsPage() {
         <form onSubmit={handleFundsSubmit} className="space-y-4">
           <Input
             label="Jumlah (Rp)"
+            currency
             type="number"
             placeholder="0"
             value={fundsForm.amount}

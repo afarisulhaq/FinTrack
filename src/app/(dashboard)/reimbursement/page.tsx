@@ -195,7 +195,7 @@ export default function ReimbursementPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <Input label="Judul" placeholder="cth. Perjalanan Dinas" value={form.title} onChange={(e) => fld("title", e.target.value)} required />
-            <Input label="Jumlah (Rp)" type="number" placeholder="0" value={form.amount} onChange={(e) => fld("amount", e.target.value)} required />
+            <Input label="Jumlah (Rp)" currency type="number" placeholder="0" value={form.amount} onChange={(e) => fld("amount", e.target.value)} required />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">

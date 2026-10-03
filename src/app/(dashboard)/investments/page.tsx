@@ -20,6 +20,7 @@ import { Card, CardHeader, CardBody } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
 import { Modal } from "~/components/ui/modal";
 import { StatCard } from "~/components/ui/stat-card";
+import { AmountInput } from "~/components/ui/amount-input";
 import { Input } from "~/components/ui/input";
 import { PortfolioPieChart } from "~/components/charts/portfolio-pie-chart";
 import { PortfolioPerformanceChart } from "~/components/charts/portfolio-performance-chart";
@@ -1069,6 +1070,7 @@ export default function InvestmentsPage() {
             />
             <Input
               label="Harga Beli Avg (Rp)"
+              currency
               type="number"
               step="any"
               placeholder="0"
@@ -1080,6 +1082,7 @@ export default function InvestmentsPage() {
           <div className="grid grid-cols-2 gap-4">
             <Input
               label="Biaya Beli (Rp)"
+              currency
               type="number"
               step="any"
               placeholder="0"
@@ -1090,6 +1093,7 @@ export default function InvestmentsPage() {
             <div className="flex flex-col gap-1.5">
               <Input
                 label="Harga Sekarang (Rp)"
+                currency
                 type="number"
                 step="any"
                 placeholder="Auto dari Yahoo Finance"
@@ -1266,7 +1270,7 @@ export default function InvestmentsPage() {
                   Harga Jual (Rp)
                 </label>
                 <div className="relative">
-                  <input
+                  <AmountInput
                     type="number"
                     step="any"
                     placeholder="0"
@@ -1281,7 +1285,7 @@ export default function InvestmentsPage() {
                   Biaya Jual (Rp)
                 </label>
                 <div className="relative">
-                  <input
+                  <AmountInput
                     type="number"
                     step="any"
                     placeholder="0"

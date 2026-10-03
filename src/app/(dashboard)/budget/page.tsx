@@ -647,6 +647,7 @@ export default function BudgetPage() {
           <div className="grid grid-cols-2 gap-4">
             <Input
               label="Batas Anggaran (Rp)"
+              currency
               type="number"
               min="0"
               step="any"

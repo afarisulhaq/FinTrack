@@ -456,6 +456,7 @@ function ProfilTab() {
                 hint="Gaji atau penghasilan per bulan"
               >
                 <Input
+                  currency
                   type="number"
                   value={form.monthlyIncome}
                   onChange={(e) => fld("monthlyIncome")(e.target.value)}
@@ -473,6 +474,7 @@ function ProfilTab() {
                 hint="Uang sisa setelah kebutuhan pokok"
               >
                 <Input
+                  currency
                   type="number"
                   value={form.disposableIncome}
                   onChange={(e) => fld("disposableIncome")(e.target.value)}
@@ -1551,6 +1553,7 @@ function NotifikasiTab() {
               <div className="flex items-center gap-2">
                 <span className="text-text-muted text-sm">Rp</span>
                 <Input
+                  currency
                   type="number"
                   min={0}
                   step={100000}
