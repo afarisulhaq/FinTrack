@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { businessSummary, formatBusinessReturn } from "~/lib/business-summary";
 import { PageWrapper } from "~/components/layout/page-wrapper";
@@ -246,20 +247,23 @@ export function BusinessesView({ businessId }: { businessId?: string }) {
     <PageWrapper
       title={selected?.name ?? "Bisnis"}
       actions={
-        <Button
-          className={primaryButtonClass}
-          onClick={() => openBusiness()}
-          disabled={loading || saving}
-        >
-          Buat bisnis
-        </Button>
+        !businessId ? (
+          <Button
+            className={primaryButtonClass}
+            onClick={() => openBusiness()}
+            disabled={loading || saving}
+          >
+            Buat bisnis
+          </Button>
+        ) : undefined
       }
     >
       {businessId ? (
         <Link
           href="/businesses"
-          className="text-text-secondary focus-visible:outline-primary inline-flex min-h-11 items-center rounded-lg px-2 text-sm underline underline-offset-4 focus-visible:outline-2"
+          className="text-text-secondary focus-visible:outline-primary inline-flex min-h-11 items-center gap-2 rounded-lg px-2 text-sm underline underline-offset-4 focus-visible:outline-2"
         >
+          <ArrowLeft className="h-4 w-4 shrink-0" aria-hidden="true" />
           Kembali ke semua bisnis
         </Link>
       ) : (

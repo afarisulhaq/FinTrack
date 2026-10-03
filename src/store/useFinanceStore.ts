@@ -425,6 +425,7 @@ interface FinanceStore {
    * tell at a glance whether the data on screen is fresh.
    */
   lastSyncedAt: number | null;
+  syncError: string | null;
 
   // ── Backend Hydration ──────────────────────────────────────────────────────
   hydrateFromBackend: (data: BootstrapData) => void;
@@ -455,6 +456,7 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
   teamMembers: [],
   notificationSettings: emptyNotificationSettings,
   lastSyncedAt: null,
+  syncError: null,
 
   hydrateFromBackend: (data) => {
     if (data.appConfig) {
@@ -501,6 +503,7 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
           ? { ...state.notificationSettings, ...data.notificationSettings }
           : state.notificationSettings,
         lastSyncedAt: Date.now(),
+        syncError: null,
       };
     });
   },
