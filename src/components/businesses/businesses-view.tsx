@@ -15,7 +15,7 @@ import { formatCurrency, formatDate } from "~/lib/utils";
 import { localDateValue, parseDateValue } from "~/lib/date";
 import { useAuthStore } from "~/store/useAuthStore";
 import { useFinanceStore } from "~/store/useFinanceStore";
-import type { Wallet } from "~/lib/types";
+import { flattenWalletTree } from "~/lib/wallets";
 
 interface Entry {
   id: string;
@@ -36,12 +36,6 @@ const selectClass =
   "h-11 w-full rounded-lg border border-border bg-bg-surface px-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary";
 const primaryButtonClass =
   "min-h-11 bg-[color-mix(in_oklab,var(--primary)_55%,black)] text-white hover:bg-[color-mix(in_oklab,var(--primary)_45%,black)]";
-function walletOptions(wallets: Wallet[]): Wallet[] {
-  return wallets.flatMap((wallet) => [
-    wallet,
-    ...walletOptions(wallet.children ?? []),
-  ]);
-}
 function emptyEntry() {
   return {
     type: "expense" as Entry["type"],
@@ -72,7 +66,7 @@ export function BusinessesView({ businessId }: { businessId?: string }) {
   const [entryForm, setEntryForm] = useState(emptyEntry);
   const [formError, setFormError] = useState("");
   const selected = businesses.find((b) => b.id === businessId);
-  const choices = walletOptions(wallets);
+  const choices = flattenWalletTree(wallets);
 
   const load = useCallback(async () => {
     if (!token) {
@@ -258,7 +252,7 @@ export function BusinessesView({ businessId }: { businessId?: string }) {
         ) : undefined
       }
     >
-      {businessId ? (
+      {businessId && (
         <Link
           href="/businesses"
           className="text-text-secondary focus-visible:outline-primary inline-flex min-h-11 items-center gap-2 rounded-lg px-2 text-sm underline underline-offset-4 focus-visible:outline-2"
@@ -266,10 +260,6 @@ export function BusinessesView({ businessId }: { businessId?: string }) {
           <ArrowLeft className="h-4 w-4 shrink-0" aria-hidden="true" />
           Kembali ke semua bisnis
         </Link>
-      ) : (
-        <p className="text-text-secondary text-sm">
-          Pilih bisnis untuk melihat detail dan mencatat transaksi.
-        </p>
       )}
       {error && (
         <div
@@ -310,10 +300,6 @@ export function BusinessesView({ businessId }: { businessId?: string }) {
         </div>
       ) : !businessId ? (
         <>
-          <p className="text-text-secondary text-sm">
-            Hasil terhadap pengeluaran = (pemasukan − pengeluaran) ÷ pengeluaran
-            × 100%. Dihitung dari seluruh catatan bisnis, termasuk tanpa dompet.
-          </p>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {businesses.map((business) => {
               const summary = businessSummary(business.transactions);
@@ -643,6 +629,7 @@ export function BusinessesView({ businessId }: { businessId?: string }) {
               <option value="">Tanpa dompet</option>
               {choices.map((w) => (
                 <option key={w.id} value={w.id}>
+                  {w.parentId ? "↳ " : ""}
                   {w.name}
                 </option>
               ))}

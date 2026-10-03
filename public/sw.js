@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
 
-const CACHE_NAME = "fintrack-v2";
+const CACHE_NAME = "fintrack-v3";
 const STATIC_ASSETS = ["/favicon.ico"];
 
 // Install: pre-cache essential assets
@@ -23,40 +23,22 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
-// Fetch: network-first for API, cache-first for static assets
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
-
-  // Skip non-GET, API requests, and Next.js assets/chunks
   if (
     event.request.method !== "GET" ||
-    url.pathname.startsWith("/api/") ||
-    url.pathname.startsWith("/_next/")
+    url.origin !== self.location.origin ||
+    !STATIC_ASSETS.includes(url.pathname) ||
+    event.request.headers.has("RSC") ||
+    url.searchParams.has("_rsc")
   ) {
     return;
   }
 
-  // For navigation requests, always go network-first (Next.js handles routing)
-  if (event.request.mode === "navigate") {
-    event.respondWith(
-      fetch(event.request).catch(() => caches.match("/dashboard") || caches.match("/"))
-    );
-    return;
-  }
-
-  // Static assets: cache-first
   event.respondWith(
-    caches.match(event.request).then(
-      (cached) =>
-        cached ||
-        fetch(event.request).then((response) => {
-          if (response.ok && url.origin === self.location.origin) {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-          }
-          return response;
-        })
-    )
+    caches
+      .match(event.request)
+      .then((cached) => cached || fetch(event.request)),
   );
 });
 

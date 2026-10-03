@@ -41,7 +41,13 @@ const wallet = await db.wallet.create({
   data: { name: "Test wallet", type: "cash", userId: owner, balance: 500000 },
 });
 const second = await db.wallet.create({
-  data: { name: "Second wallet", type: "cash", userId: owner, balance: 100000 },
+  data: {
+    name: "Child pocket",
+    type: "cash",
+    userId: owner,
+    balance: 100000,
+    parentId: wallet.id,
+  },
 });
 let businessId = "";
 try {
@@ -81,6 +87,64 @@ try {
     (await request("POST", path, { ...body, date: "invalid" })).status,
     400,
   );
+  const foreignWallet = await db.wallet.create({
+    data: {
+      name: "Foreign pocket",
+      type: "cash",
+      userId: `${owner}-other`,
+      balance: 100000,
+      parentId: wallet.id,
+    },
+  });
+  try {
+    assert.equal(
+      (await request("POST", path, { ...body, walletId: foreignWallet.id }))
+        .status,
+      400,
+    );
+    const adminToken = signToken({
+      sub: owner,
+      email: "test@example.invalid",
+      role: "admin",
+    });
+    const adminEntry = await request(
+      "POST",
+      path,
+      { ...body, walletId: foreignWallet.id },
+      adminToken,
+    );
+    assert.equal(adminEntry.status, 201);
+    assert.equal(
+      Number(
+        (await db.wallet.findUniqueOrThrow({ where: { id: foreignWallet.id } }))
+          .balance,
+      ),
+      0,
+    );
+    assert.equal(
+      (
+        await request(
+          "DELETE",
+          `${path}/${adminEntry.json.data.id}`,
+          undefined,
+          adminToken,
+        )
+      ).status,
+      200,
+    );
+    assert.equal(
+      Number(
+        (await db.wallet.findUniqueOrThrow({ where: { id: foreignWallet.id } }))
+          .balance,
+      ),
+      100000,
+    );
+  } finally {
+    await db.businessTransaction.deleteMany({
+      where: { walletId: foreignWallet.id },
+    });
+    await db.wallet.delete({ where: { id: foreignWallet.id } });
+  }
   const entry = await request("POST", path, body);
   assert.equal(entry.status, 201);
   assert.equal(

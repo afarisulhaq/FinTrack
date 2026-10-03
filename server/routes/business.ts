@@ -1,7 +1,7 @@
 import { Elysia, t } from "elysia";
 import { Prisma } from "@prisma/client";
 import { db, canUseDatabase } from "../prisma-client.js";
-import { extractToken, verifyToken } from "../auth.js";
+import { extractToken, verifyToken, type AuthPayload } from "../auth.js";
 import { ok, fail } from "../utils.js";
 
 const businessBody = t.Object({
@@ -18,10 +18,10 @@ const transactionBody = t.Object({
 const params = t.Object({ businessId: t.String() });
 const entryParams = t.Object({ businessId: t.String(), entryId: t.String() });
 
-function userId(request: Request) {
+function authUser(request: Request) {
   return verifyToken(
     extractToken(request.headers.get("authorization") ?? undefined) ?? "",
-  )!.sub;
+  )!;
 }
 
 function delta(entry: { type: string; amount: Prisma.Decimal }) {
@@ -29,7 +29,7 @@ function delta(entry: { type: string; amount: Prisma.Decimal }) {
 }
 
 async function writeEntry(
-  ownerId: string,
+  auth: AuthPayload,
   businessId: string,
   entryId: string | undefined,
   body: typeof transactionBody.static | undefined,
@@ -40,7 +40,7 @@ async function writeEntry(
   return db.$transaction(
     async (tx) => {
       const business = await tx.business.findFirst({
-        where: { id: businessId, userId: ownerId },
+        where: { id: businessId, userId: auth.sub },
       });
       if (!business) throw new Error("Bisnis tidak ditemukan");
       const old = entryId
@@ -51,7 +51,10 @@ async function writeEntry(
       if (entryId && !old) throw new Error("Transaksi tidak ditemukan");
       if (body?.walletId) {
         const wallet = await tx.wallet.findFirst({
-          where: { id: body.walletId, userId: ownerId },
+          where: {
+            id: body.walletId,
+            userId: auth.role === "admin" ? { not: null } : auth.sub,
+          },
         });
         if (!wallet) throw new Error("Dompet tidak ditemukan");
       }
@@ -125,7 +128,7 @@ export const businessRoutes = new Elysia({ prefix: "/api/businesses" })
   })
   .get("/", async ({ request }) => {
     const rows = await db.business.findMany({
-      where: { userId: userId(request) },
+      where: { userId: authUser(request).sub },
       orderBy: { createdAt: "desc" },
       include: {
         transactions: {
@@ -154,7 +157,11 @@ export const businessRoutes = new Elysia({ prefix: "/api/businesses" })
         return fail("Nama bisnis wajib diisi");
       }
       const saved = await db.business.create({
-        data: { ...body, name: body.name.trim(), userId: userId(request) },
+        data: {
+          ...body,
+          name: body.name.trim(),
+          userId: authUser(request).sub,
+        },
       });
       set.status = 201;
       return ok({ ...saved, transactions: [] });
@@ -169,7 +176,7 @@ export const businessRoutes = new Elysia({ prefix: "/api/businesses" })
         return fail("Nama bisnis wajib diisi");
       }
       const result = await db.business.updateMany({
-        where: { id: params.businessId, userId: userId(request) },
+        where: { id: params.businessId, userId: authUser(request).sub },
         data: { ...body, name: body.name.trim() },
       });
       if (!result.count) {
@@ -184,7 +191,7 @@ export const businessRoutes = new Elysia({ prefix: "/api/businesses" })
     "/:businessId",
     async ({ request, params, set }) => {
       const business = await db.business.findFirst({
-        where: { id: params.businessId, userId: userId(request) },
+        where: { id: params.businessId, userId: authUser(request).sub },
         include: { _count: { select: { transactions: true } } },
       });
       if (!business) {
@@ -206,7 +213,7 @@ export const businessRoutes = new Elysia({ prefix: "/api/businesses" })
     "/:businessId/transactions",
     async ({ request, params, body, set }) => {
       const saved = await writeEntry(
-        userId(request),
+        authUser(request),
         params.businessId,
         undefined,
         body,
@@ -221,7 +228,7 @@ export const businessRoutes = new Elysia({ prefix: "/api/businesses" })
     async ({ request, params, body }) =>
       ok(
         await writeEntry(
-          userId(request),
+          authUser(request),
           params.businessId,
           params.entryId,
           body,
@@ -234,7 +241,7 @@ export const businessRoutes = new Elysia({ prefix: "/api/businesses" })
     async ({ request, params }) =>
       ok(
         await writeEntry(
-          userId(request),
+          authUser(request),
           params.businessId,
           params.entryId,
           undefined,
