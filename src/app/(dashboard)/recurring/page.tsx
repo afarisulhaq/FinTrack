@@ -19,6 +19,7 @@ import { Badge } from "~/components/ui/badge";
 import { Modal } from "~/components/ui/modal";
 import { StatCard } from "~/components/ui/stat-card";
 import { Input } from "~/components/ui/input";
+import { DatePicker } from "~/components/ui/date-picker";
 import { useFinanceStore } from "~/store/useFinanceStore";
 import { formatCurrency, formatDate, cn } from "~/lib/utils";
 import type {
@@ -493,7 +494,7 @@ export default function RecurringPage() {
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
                         <span
                           className={cn(
-                            "tabular-nums text-sm font-bold",
+                            "text-sm font-bold tabular-nums",
                             rt.type === "income"
                               ? "text-success"
                               : rt.type === "expense"
@@ -822,20 +823,11 @@ export default function RecurringPage() {
 
           {/* Next date */}
           <div className="flex flex-col gap-1.5">
-            <span className="text-text-secondary text-sm font-medium">
-              Tanggal Pertama / Berikutnya
-            </span>
-            <input
-              type="date"
+            <DatePicker
+              label="Tanggal Pertama / Berikutnya"
               value={form.nextDate}
-              onChange={(e) => fld("nextDate", e.target.value)}
+              onValueChange={(value) => fld("nextDate", value)}
               required
-              className={cn(
-                "h-10 w-full rounded-lg border px-3 text-sm",
-                "bg-bg-surface border-border text-text-primary",
-                "focus:ring-primary/50 focus:border-primary focus:ring-2 focus:outline-none",
-                "transition-all duration-200",
-              )}
             />
           </div>
 

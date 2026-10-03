@@ -18,6 +18,7 @@ import { Badge } from "~/components/ui/badge";
 import { Modal } from "~/components/ui/modal";
 import { StatCard } from "~/components/ui/stat-card";
 import { Input } from "~/components/ui/input";
+import { DatePicker } from "~/components/ui/date-picker";
 import { ProgressBar } from "~/components/ui/progress-bar";
 import { useFinanceStore } from "~/store/useFinanceStore";
 import { formatCurrency, formatDate, daysUntil, percentage } from "~/lib/utils";
@@ -310,11 +311,10 @@ export default function SavingsPage() {
               required
             />
           </div>
-          <Input
+          <DatePicker
             label="Deadline"
-            type="date"
             value={goalForm.deadline}
-            onChange={(e) => gf("deadline", e.target.value)}
+            onValueChange={(value) => gf("deadline", value)}
             required
           />
           <div className="flex flex-col gap-1.5">

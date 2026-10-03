@@ -21,6 +21,7 @@ import { PageWrapper } from "~/components/layout/page-wrapper";
 import { Card, CardBody, CardHeader } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
+import { DatePicker } from "~/components/ui/date-picker";
 import { Modal } from "~/components/ui/modal";
 import { Badge } from "~/components/ui/badge";
 import { QrisModal } from "~/components/qris/qris-modal";
@@ -396,11 +397,10 @@ function CreateSplitBillModal({
             value={totalAmount}
             onChange={(e) => setTotalAmount(e.target.value)}
           />
-          <Input
+          <DatePicker
             label="Tanggal"
-            type="date"
             value={date}
-            onChange={(e) => setDate(e.target.value)}
+            onValueChange={setDate}
           />
           <div className="flex flex-col gap-1.5">
             <label className="text-text-secondary text-sm font-medium">

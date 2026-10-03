@@ -38,6 +38,7 @@ import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardBody, CardHeader } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
+import { DatePicker } from "~/components/ui/date-picker";
 import { Modal } from "~/components/ui/modal";
 import { confirm } from "~/components/ui/confirm-dialog";
 import { QrisImageUpload } from "~/components/qris/qris-image-upload";
@@ -2346,16 +2347,15 @@ function DataEksporTab() {
                       {card.description}
                     </p>
                   </div>
-                  <div className="flex shrink-0 items-center gap-3">
+                  <div className="flex max-w-full shrink-0 flex-wrap items-end gap-3">
                     {card.key === "csv" && (
-                      <input
-                        type="month"
+                      <DatePicker
+                        label="Bulan laporan"
+                        mode="month"
                         value={selectedMonth}
-                        onChange={(e) => setSelectedMonth(e.target.value)}
-                        className={cn(
-                          "border-border bg-bg-surface text-text-primary h-9 rounded-lg border px-3 text-sm",
-                          "focus:ring-primary/50 focus:ring-2 focus:outline-none",
-                        )}
+                        onValueChange={setSelectedMonth}
+                        required
+                        className="w-44"
                       />
                     )}
                     <Button

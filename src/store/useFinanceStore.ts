@@ -537,35 +537,42 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
     const previousParent = get().wallets.find((w) =>
       w.children?.some((child) => child.id === id),
     );
-    set((state) => ({
-      wallets: state.wallets.map((w) =>
-        w.id === id
-          ? { ...w, ...updates }
-          : w.children?.some((child) => child.id === id)
-            ? {
-                ...w,
-                children: w.children.map((child) =>
-                  child.id === id ? { ...child, ...updates } : child,
-                ),
-              }
-            : w,
-      ),
-    }));
-    void withPersist<Wallet>(`/wallets/${id}`, "PUT", updates, {
+    const rebuildWallets = (wallets: Wallet[], changes: Partial<Wallet>) => {
+      const flat = new Map<string, Wallet>();
+      for (const wallet of wallets) {
+        const { children, ...parent } = wallet;
+        flat.set(parent.id, parent);
+        for (const child of children ?? []) {
+          flat.set(child.id, { ...child, parentId: parent.id });
+        }
+      }
+      const wallet = flat.get(id);
+      if (wallet) flat.set(id, { ...wallet, ...changes });
+      const items = [...flat.values()];
+      return items.filter((item) => !item.parentId).map((parent) => ({
+        ...parent,
+        children: items.filter((item) => item.parentId === parent.id),
+      }));
+    };
+    set((state) => ({ wallets: rebuildWallets(state.wallets, updates) }));
+    const payload = Object.prototype.hasOwnProperty.call(updates, "parentId")
+      ? { ...updates, parentId: updates.parentId || null }
+      : updates;
+    void withPersist<Wallet>(`/wallets/${id}`, "PUT", payload, {
       onSuccess: () => {
         void get().refreshWallets();
       },
       onError: () => {
         if (!previous && !previousParent) return;
-        set((state) => ({
-          wallets: state.wallets.map((w) =>
-            w.id === id && previous
-              ? previous
-              : w.id === previousParent?.id
-                ? previousParent
-                : w,
-          ),
-        }));
+        const original = previous ?? previousParent?.children?.find((child) => child.id === id);
+        if (original) {
+          set((state) => ({
+            wallets: rebuildWallets(state.wallets, {
+              ...original,
+              parentId: original.parentId,
+            }),
+          }));
+        }
       },
       errorTitle: "Gagal memperbarui dompet",
     });

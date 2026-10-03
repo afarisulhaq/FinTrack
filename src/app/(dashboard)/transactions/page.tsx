@@ -18,6 +18,8 @@ import { Card } from "~/components/ui/card";
 import { Modal } from "~/components/ui/modal";
 import { StatCard } from "~/components/ui/stat-card";
 import { Input } from "~/components/ui/input";
+import { DatePicker } from "~/components/ui/date-picker";
+import { localDateValue, transactionMonth } from "~/lib/date";
 import { useFinanceStore } from "~/store/useFinanceStore";
 import { formatCurrency, formatDate, groupByDate } from "~/lib/utils";
 import type { Transaction, TransactionType, Wallet } from "~/lib/types";
@@ -141,7 +143,7 @@ const DEFAULT_TX_FORM: TxForm = {
   walletId: "",
   walletName: "",
   description: "",
-  date: new Date().toISOString().split("T")[0],
+  date: localDateValue(),
 };
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -213,6 +215,9 @@ export default function TransactionsPage() {
   const [typeFilter, setTypeFilter] = useState<TxTypeFilter>("Semua");
   const [categoryFilter, setCategoryFilter] = useState("Semua Kategori");
   const [walletFilter, setWalletFilter] = useState("Semua Dompet");
+  const [monthFilter, setMonthFilter] = useState(() =>
+    localDateValue().slice(0, 7),
+  );
 
   // ── Modal state ──────────────────────────────────────────────────────────────
   const [showModal, setShowModal] = useState(false);
@@ -229,26 +234,21 @@ export default function TransactionsPage() {
 
   /** Current month income / expense / net */
   const monthStats = useMemo(() => {
-    const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-    const end = new Date(
-      now.getFullYear(),
-      now.getMonth() + 1,
-      0,
-      23,
-      59,
-      59,
-    ).getTime();
     let income = 0;
     let expense = 0;
     for (const tx of transactions) {
-      const t = new Date(tx.date).getTime();
-      if (t < start || t > end) continue;
+      if (monthFilter && transactionMonth(tx.date) !== monthFilter) continue;
       if (tx.type === "income") income += tx.amount;
       else if (tx.type === "expense") expense += tx.amount;
     }
     return { income, expense, net: income - expense };
-  }, [transactions]);
+  }, [transactions, monthFilter]);
+  const periodLabel = monthFilter
+    ? new Date(`${monthFilter}-01T12:00:00`).toLocaleDateString("id-ID", {
+        month: "long",
+        year: "numeric",
+      })
+    : "Semua waktu";
 
   /** Unique categories for filter dropdown */
   const allCategories = useMemo(() => {
@@ -261,6 +261,8 @@ export default function TransactionsPage() {
     const q = search.toLowerCase();
     return transactions
       .filter((tx) => {
+        if (monthFilter && transactionMonth(tx.date) !== monthFilter)
+          return false;
         if (typeFilter !== "Semua" && tx.type !== typeFilter) return false;
         if (
           categoryFilter !== "Semua Kategori" &&
@@ -279,7 +281,14 @@ export default function TransactionsPage() {
         return true;
       })
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [transactions, typeFilter, categoryFilter, walletFilter, search]);
+  }, [
+    transactions,
+    typeFilter,
+    categoryFilter,
+    walletFilter,
+    search,
+    monthFilter,
+  ]);
 
   /** Group filtered transactions by date */
   const grouped = useMemo(() => groupByDate(filtered), [filtered]);
@@ -291,7 +300,7 @@ export default function TransactionsPage() {
     const firstWallet = allWallets[0];
     setForm({
       ...DEFAULT_TX_FORM,
-      date: new Date().toISOString().split("T")[0],
+      date: localDateValue(),
       walletId: firstWallet?.id ?? "",
       walletName: firstWallet?.name ?? "",
     });
@@ -432,21 +441,21 @@ export default function TransactionsPage() {
       {/* ── Summary (current month) ───────────────────────────────────────── */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard
-          title="Pemasukan Bulan Ini"
+          title="Pemasukan"
+          subtitle={periodLabel}
           value={formatCurrency(monthStats.income, true)}
           icon={<TrendingUp className="text-success" />}
         />
         <StatCard
-          title="Pengeluaran Bulan Ini"
+          title="Pengeluaran"
+          subtitle={periodLabel}
           value={formatCurrency(monthStats.expense, true)}
           icon={<TrendingDown className="text-danger" />}
         />
         <StatCard
           title="Saldo Bersih"
           value={formatCurrency(Math.abs(monthStats.net), true)}
-          subtitle={
-            monthStats.net >= 0 ? "Surplus bulan ini" : "Defisit bulan ini"
-          }
+          subtitle={`${monthStats.net >= 0 ? "Surplus" : "Defisit"} · ${periodLabel}`}
           icon={
             <ArrowLeftRight
               className={monthStats.net >= 0 ? "text-primary" : "text-danger"}
@@ -458,6 +467,19 @@ export default function TransactionsPage() {
       {/* ── Filter bar ───────────────────────────────────────────────────── */}
       <Card>
         <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-end gap-3">
+            <DatePicker
+              label="Periode transaksi"
+              mode="month"
+              value={monthFilter}
+              onValueChange={setMonthFilter}
+              allowAll
+              className="w-full sm:w-56"
+            />
+            <p className="text-text-secondary pb-2 text-sm" aria-live="polite">
+              {filtered.length} transaksi
+            </p>
+          </div>
           {/* Top row: search + dropdowns */}
           <div className="flex flex-col gap-3 sm:flex-row">
             <div className="flex-1">
@@ -822,11 +844,10 @@ export default function TransactionsPage() {
             </div>
 
             {/* Date */}
-            <Input
+            <DatePicker
               label="Tanggal"
-              type="date"
               value={form.date}
-              onChange={(e) => fld("date", e.target.value)}
+              onValueChange={(value) => fld("date", value)}
               required
             />
           </div>

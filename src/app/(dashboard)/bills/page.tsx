@@ -19,6 +19,7 @@ import { Badge } from "~/components/ui/badge";
 import { Modal } from "~/components/ui/modal";
 import { StatCard } from "~/components/ui/stat-card";
 import { Input } from "~/components/ui/input";
+import { DatePicker } from "~/components/ui/date-picker";
 import { useFinanceStore } from "~/store/useFinanceStore";
 import { formatCurrency, formatDate, daysUntil } from "~/lib/utils";
 import type { BillStatus } from "~/lib/types";
@@ -411,11 +412,10 @@ export default function BillsPage() {
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <Input
+            <DatePicker
               label="Tanggal Jatuh Tempo"
-              type="date"
               value={form.dueDate}
-              onChange={(e) => fld("dueDate", e.target.value)}
+              onValueChange={(value) => fld("dueDate", value)}
               required
             />
             <div className="flex flex-col gap-1.5">

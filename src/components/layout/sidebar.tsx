@@ -34,6 +34,7 @@ import {
   Zap,
   Sparkles,
   FolderTree,
+  Store,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "~/lib/utils";
@@ -59,6 +60,7 @@ const NAV_GROUPS: NavGroup[] = [
       { label: "Dashboard", icon: LayoutDashboard, href: "/dashboard" },
       { label: "Dompet", icon: Wallet, href: "/wallets" },
       { label: "Transaksi", icon: ArrowLeftRight, href: "/transactions" },
+      { label: "Bisnis", icon: Store, href: "/businesses" },
       { label: "Anggaran", icon: PieChart, href: "/budget" },
     ],
   },

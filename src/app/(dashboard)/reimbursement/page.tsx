@@ -9,6 +9,7 @@ import { Badge } from "~/components/ui/badge";
 import { Modal } from "~/components/ui/modal";
 import { StatCard } from "~/components/ui/stat-card";
 import { Input } from "~/components/ui/input";
+import { DatePicker } from "~/components/ui/date-picker";
 import { useFinanceStore } from "~/store/useFinanceStore";
 import { formatCurrency, formatDate } from "~/lib/utils";
 import type { ReimbursementStatus } from "~/lib/types";
@@ -211,7 +212,7 @@ export default function ReimbursementPage() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <Input label="Proyek (opsional)" placeholder="cth. Project Alpha" value={form.project} onChange={(e) => fld("project", e.target.value)} />
-            <Input label="Tanggal Pengajuan" type="date" value={form.submittedDate} onChange={(e) => fld("submittedDate", e.target.value)} />
+            <DatePicker label="Tanggal Pengajuan" value={form.submittedDate} onValueChange={(value) => fld("submittedDate", value)} />
           </div>
           <Input label="URL Bukti / Struk (opsional)" placeholder="https://..." value={form.receiptUrl} onChange={(e) => fld("receiptUrl", e.target.value)} />
           <div className="flex flex-col gap-1.5">

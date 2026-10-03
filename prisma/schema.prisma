@@ -67,6 +67,35 @@ model Wallet {
     userId    String?
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
+    businessTransactions BusinessTransaction[]
+}
+
+model Business {
+    id           String @id @default(cuid())
+    userId       String
+    name         String
+    description  String @default("")
+    transactions BusinessTransaction[]
+    createdAt    DateTime @default(now())
+    updatedAt    DateTime @updatedAt
+
+    @@index([userId])
+}
+
+model BusinessTransaction {
+    id          String @id @default(cuid())
+    businessId  String
+    business    Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
+    type        String
+    amount      Decimal @db.Decimal(20, 2)
+    description String
+    date        DateTime
+    walletId    String?
+    wallet      Wallet? @relation(fields: [walletId], references: [id], onDelete: Restrict)
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+
+    @@index([businessId, date])
 }
 
 model Transaction {

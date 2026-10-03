@@ -21,6 +21,7 @@ import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
+import { DatePicker } from "~/components/ui/date-picker";
 import { Modal } from "~/components/ui/modal";
 import { ProgressBar } from "~/components/ui/progress-bar";
 import { StatCard } from "~/components/ui/stat-card";
@@ -888,11 +889,10 @@ export default function DebtsPage() {
               onChange={(e) => df("amount", e.target.value)}
               required
             />
-            <Input
+            <DatePicker
               label="Jatuh Tempo (opsional)"
-              type="date"
               value={debtForm.dueDate}
-              onChange={(e) => df("dueDate", e.target.value)}
+              onValueChange={(value) => df("dueDate", value)}
             />
           </div>
           <div className="flex flex-col gap-1.5">
@@ -960,12 +960,11 @@ export default function DebtsPage() {
             }
             required
           />
-          <Input
+          <DatePicker
             label="Tanggal"
-            type="date"
             value={installmentForm.date}
-            onChange={(e) =>
-              setInstallmentForm((f) => ({ ...f, date: e.target.value }))
+            onValueChange={(value) =>
+              setInstallmentForm((f) => ({ ...f, date: value }))
             }
           />
           <Input
