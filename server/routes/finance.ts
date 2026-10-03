@@ -129,12 +129,23 @@ function serializeWallet(w: {
 }
 
 function nestWallets(flat: ReturnType<typeof serializeWallet>[]) {
-  const parents = flat.filter((w) => !w.parentId);
-  const children = flat.filter((w) => w.parentId);
-  return parents.map((p) => ({
-    ...p,
-    children: children.filter((c) => c.parentId === p.id),
-  }));
+  type Node = ReturnType<typeof serializeWallet> & { children: Node[] };
+  const records = new Map<string, Node>(flat.map((wallet) => [wallet.id, { ...wallet, children: [] }]));
+  const roots: Node[] = [];
+  for (const wallet of records.values()) {
+    const seen = new Set([wallet.id]);
+    let ancestor = wallet.parentId;
+    let cyclic = false;
+    while (ancestor && records.has(ancestor)) {
+      if (seen.has(ancestor)) { cyclic = true; break; }
+      seen.add(ancestor);
+      ancestor = records.get(ancestor)?.parentId;
+    }
+    const parent = wallet.parentId && !cyclic ? records.get(wallet.parentId) : undefined;
+    if (parent) parent.children.push(wallet);
+    else { wallet.parentId = undefined; roots.push(wallet); }
+  }
+  return roots;
 }
 
 type SerializedWallet = ReturnType<typeof serializeWallet> & {
@@ -151,7 +162,7 @@ function flattenWallets(input: SerializedWallet[]) {
     }
   }
   const { children: _children, ...parentWithoutChildren } = parent;
-  return [{ ...parentWithoutChildren, parentId: undefined }, ...children];
+  return [parentWithoutChildren, ...children];
 }
 
 function serializeTransaction(t: {

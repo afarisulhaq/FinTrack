@@ -19,6 +19,7 @@ import { Input } from "~/components/ui/input";
 import { useFinanceStore } from "~/store/useFinanceStore";
 import { DynamicIcon } from "~/components/ui/dynamic-icon";
 import { formatCurrency, percentage } from "~/lib/utils";
+import { normalizeWalletTree, totalWalletBalance, walletGroupBalance } from "~/lib/wallets";
 import type { Wallet, WalletType } from "~/lib/types";
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
@@ -94,13 +95,13 @@ export default function WalletsPage() {
 
   const parentWallets = useMemo(
     () =>
-      wallets.filter((w) => !w.parentId).sort((a, b) => b.balance - a.balance),
+      normalizeWalletTree(wallets).sort((a, b) => walletGroupBalance(b) - walletGroupBalance(a)),
     [wallets],
   );
 
   const totalBalance = useMemo(
-    () => parentWallets.reduce((sum, w) => sum + w.balance, 0),
-    [parentWallets],
+    () => totalWalletBalance(wallets),
+    [wallets],
   );
 
   const childCount = useMemo(
@@ -241,7 +242,7 @@ export default function WalletsPage() {
                 />
                 <div className="p-5 pl-6">
                   {/* Wallet header */}
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-3.5">
                       <div
                         className="shadow-subtle flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-xl"
@@ -266,23 +267,24 @@ export default function WalletsPage() {
                     <div className="flex shrink-0 items-start gap-3">
                       <div className="text-right">
                         <p className="text-text-primary text-lg font-bold tabular-nums">
-                          {formatCurrency(wallet.balance)}
+                          {formatCurrency(walletGroupBalance(wallet))}
                         </p>
                         <p className="text-text-muted text-xs font-medium">
-                          {wallet.currency}
+                          {children.length ? "Termasuk kantong" : wallet.currency}
                         </p>
+                        {children.length > 0 && <p className="text-text-secondary text-xs">Saldo utama: {formatCurrency(wallet.balance)}</p>}
                       </div>
-                      <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                      <div className="flex items-center gap-1">
                         <button
                           onClick={() => openEdit(wallet.id)}
-                          className="bg-bg-elevated text-text-secondary hover:text-primary hover:bg-primary/10 border-border/50 flex h-8 w-8 items-center justify-center rounded-lg border transition-colors"
+                          className="bg-bg-elevated text-text-secondary hover:text-primary hover:bg-primary/10 border-border/50 flex h-11 w-11 items-center justify-center rounded-lg border transition-colors focus-visible:ring-2 focus-visible:ring-primary"
                           title="Edit dompet"
                         >
                           <Pencil className="h-3.5 w-3.5" />
                         </button>
                         <button
                           onClick={() => deleteWallet(wallet.id)}
-                          className="bg-bg-elevated text-text-secondary hover:text-danger hover:bg-danger/10 border-border/50 flex h-8 w-8 items-center justify-center rounded-lg border transition-colors"
+                          className="bg-bg-elevated text-text-secondary hover:text-danger hover:bg-danger/10 border-border/50 flex h-11 w-11 items-center justify-center rounded-lg border transition-colors focus-visible:ring-2 focus-visible:ring-primary"
                           title="Hapus dompet"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -297,7 +299,7 @@ export default function WalletsPage() {
                       {children.map((child) => (
                         <div
                           key={child.id}
-                          className="bg-bg-elevated/70 border-border/60 group/child hover:bg-bg-elevated flex items-center justify-between gap-3 rounded-lg border px-3 py-2 transition-colors"
+                          className="bg-bg-elevated/70 border-border/60 group/child hover:bg-bg-elevated flex flex-wrap items-center justify-between gap-3 rounded-lg border px-3 py-2 transition-colors"
                         >
                           <div className="flex min-w-0 items-center gap-2">
                             <span className="text-text-secondary shrink-0">
@@ -320,14 +322,14 @@ export default function WalletsPage() {
                             <button
                               type="button"
                               onClick={() => openEdit(child.id)}
-                              className="text-text-secondary hover:bg-bg-elevated focus-visible:ring-primary flex h-9 w-9 items-center justify-center rounded-lg focus-visible:ring-2"
+                              className="text-text-secondary hover:bg-bg-elevated focus-visible:ring-primary flex h-11 w-11 items-center justify-center rounded-lg focus-visible:ring-2"
                               aria-label={`Edit kantong ${child.name}`}
                             >
                               <Pencil className="h-3.5 w-3.5" />
                             </button>
                             <button
                               onClick={() => deleteWallet(child.id)}
-                              className="text-text-muted hover:text-danger hover:bg-danger/10 flex h-6 w-6 items-center justify-center rounded opacity-0 transition-colors group-hover/child:opacity-100"
+                              className="text-text-secondary hover:text-danger hover:bg-danger/10 flex h-11 w-11 items-center justify-center rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-primary"
                               title="Hapus kantong"
                             >
                               <Trash2 className="h-3 w-3" />
@@ -385,7 +387,7 @@ export default function WalletsPage() {
             <CardBody>
               <div className="space-y-4">
                 {parentWallets.map((wallet) => {
-                  const pct = percentage(wallet.balance, totalBalance);
+                  const pct = percentage(walletGroupBalance(wallet), totalBalance);
                   return (
                     <div key={wallet.id} className="space-y-1.5">
                       <div className="flex items-center justify-between text-xs">
@@ -408,7 +410,7 @@ export default function WalletsPage() {
                             {pct}%
                           </span>
                           <span className="text-text-muted tabular-nums">
-                            {formatCurrency(wallet.balance, true)}
+                            {formatCurrency(walletGroupBalance(wallet), true)}
                           </span>
                         </div>
                       </div>
@@ -468,7 +470,7 @@ export default function WalletsPage() {
             onChange={(e) => fld("balance", e.target.value)}
             hint={
               editingId
-                ? "Masukkan saldo aktual. Penyesuaian ini tidak dicatat sebagai pemasukan atau pengeluaran."
+                ? "Masukkan saldo dompet ini saja, tanpa menjumlahkan kantong. Penyesuaian tidak dicatat sebagai transaksi."
                 : "Masukkan jumlah uang yang sudah ada di dompet."
             }
             required

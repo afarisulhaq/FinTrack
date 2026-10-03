@@ -2,6 +2,10 @@
 
 Menu **Bisnis** tersedia di `/businesses`. Buat bisnis terlebih dahulu, lalu catat pembelian/pengeluaran atau pemasukan penjualan. Setiap catatan mempunyai nominal, keterangan, tanggal, dan pilihan dompet.
 
+Halaman awal menampilkan satu kartu per bisnis, berisi pemasukan, pengeluaran, selisih, jumlah transaksi, dan hasil terhadap pengeluaran. Klik kartu untuk membuka `/businesses/[businessId]`, tempat detail dan form pencatatan berada. Tautan **Kembali ke semua bisnis** membuka daftar kartu. URL detail dapat dibuka langsung atau di-refresh.
+
+Hasil terhadap pengeluaran dihitung sebagai `(pemasukan - pengeluaran) / pengeluaran × 100%` dari seluruh catatan bisnis. Contoh pembelian Rp100.000 dan penjualan Rp120.000 menghasilkan selisih Rp20.000 dan hasil 20%. Nilai bisa negatif. Jika pengeluaran nol, tampilkan **Belum dapat dihitung**. Nilai ini bukan imbal hasil tahunan atau perhitungan laba persediaan.
+
 - Tanpa dompet: hanya masuk buku transaksi bisnis.
 - Dompet pembayaran: saldo berkurang.
 - Dompet penerimaan: saldo bertambah.
@@ -25,6 +29,10 @@ npm run db:push
 Mulai ulang backend setelah penerapan. Database utama tidak diubah dalam pengerjaan ini karena `DATABASE_URL` belum tersedia di lingkungan kerja. Skema sudah diterapkan dan diuji pada database sementara lokal.
 
 ## Verifikasi
+
+- PASS: `node --import tsx tests/business-summary.regression.ts`, mencakup hasil positif/negatif dan pengeluaran nol.
+- PASS: browser dengan API tiruan memeriksa daftar tiga kartu, persentase 20%/-50%/belum dapat dihitung, navigasi kartu melalui keyboard, detail bisnis yang terpisah, URL langsung/refresh, pencatatan transaksi, ringkasan kartu yang diperbarui, dan bisnis tidak ditemukan.
+- PASS: daftar kartu pada 360, 768, dan 1280 piksel dalam kedua tema tanpa overflow atau error JavaScript. Struktur kartu seragam agar angka antar bisnis mudah dibandingkan; selisih menjadi fokus tiap kartu, dengan sumber angka seluruhnya dari transaksi bisnis.
 
 - PASS: `npm run typecheck`.
 - PASS: `npx tsc -p server/tsconfig.json --noEmit`.

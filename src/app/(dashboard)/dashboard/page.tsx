@@ -22,6 +22,7 @@ import { ProgressBar } from "~/components/ui/progress-bar";
 import { DynamicIcon } from "~/components/ui/dynamic-icon";
 import { SpendingTrendChart } from "~/components/charts/spending-trend-chart";
 import { useFinanceStore } from "~/store/useFinanceStore";
+import { totalWalletBalance } from "~/lib/wallets";
 import { useAppConfigStore } from "~/store/useAppConfigStore";
 import { formatCurrency, daysUntil, percentage } from "~/lib/utils";
 
@@ -40,7 +41,7 @@ export default function DashboardPage() {
   const tagline = useAppConfigStore((s) => s.config.tagline);
 
   const totalBalance = useMemo(
-    () => wallets.filter((w) => !w.parentId).reduce((s, w) => s + w.balance, 0),
+    () => totalWalletBalance(wallets),
     [wallets],
   );
   const portfolioValue = useMemo(

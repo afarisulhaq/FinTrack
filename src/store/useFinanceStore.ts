@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import { api, getApiBaseUrl } from "~/lib/api";
 import { genId } from "~/lib/utils";
+import { flattenWalletTree, normalizeWalletTree, updateWalletTree } from "~/lib/wallets";
 import { toast } from "~/components/ui/toast";
 import { useAppConfigStore, type AppConfig } from "./useAppConfigStore";
 import type {
@@ -467,7 +468,7 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
       // don’t get clobbered), add any record we don’t have yet, and keep
       // local records the server has not seen (e.g. offline writes).
       return {
-        wallets: mergeById(state.wallets, data.wallets),
+        wallets: data.wallets ? normalizeWalletTree(mergeById(flattenWalletTree(state.wallets), flattenWalletTree(data.wallets))) : state.wallets,
         transactions: mergeById(state.transactions, data.transactions),
         budgets: mergeById(state.budgets, data.budgets),
         investments: mergeById(
@@ -510,21 +511,19 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
     const item = { ...wallet, id: genId() };
     // Optimistic insert — if the server rejects (or we’re offline),
     // withPersist’s onError hook will remove it again.
-    set((state) => ({ wallets: [...state.wallets, item] }));
+    set((state) => ({ wallets: normalizeWalletTree([...flattenWalletTree(state.wallets), item]) }));
     void withPersist<Wallet>("/wallets", "POST", item, {
       onSuccess: (serverItem) => {
         if (!serverItem) return;
         // Server echoes the wallet back (with its own ID metadata). Swap
         // the optimistic record so subsequent fetches don’t see a ghost.
         set((state) => ({
-          wallets: state.wallets.map((w) =>
-            w.id === item.id ? serverItem : w,
-          ),
+          wallets: normalizeWalletTree(flattenWalletTree(state.wallets).map((w) => w.id === item.id ? serverItem : w)),
         }));
       },
       onError: () => {
         set((state) => ({
-          wallets: state.wallets.filter((w) => w.id !== item.id),
+          wallets: normalizeWalletTree(flattenWalletTree(state.wallets).filter((w) => w.id !== item.id)),
         }));
       },
       errorTitle: "Gagal menambah dompet",
@@ -533,44 +532,20 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
 
   updateWallet: (id, updates) => {
     // Snapshot the pre-update record so we can restore on failure.
-    const previous = get().wallets.find((w) => w.id === id);
-    const previousParent = get().wallets.find((w) =>
-      w.children?.some((child) => child.id === id),
-    );
-    const rebuildWallets = (wallets: Wallet[], changes: Partial<Wallet>) => {
-      const flat = new Map<string, Wallet>();
-      for (const wallet of wallets) {
-        const { children, ...parent } = wallet;
-        flat.set(parent.id, parent);
-        for (const child of children ?? []) {
-          flat.set(child.id, { ...child, parentId: parent.id });
-        }
-      }
-      const wallet = flat.get(id);
-      if (wallet) flat.set(id, { ...wallet, ...changes });
-      const items = [...flat.values()];
-      return items.filter((item) => !item.parentId).map((parent) => ({
-        ...parent,
-        children: items.filter((item) => item.parentId === parent.id),
-      }));
-    };
-    set((state) => ({ wallets: rebuildWallets(state.wallets, updates) }));
+    const previous = flattenWalletTree(get().wallets).find((w) => w.id === id);
+    set((state) => ({ wallets: updateWalletTree(state.wallets, id, updates) }));
     const payload = Object.prototype.hasOwnProperty.call(updates, "parentId")
       ? { ...updates, parentId: updates.parentId || null }
       : updates;
     void withPersist<Wallet>(`/wallets/${id}`, "PUT", payload, {
-      onSuccess: () => {
-        void get().refreshWallets();
+      onSuccess: (serverItem) => {
+        if (!serverItem) return;
+        set((state) => ({ wallets: updateWalletTree(state.wallets, id, serverItem) }));
       },
       onError: () => {
-        if (!previous && !previousParent) return;
-        const original = previous ?? previousParent?.children?.find((child) => child.id === id);
-        if (original) {
+        if (previous) {
           set((state) => ({
-            wallets: rebuildWallets(state.wallets, {
-              ...original,
-              parentId: original.parentId,
-            }),
+            wallets: updateWalletTree(state.wallets, id, previous),
           }));
         }
       },
@@ -581,18 +556,18 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
   deleteWallet: (id) => {
     // Snapshot every record that will be removed (the wallet itself +
     // any child wallets) so the delete can be cleanly undone on failure.
-    const previous = get().wallets.filter(
+    const previous = flattenWalletTree(get().wallets).filter(
       (w) => w.id === id || w.parentId === id,
     );
     set((state) => ({
-      wallets: state.wallets.filter((w) => w.id !== id && w.parentId !== id),
+      wallets: normalizeWalletTree(flattenWalletTree(state.wallets).filter((w) => w.id !== id && w.parentId !== id)),
     }));
     void withPersist(`/wallets/${id}`, "DELETE", undefined, {
       onError: () => {
         // Restore the wallets in their original relative order.
         if (previous.length === 0) return;
         set((state) => {
-          const filtered = state.wallets.filter(
+          const filtered = flattenWalletTree(state.wallets).filter(
             (w) => !previous.some((p) => p.id === w.id),
           );
           // Re-insert at the position the first removed wallet used to occupy.
@@ -607,7 +582,7 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
                   ...previous,
                   ...filtered.slice(insertAt),
                 ];
-          return { wallets: restored };
+          return { wallets: normalizeWalletTree(restored) };
         });
       },
       errorTitle: "Gagal menghapus dompet",
@@ -715,7 +690,7 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
     if (!token) return;
     try {
       const wallets = await api.get<Wallet[]>("/wallets", token);
-      set({ wallets });
+      set({ wallets: normalizeWalletTree(wallets) });
     } catch (error) {
       console.warn("Failed to refresh wallets", error);
     }
