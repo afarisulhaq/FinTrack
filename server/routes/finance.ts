@@ -2685,7 +2685,9 @@ export const resourceRoutes = new Elysia({ prefix: "/api" })
       const item = await createPrismaResource(
         resource,
         body as Record<string, unknown>,
-        currentUserIdFromRequest(request),
+        resource === "wallets"
+          ? strictUserIdFromRequest(request)
+          : currentUserIdFromRequest(request),
         new URL(request.url).searchParams.get("restore") === "1",
       );
       set.status = 201;

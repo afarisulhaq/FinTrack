@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { Elysia } from "elysia";
 import { db } from "../server/prisma-client.js";
 import { signToken } from "../server/auth.js";
+import { resourceRoutes } from "../server/routes/finance.js";
 import { businessRoutes } from "../server/routes/business.js";
 
 if (!process.env.DATABASE_URL?.includes("localhost:55432")) {
@@ -87,6 +88,113 @@ try {
     (await request("POST", path, { ...body, date: "invalid" })).status,
     400,
   );
+  const adminTokenForWallets = signToken({
+    sub: owner,
+    email: "test@example.invalid",
+    role: "admin",
+  });
+  const legacy = await db.wallet.create({
+    data: {
+      name: "Legacy admin pocket",
+      type: "cash",
+      balance: 0,
+      parentId: wallet.id,
+    },
+  });
+  try {
+    assert.equal(
+      (
+        await request("POST", path, {
+          ...body,
+          type: "income",
+          walletId: legacy.id,
+        })
+      ).status,
+      400,
+    );
+    const legacyIncome = await request(
+      "POST",
+      path,
+      { ...body, type: "income", walletId: legacy.id },
+      adminTokenForWallets,
+    );
+    assert.equal(legacyIncome.status, 201);
+    assert.equal(
+      Number(
+        (await db.wallet.findUniqueOrThrow({ where: { id: legacy.id } }))
+          .balance,
+      ),
+      100000,
+    );
+    assert.equal(
+      (
+        await request(
+          "DELETE",
+          `${path}/${legacyIncome.json.data.id}`,
+          undefined,
+          adminTokenForWallets,
+        )
+      ).status,
+      200,
+    );
+    assert.equal(
+      Number(
+        (await db.wallet.findUniqueOrThrow({ where: { id: legacy.id } }))
+          .balance,
+      ),
+      0,
+    );
+    const finance = new Elysia().use(resourceRoutes);
+    const createdWallet = await finance.handle(
+      new Request("http://localhost/api/wallets", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${adminTokenForWallets}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: "Admin child",
+          type: "cash",
+          balance: 0,
+          parentId: wallet.id,
+        }),
+      }),
+    );
+    assert.equal(createdWallet.status, 201);
+    const createdId = (await createdWallet.json()).data.id;
+    assert.equal(
+      (await db.wallet.findUniqueOrThrow({ where: { id: createdId } })).userId,
+      owner,
+    );
+    const income = await request(
+      "POST",
+      path,
+      { ...body, type: "income", walletId: createdId },
+      adminTokenForWallets,
+    );
+    assert.equal(income.status, 201);
+    assert.equal(
+      Number(
+        (await db.wallet.findUniqueOrThrow({ where: { id: createdId } }))
+          .balance,
+      ),
+      100000,
+    );
+    assert.equal(
+      (
+        await request(
+          "DELETE",
+          `${path}/${income.json.data.id}`,
+          undefined,
+          adminTokenForWallets,
+        )
+      ).status,
+      200,
+    );
+  } finally {
+    await db.businessTransaction.deleteMany({ where: { walletId: legacy.id } });
+    await db.wallet.delete({ where: { id: legacy.id } });
+  }
   const foreignWallet = await db.wallet.create({
     data: {
       name: "Foreign pocket",

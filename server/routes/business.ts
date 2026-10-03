@@ -53,7 +53,7 @@ async function writeEntry(
         const wallet = await tx.wallet.findFirst({
           where: {
             id: body.walletId,
-            userId: auth.role === "admin" ? { not: null } : auth.sub,
+            ...(auth.role === "admin" ? {} : { userId: auth.sub }),
           },
         });
         if (!wallet) throw new Error("Dompet tidak ditemukan");
