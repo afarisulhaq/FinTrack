@@ -1,6 +1,8 @@
 "use client";
 
-import { flattenWalletTree, walletOptionLabel } from "~/lib/wallets";
+import { WalletPicker } from "~/components/ui/wallet-select";
+
+import { flattenWalletTree } from "~/lib/wallets";
 
 import { useState, useMemo } from "react";
 import {
@@ -764,26 +766,7 @@ export default function RecurringPage() {
             <span className="text-text-secondary text-sm font-medium">
               Dompet
             </span>
-            <select
-              value={form.walletId}
-              onChange={(e) => fld("walletId", e.target.value)}
-              required
-              className={cn(
-                "h-10 w-full rounded-lg border px-3 text-sm",
-                "bg-bg-surface border-border text-text-primary",
-                "focus:ring-primary/50 focus:border-primary focus:ring-2 focus:outline-none",
-                "transition-all duration-200",
-              )}
-            >
-              <option value="" disabled>
-                Pilih dompet…
-              </option>
-              {allWallets.map((w) => (
-                <option key={w.id} value={w.id}>
-                  {walletOptionLabel(w, allWallets)}
-                </option>
-              ))}
-            </select>
+            <WalletPicker value={form.walletId} onChange={(value) => fld("walletId", value)} wallets={allWallets} required />
           </div>
 
           {/* Period */}

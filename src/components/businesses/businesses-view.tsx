@@ -1,6 +1,7 @@
 "use client";
 
-import { walletOptionLabel } from "~/lib/wallets";
+import { WalletPicker } from "~/components/ui/wallet-select";
+
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
@@ -621,21 +622,7 @@ export function BusinessesView({ businessId }: { businessId?: string }) {
                 ? "Dompet pembayaran"
                 : "Dompet penerimaan"}
             </label>
-            <select
-              id="entry-wallet"
-              className={selectClass}
-              value={entryForm.walletId}
-              onChange={(e) =>
-                setEntryForm({ ...entryForm, walletId: e.target.value })
-              }
-            >
-              <option value="">Tanpa dompet</option>
-              {choices.map((w) => (
-                <option key={w.id} value={w.id}>
-                  {walletOptionLabel(w, choices)}
-                </option>
-              ))}
-            </select>
+            <WalletPicker id="entry-wallet" value={entryForm.walletId} onChange={(value) => setEntryForm({ ...entryForm, walletId: value })} wallets={choices} emptyLabel="Tanpa dompet" />
             <p className="text-text-secondary mt-2 text-sm">
               {entryForm.walletId
                 ? entryForm.type === "expense"

@@ -1,6 +1,8 @@
 "use client";
 
-import { flattenWalletTree, walletOptionLabel } from "~/lib/wallets";
+import { WalletPicker } from "~/components/ui/wallet-select";
+
+import { flattenWalletTree } from "~/lib/wallets";
 
 import { useState, useMemo } from "react";
 import { Plus, Pencil, Trash2, PiggyBank, AlertTriangle } from "lucide-react";
@@ -846,18 +848,7 @@ export default function BudgetPage() {
               Dompet{" "}
               <span className="text-text-muted font-normal">(opsional)</span>
             </label>
-            <select
-              value={form.walletId}
-              onChange={(e) => fld("walletId", e.target.value)}
-              className="bg-bg-surface border-border text-text-primary focus:border-primary focus:ring-primary/20 h-10 rounded-lg border px-3 text-sm focus:ring-1 focus:outline-none transition-colors"
-            >
-              <option value="">(Semua Dompet)</option>
-              {allWallets.map((w) => (
-                <option key={w.id} value={w.id}>
-                  {walletOptionLabel(w, allWallets)}
-                </option>
-              ))}
-            </select>
+            <WalletPicker value={form.walletId} onChange={(value) => fld("walletId", value)} wallets={allWallets} emptyLabel="Semua Dompet" />
           </div>
 
           {/* Preview */}

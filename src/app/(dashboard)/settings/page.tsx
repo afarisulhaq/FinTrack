@@ -1,6 +1,6 @@
 "use client";
 
-import { walletOptionLabel } from "~/lib/wallets";
+import { WalletPicker } from "~/components/ui/wallet-select";
 
 import { useEffect, useState } from "react";
 import * as Tabs from "@radix-ui/react-tabs";
@@ -2531,16 +2531,7 @@ function DataEksporTab() {
                       </div>
                       <label className="text-text-secondary mt-2 block text-xs">
                         Dompet tujuan
-                        <select
-                          value={item.walletId}
-                          onChange={(event) => updateCsvWallet(index, event.target.value)}
-                          className="border-border bg-bg-surface text-text-primary mt-1 w-full rounded-lg border px-2 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                        >
-                          <option value="">Pilih dompet</option>
-                          {wallets.flatMap((wallet) => [wallet, ...(wallet.children ?? [])]).map((wallet) => (
-                            <option key={wallet.id} value={wallet.id}>{walletOptionLabel(wallet, wallets)}</option>
-                          ))}
-                        </select>
+                        <WalletPicker value={item.walletId} onChange={(value) => updateCsvWallet(index, value)} wallets={wallets} />
                       </label>
                     </div>
                   ))}
@@ -2606,10 +2597,7 @@ function DataEksporTab() {
                                   )}
                                   {label === "Transaksi" && (
                                     <label className="text-text-secondary mt-2 block">Dompet tujuan
-                                      <select value={String(row.walletId ?? "")} onChange={(event) => updateBackupTransaction(index, event.target.value)} className="border-border bg-bg-surface text-text-primary mt-1 w-full rounded-lg border px-2 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
-                                        <option value="">Pilih dompet</option>
-                                        {availableWallets.map((wallet) => <option key={wallet.id} value={wallet.id}>{walletOptionLabel(wallet, availableWallets)}</option>)}
-                                      </select>
+                                      <WalletPicker value={String(row.walletId ?? "")} onChange={(value) => updateBackupTransaction(index, value)} wallets={availableWallets} />
                                     </label>
                                   )}
                                   {label === "Split bill" && Array.isArray(row.participants) && <p className="text-text-muted mt-1">Peserta: {(row.participants as Array<{name: string}>).map((person) => person.name).join(", ") || "—"}</p>}

@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
-import * as Select from "@radix-ui/react-select";
+import { WalletPicker } from "~/components/ui/wallet-select";
 import {
   Plus,
   Search,
@@ -26,7 +26,7 @@ import { localDateValue, transactionMonth } from "~/lib/date";
 import { useFinanceStore } from "~/store/useFinanceStore";
 import { formatCurrency, formatDate, groupByDate } from "~/lib/utils";
 import type { Transaction, TransactionType, Wallet } from "~/lib/types";
-import { flattenWalletTree, walletOptionLabel } from "~/lib/wallets";
+import { flattenWalletTree } from "~/lib/wallets";
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
@@ -116,55 +116,6 @@ function getCategoriesByType(
 
 type TxTypeFilter = "Semua" | TransactionType;
 
-function WalletPicker({
-  id,
-  value,
-  onChange,
-  wallets,
-  placeholder,
-}: {
-  id: string;
-  value: string;
-  onChange: (value: string) => void;
-  wallets: Wallet[];
-  placeholder: string;
-}) {
-  const walletTree = useFinanceStore((state) => state.wallets);
-  return (
-    <Select.Root value={value} onValueChange={onChange} required>
-      <Select.Trigger
-        id={id}
-        className="bg-bg-surface border-border text-text-primary focus:ring-primary/50 flex h-10 w-full min-w-0 items-center justify-between rounded-lg border px-3 text-sm focus:ring-2 focus:outline-none"
-      >
-        <span className="truncate">
-          <Select.Value placeholder={placeholder} />
-        </span>
-        <Select.Icon aria-hidden>▾</Select.Icon>
-      </Select.Trigger>
-      <Select.Portal>
-        <Select.Content
-          position="popper"
-          sideOffset={4}
-          className="bg-bg-surface border-border text-text-primary pointer-events-auto z-[110] max-h-[var(--radix-select-content-available-height)] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-lg border shadow-md"
-        >
-          <Select.Viewport className="max-h-60 overflow-y-auto p-1">
-            {wallets.map((wallet) => (
-              <Select.Item
-                key={wallet.id}
-                value={wallet.id}
-                className="data-[highlighted]:bg-bg-elevated data-[highlighted]:text-text-primary cursor-pointer rounded-md px-3 py-2 text-sm outline-none"
-              >
-                <Select.ItemText>
-                  {walletOptionLabel(wallet, walletTree)}
-                </Select.ItemText>
-              </Select.Item>
-            ))}
-          </Select.Viewport>
-        </Select.Content>
-      </Select.Portal>
-    </Select.Root>
-  );
-}
 
 interface TxForm {
   type: TransactionType;
@@ -580,18 +531,7 @@ export default function TransactionsPage() {
                 </option>
               ))}
             </select>
-            <select
-              value={walletFilter}
-              onChange={(e) => setWalletFilter(e.target.value)}
-              className="bg-bg-surface border-border text-text-primary focus:border-primary focus:ring-primary/20 h-10 rounded-lg border px-3 text-sm transition-colors focus:ring-1 focus:outline-none sm:w-44"
-            >
-              <option value="Semua Dompet">Semua Dompet</option>
-              {allWallets.map((w) => (
-                <option key={w.id} value={w.id}>
-                  {walletOptionLabel(w, allWallets)}
-                </option>
-              ))}
-            </select>
+            <WalletPicker value={walletFilter === "Semua Dompet" ? "" : walletFilter} onChange={(value) => setWalletFilter(value || "Semua Dompet")} wallets={allWallets} emptyLabel="Semua Dompet" />
           </div>
           {/* Type filter tabs */}
           <div className="bg-bg-elevated flex w-fit gap-1 rounded-xl p-1">

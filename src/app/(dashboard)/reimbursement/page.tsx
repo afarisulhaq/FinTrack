@@ -1,5 +1,7 @@
 "use client";
 
+import { WalletPicker } from "~/components/ui/wallet-select";
+
 import { flattenWalletTree, walletOptionLabel } from "~/lib/wallets";
 import { useState, useMemo } from "react";
 import { Receipt, Plus, Trash2, Check, Building, Wallet } from "lucide-react";
@@ -203,14 +205,7 @@ export default function ReimbursementPage() {
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium text-text-secondary">Dibayar dari</label>
-              <select
-                value={form.paidFrom}
-                onChange={(e) => { fld("paidFrom", e.target.value); fld("walletName", e.target.value); }}
-                className="h-10 px-3 rounded-lg bg-bg-surface border border-border text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-              >
-                <option value="" disabled>Pilih dompet</option>
-                {walletChoices.map((w) => <option key={w.id} value={walletOptionLabel(w, wallets)}>{walletOptionLabel(w, wallets)}</option>)}
-              </select>
+              <WalletPicker value={walletChoices.find((wallet) => walletOptionLabel(wallet, wallets) === form.paidFrom)?.id ?? ""} onChange={(id) => { const wallet = walletChoices.find((item) => item.id === id); if (wallet) { fld("paidFrom", walletOptionLabel(wallet, wallets)); fld("walletName", wallet.name); } }} wallets={wallets} required />
             </div>
             <Input label="Perusahaan / Klien" placeholder="cth. PT Maju Bersama" value={form.company} onChange={(e) => fld("company", e.target.value)} required />
           </div>
