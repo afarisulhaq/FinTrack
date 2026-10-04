@@ -2,7 +2,7 @@
 
 import * as Select from "@radix-ui/react-select";
 import { useId } from "react";
-import { flattenWalletTree } from "~/lib/wallets";
+import { flattenWalletTree, walletOptionLabel } from "~/lib/wallets";
 import { useFinanceStore } from "~/store/useFinanceStore";
 
 export function WalletSelect({
@@ -46,7 +46,7 @@ export function WalletSelect({
           <Select.Content
             position="popper"
             sideOffset={4}
-            className="bg-bg-surface border-border text-text-primary z-[110] max-h-[var(--radix-select-content-available-height)] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-lg border shadow-md"
+            className="bg-bg-surface border-border text-text-primary pointer-events-auto z-[110] max-h-[var(--radix-select-content-available-height)] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-lg border shadow-md"
           >
             <Select.Viewport className="max-h-60 overflow-y-auto p-1">
               {wallets.map((wallet) => (
@@ -55,7 +55,7 @@ export function WalletSelect({
                   value={wallet.id}
                   className="data-[highlighted]:bg-bg-elevated cursor-pointer rounded-md px-3 py-2 text-sm outline-none"
                 >
-                  <Select.ItemText>{wallet.name}</Select.ItemText>
+                  <Select.ItemText>{walletOptionLabel(wallet, tree)}</Select.ItemText>
                 </Select.Item>
               ))}
             </Select.Viewport>

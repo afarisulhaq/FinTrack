@@ -1,5 +1,6 @@
 "use client";
 
+import { flattenWalletTree, walletOptionLabel } from "~/lib/wallets";
 import { useState, useMemo } from "react";
 import { Receipt, Plus, Trash2, Check, Building, Wallet } from "lucide-react";
 import { PageWrapper } from "~/components/layout/page-wrapper";
@@ -16,9 +17,11 @@ import type { ReimbursementStatus } from "~/lib/types";
 
 type StatusFilter = "Semua" | ReimbursementStatus;
 
-const WALLETS = ["BCA Tabungan", "BCA Credit Card", "Mandiri Tabungan", "Tunai", "CIMB Credit Card", "GoPay"];
+
 
 export default function ReimbursementPage() {
+  const wallets = useFinanceStore((s) => s.wallets);
+  const walletChoices = flattenWalletTree(wallets);
   const reimbursements = useFinanceStore((s) => s.reimbursements);
   const addReimbursement = useFinanceStore((s) => s.addReimbursement);
   const deleteReimbursement = useFinanceStore((s) => s.deleteReimbursement);
@@ -27,7 +30,7 @@ export default function ReimbursementPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("Semua");
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({
-    title: "", amount: "", paidFrom: "BCA Tabungan", walletName: "BCA Tabungan",
+    title: "", amount: "", paidFrom: "", walletName: "",
     project: "", company: "", submittedDate: "", notes: "", receiptUrl: "",
   });
 
@@ -43,7 +46,7 @@ export default function ReimbursementPage() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.title || !form.amount || !form.company) return;
+    if (!form.title || !form.amount || !form.company || !form.paidFrom) return;
     addReimbursement({
       title: form.title,
       amount: parseFloat(form.amount),
@@ -56,7 +59,7 @@ export default function ReimbursementPage() {
       notes: form.notes || undefined,
       receiptUrl: form.receiptUrl || undefined,
     });
-    setForm({ title: "", amount: "", paidFrom: "BCA Tabungan", walletName: "BCA Tabungan", project: "", company: "", submittedDate: "", notes: "", receiptUrl: "" });
+    setForm({ title: "", amount: "", paidFrom: "", walletName: "", project: "", company: "", submittedDate: "", notes: "", receiptUrl: "" });
     setShowModal(false);
   }
 
@@ -205,7 +208,8 @@ export default function ReimbursementPage() {
                 onChange={(e) => { fld("paidFrom", e.target.value); fld("walletName", e.target.value); }}
                 className="h-10 px-3 rounded-lg bg-bg-surface border border-border text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
               >
-                {WALLETS.map((w) => <option key={w}>{w}</option>)}
+                <option value="" disabled>Pilih dompet</option>
+                {walletChoices.map((w) => <option key={w.id} value={walletOptionLabel(w, wallets)}>{walletOptionLabel(w, wallets)}</option>)}
               </select>
             </div>
             <Input label="Perusahaan / Klien" placeholder="cth. PT Maju Bersama" value={form.company} onChange={(e) => fld("company", e.target.value)} required />

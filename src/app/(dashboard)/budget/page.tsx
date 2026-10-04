@@ -1,5 +1,7 @@
 "use client";
 
+import { flattenWalletTree, walletOptionLabel } from "~/lib/wallets";
+
 import { useState, useMemo } from "react";
 import { Plus, Pencil, Trash2, PiggyBank, AlertTriangle } from "lucide-react";
 import { DynamicIcon } from "~/components/ui/dynamic-icon";
@@ -82,25 +84,6 @@ const EMPTY_FORM: BudgetForm = {
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
 /** Flatten wallets: parent wallets + embedded children */
-function flattenWallets(wallets: Wallet[]): Wallet[] {
-  const seen = new Set<string>();
-  const result: Wallet[] = [];
-  for (const w of wallets) {
-    if (!seen.has(w.id)) {
-      seen.add(w.id);
-      result.push(w);
-    }
-    if (w.children) {
-      for (const c of w.children) {
-        if (!seen.has(c.id)) {
-          seen.add(c.id);
-          result.push(c);
-        }
-      }
-    }
-  }
-  return result;
-}
 
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
@@ -125,7 +108,7 @@ export default function BudgetPage() {
 
   // ── Derived data ─────────────────────────────────────────────────────────────
 
-  const allWallets = useMemo(() => flattenWallets(wallets), [wallets]);
+  const allWallets = useMemo(() => flattenWalletTree(wallets), [wallets]);
 
   const filteredBudgets = useMemo(
     () => budgets.filter((b) => b.period === period),
@@ -871,7 +854,7 @@ export default function BudgetPage() {
               <option value="">(Semua Dompet)</option>
               {allWallets.map((w) => (
                 <option key={w.id} value={w.id}>
-                  {w.name}
+                  {walletOptionLabel(w, allWallets)}
                 </option>
               ))}
             </select>

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
   flattenWalletTree,
+  walletOptionLabel,
   normalizeWalletTree,
   totalWalletBalance,
   walletGroupBalance,
@@ -48,6 +49,15 @@ assert.equal(
   ),
   30,
 );
+
+const nested = {
+  ...make("bank", 0),
+  children: [{ ...make("pocket", 0), children: [make("holiday", 0)] }],
+};
+const nestedOptions = flattenWalletTree([nested]);
+assert.equal(walletOptionLabel(nestedOptions[2], [nested]), "bank > pocket > holiday");
+assert.equal(walletOptionLabel(other, tree), "other");
+assert.equal(walletOptionLabel(make("a", 0, "b"), [make("a", 0, "b"), make("b", 0, "a")]), "b > a");
 
 const storage = {
   getItem: (key: string) =>

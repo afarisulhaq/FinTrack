@@ -1,5 +1,7 @@
 "use client";
 
+import { flattenWalletTree, walletOptionLabel } from "~/lib/wallets";
+
 import { useState, useMemo } from "react";
 import {
   Plus,
@@ -104,18 +106,6 @@ function toMonthly(amount: number, period: RecurringPeriod): number {
 
 // ─── Wallet flattener ─────────────────────────────────────────────────────────
 
-function flattenWallets(wallets: Wallet[]): Wallet[] {
-  const seen = new Set<string>();
-  const result: Wallet[] = [];
-  function visit(w: Wallet) {
-    if (seen.has(w.id)) return;
-    seen.add(w.id);
-    result.push(w);
-    w.children?.forEach(visit);
-  }
-  wallets.forEach(visit);
-  return result;
-}
 
 // ─── Toggle Switch ────────────────────────────────────────────────────────────
 
@@ -215,7 +205,7 @@ export default function RecurringPage() {
   const [form, setForm] = useState<RecurringForm>(DEFAULT_FORM);
 
   // ── Helpers ────────────────────────────────────────────────────────────────
-  const allWallets = useMemo(() => flattenWallets(wallets), [wallets]);
+  const allWallets = useMemo(() => flattenWalletTree(wallets), [wallets]);
 
   const walletMap = useMemo(
     () => new Map(allWallets.map((w) => [w.id, w.name])),
@@ -790,7 +780,7 @@ export default function RecurringPage() {
               </option>
               {allWallets.map((w) => (
                 <option key={w.id} value={w.id}>
-                  {w.name}
+                  {walletOptionLabel(w, allWallets)}
                 </option>
               ))}
             </select>

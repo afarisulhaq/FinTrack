@@ -73,3 +73,18 @@ export function updateWalletTree(
     ),
   );
 }
+
+export function walletOptionLabel(wallet: Wallet, wallets: Wallet[]): string {
+  const byId = new Map(flattenWalletTree(wallets).map((item) => [item.id, item]));
+  const names = [wallet.name];
+  const seen = new Set([wallet.id]);
+  let parentId = wallet.parentId ?? byId.get(wallet.id)?.parentId;
+  while (parentId && !seen.has(parentId)) {
+    seen.add(parentId);
+    const parent = byId.get(parentId);
+    if (!parent) break;
+    names.unshift(parent.name);
+    parentId = parent.parentId;
+  }
+  return names.join(" > ");
+}

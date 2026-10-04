@@ -1,5 +1,7 @@
 "use client";
 
+import { walletOptionLabel } from "~/lib/wallets";
+
 import { useEffect, useState } from "react";
 import * as Tabs from "@radix-ui/react-tabs";
 import * as Switch from "@radix-ui/react-switch";
@@ -2536,7 +2538,7 @@ function DataEksporTab() {
                         >
                           <option value="">Pilih dompet</option>
                           {wallets.flatMap((wallet) => [wallet, ...(wallet.children ?? [])]).map((wallet) => (
-                            <option key={wallet.id} value={wallet.id}>{wallet.parentId ? "↳ " : ""}{wallet.name}</option>
+                            <option key={wallet.id} value={wallet.id}>{walletOptionLabel(wallet, wallets)}</option>
                           ))}
                         </select>
                       </label>
@@ -2606,7 +2608,7 @@ function DataEksporTab() {
                                     <label className="text-text-secondary mt-2 block">Dompet tujuan
                                       <select value={String(row.walletId ?? "")} onChange={(event) => updateBackupTransaction(index, event.target.value)} className="border-border bg-bg-surface text-text-primary mt-1 w-full rounded-lg border px-2 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
                                         <option value="">Pilih dompet</option>
-                                        {availableWallets.map((wallet) => <option key={wallet.id} value={wallet.id}>{wallet.parentId ? "↳ " : ""}{wallet.name}</option>)}
+                                        {availableWallets.map((wallet) => <option key={wallet.id} value={wallet.id}>{walletOptionLabel(wallet, availableWallets)}</option>)}
                                       </select>
                                     </label>
                                   )}

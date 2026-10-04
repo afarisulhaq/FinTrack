@@ -26,7 +26,7 @@ import { localDateValue, transactionMonth } from "~/lib/date";
 import { useFinanceStore } from "~/store/useFinanceStore";
 import { formatCurrency, formatDate, groupByDate } from "~/lib/utils";
 import type { Transaction, TransactionType, Wallet } from "~/lib/types";
-import { flattenWalletTree } from "~/lib/wallets";
+import { flattenWalletTree, walletOptionLabel } from "~/lib/wallets";
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
@@ -129,6 +129,7 @@ function WalletPicker({
   wallets: Wallet[];
   placeholder: string;
 }) {
+  const walletTree = useFinanceStore((state) => state.wallets);
   return (
     <Select.Root value={value} onValueChange={onChange} required>
       <Select.Trigger
@@ -154,8 +155,7 @@ function WalletPicker({
                 className="data-[highlighted]:bg-bg-elevated data-[highlighted]:text-text-primary cursor-pointer rounded-md px-3 py-2 text-sm outline-none"
               >
                 <Select.ItemText>
-                  {wallet.parentId ? "↳ " : ""}
-                  {wallet.name}
+                  {walletOptionLabel(wallet, walletTree)}
                 </Select.ItemText>
               </Select.Item>
             ))}
@@ -588,7 +588,7 @@ export default function TransactionsPage() {
               <option value="Semua Dompet">Semua Dompet</option>
               {allWallets.map((w) => (
                 <option key={w.id} value={w.id}>
-                  {w.name}
+                  {walletOptionLabel(w, allWallets)}
                 </option>
               ))}
             </select>

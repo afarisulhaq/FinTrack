@@ -1,5 +1,7 @@
 "use client";
 
+import { walletOptionLabel } from "~/lib/wallets";
+
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
@@ -630,8 +632,7 @@ export function BusinessesView({ businessId }: { businessId?: string }) {
               <option value="">Tanpa dompet</option>
               {choices.map((w) => (
                 <option key={w.id} value={w.id}>
-                  {w.parentId ? "↳ " : ""}
-                  {w.name}
+                  {walletOptionLabel(w, choices)}
                 </option>
               ))}
             </select>

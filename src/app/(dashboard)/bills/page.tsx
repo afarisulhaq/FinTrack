@@ -46,6 +46,7 @@ export default function BillsPage() {
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({
     name: "",
+    walletId: "",
     amount: "",
     dueDate: "",
     category: "Utilitas",
@@ -113,6 +114,7 @@ export default function BillsPage() {
     if (!form.name || !form.amount || !form.dueDate) return;
     addBill({
       name: form.name,
+      walletId: form.walletId || undefined,
       amount: parseFloat(form.amount),
       dueDate: new Date(form.dueDate).toISOString(),
       status: "unpaid",
@@ -123,6 +125,7 @@ export default function BillsPage() {
     });
     setForm({
       name: "",
+      walletId: "",
       amount: "",
       dueDate: "",
       category: "Utilitas",
@@ -519,6 +522,15 @@ export default function BillsPage() {
               ))}
             </div>
           )}
+          <WalletSelect
+            value={form.walletId}
+            onChange={(value) => fld("walletId", value)}
+            label="Dompet pembayaran"
+            required={false}
+          />
+          <p className="text-text-secondary text-xs">
+            Saldo berkurang saat pembayaran dicatat.
+          </p>
           <div className="flex justify-end gap-3 pt-2">
             <Button
               type="button"
