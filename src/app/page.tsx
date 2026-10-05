@@ -28,6 +28,7 @@ import {
 import { useAppConfigStore } from "~/store/useAppConfigStore";
 import { DynamicIcon } from "~/components/ui/dynamic-icon";
 import { applyBrand } from "~/lib/brand";
+import { useSessionRedirect } from "~/lib/use-session-redirect";
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -226,6 +227,7 @@ function AnimatedGlow({
 // ── Main Page ─────────────────────────────────────────────────────────────
 
 export default function LandingPage() {
+  useSessionRedirect();
   const { config } = useAppConfigStore();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);

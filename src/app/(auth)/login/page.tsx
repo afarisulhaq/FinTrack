@@ -9,6 +9,7 @@ import { Turnstile, resetTurnstile } from "~/components/auth/turnstile";
 import { useAuthStore } from "~/store/useAuthStore";
 import { useAppConfigStore } from "~/store/useAppConfigStore";
 import { env } from "~/env";
+import { useSessionRedirect } from "~/lib/use-session-redirect";
 
 interface FormErrors {
   email?: string;
@@ -17,6 +18,7 @@ interface FormErrors {
 }
 
 export default function LoginPage() {
+  useSessionRedirect();
   const hasHandledQueryLogin = useRef(false);
   const { login, isLoading, error, clearError } = useAuthStore();
   const { config } = useAppConfigStore();
