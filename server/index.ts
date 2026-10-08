@@ -11,6 +11,7 @@ import { Elysia } from "elysia";
 import { authRoutes } from "./routes/auth.js";
 import { financeRoutes, resourceRoutes } from "./routes/finance.js";
 import { businessRoutes } from "./routes/business.js";
+import { subscriptionRoutes } from "./routes/subscriptions.js";
 import { botRoutes } from "./routes/bot.js";
 import { publicMarketRoutes } from "./routes/public-market.js";
 import { publicSplitBillRoutes } from "./routes/public-split-bills.js";
@@ -50,6 +51,7 @@ const app = new Elysia({ adapter: node() })
   .use(authRoutes)
   .use(financeRoutes)
   .use(businessRoutes)
+  .use(subscriptionRoutes)
   .use(resourceRoutes)
   .use(botRoutes)
   .use(publicMarketRoutes)

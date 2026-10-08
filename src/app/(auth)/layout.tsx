@@ -122,7 +122,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
             >
               <DynamicIcon
                 name={config.logoIcon || "TrendingUp"}
-                className="h-6 w-6 text-on-primary"
+                className="text-on-primary h-6 w-6"
               />
             </div>
             <span
@@ -188,33 +188,6 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
                     {desc}
                   </p>
                 </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Stat badges */}
-          <div className="mt-14 flex items-center gap-4">
-            {[
-              { value: "50k+", label: "Pengguna Aktif" },
-              { value: "99.9%", label: "Uptime" },
-              { value: "4.9★", label: "Rating" },
-            ].map(({ value, label }) => (
-              <div
-                key={label}
-                style={{
-                  background: "var(--auth-stat-bg)",
-                  border: "1px solid var(--auth-stat-border)",
-                  borderRadius: "10px",
-                  padding: "8px 14px",
-                }}
-              >
-                <p
-                  className="text-sm font-bold"
-                  style={{ color: "var(--auth-icon-color)" }}
-                >
-                  {value}
-                </p>
-                <p className="text-text-muted text-xs">{label}</p>
               </div>
             ))}
           </div>

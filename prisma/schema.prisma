@@ -35,6 +35,39 @@ model User {
     disposableIncome Decimal?
     createdAt        DateTime   @default(now())
     updatedAt        DateTime   @updatedAt
+    subscription     Subscription?
+    subscriptionInvoices SubscriptionInvoice[]
+}
+
+model Subscription {
+    id        String   @id @default(cuid())
+    userId    String   @unique
+    user      User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+    plan      String
+    expiresAt DateTime
+    updatedAt DateTime @updatedAt
+}
+
+model SubscriptionInvoice {
+    id                    String   @id @default(cuid())
+    userId                String
+    user                  User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+    plan                  String
+    planName              String
+    baseAmount            Int
+    amount                Int      @unique
+    durationDays          Int
+    status                String   @default("creating")
+    qrisCode              String?
+    gatewayReference      String?
+    gatewayAccount        String
+    providerTransactionId String?  @unique
+    paidAt                DateTime?
+    lastCheckedAt         DateTime?
+    createdAt             DateTime @default(now())
+    expiresAt             DateTime
+
+    @@index([userId, createdAt])
 }
 
 model AppSetting {

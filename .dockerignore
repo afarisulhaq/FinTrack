@@ -54,3 +54,6 @@ ind.traineddata
 fix-orphans.mjs
 test-*.mjs
 .baileys-session/
+
+# QRIS gateway has its own build context and persistent volume.
+qris-gateway/

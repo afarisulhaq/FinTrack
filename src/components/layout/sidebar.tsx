@@ -91,6 +91,7 @@ const NAV_GROUPS: NavGroup[] = [
       { label: "Reimburse", icon: RefreshCw, href: "/reimbursement" },
       { label: "Catatan", icon: StickyNote, href: "/notes" },
       { label: "Statistik", icon: BarChart3, href: "/statistics" },
+      { label: "Langganan", icon: CreditCard, href: "/subscription" },
     ],
   },
   {
@@ -149,7 +150,7 @@ function NavLink({
         "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150",
         collapsed && "justify-center px-2 py-2.5",
         isActive
-          ? "bg-primary/10 text-primary font-semibold shadow-subtle"
+          ? "bg-primary/10 text-primary shadow-subtle font-semibold"
           : "text-text-secondary hover:bg-bg-elevated hover:text-text-primary",
       )}
     >
@@ -159,14 +160,16 @@ function NavLink({
       <Icon
         className={cn(
           "h-[18px] w-[18px] shrink-0 transition-colors",
-          isActive ? "text-primary" : "text-text-muted group-hover:text-text-primary",
+          isActive
+            ? "text-primary"
+            : "text-text-muted group-hover:text-text-primary",
         )}
       />
       {!collapsed && (
         <span className="truncate leading-none">{item.label}</span>
       )}
       {collapsed && (
-        <div className="bg-bg-surface border-border text-text-primary pointer-events-none absolute left-full z-50 ml-3 translate-x-1 rounded-lg border px-2.5 py-1.5 text-xs font-semibold whitespace-nowrap opacity-0 shadow-elevated transition-all duration-150 group-hover:translate-x-0 group-hover:opacity-100">
+        <div className="bg-bg-surface border-border text-text-primary shadow-elevated pointer-events-none absolute left-full z-50 ml-3 translate-x-1 rounded-lg border px-2.5 py-1.5 text-xs font-semibold whitespace-nowrap opacity-0 transition-all duration-150 group-hover:translate-x-0 group-hover:opacity-100">
           {item.label}
         </div>
       )}

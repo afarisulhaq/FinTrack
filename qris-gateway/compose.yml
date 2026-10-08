@@ -1,0 +1,13 @@
+services:
+  gateway:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3010:3010"
+    environment:
+      PUBLIC_URL: ${PUBLIC_URL:-http://127.0.0.1:3010}
+      SECURE_COOKIES: ${SECURE_COOKIES:-false}
+    volumes:
+      - qris_gateway_data:/app/data
+volumes:
+  qris_gateway_data:

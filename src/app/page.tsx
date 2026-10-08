@@ -16,7 +16,6 @@ import {
   ChevronRight,
   Menu,
   X,
-  Check,
   Sparkles,
   ArrowUpRight,
   LayoutDashboard,
@@ -93,59 +92,6 @@ const FEATURES_SECTIONS = [
   },
 ] as const;
 
-const PRICING = [
-  {
-    name: "Starter",
-    price: "Gratis",
-    period: "selamanya",
-    desc: "Cukup untuk pribadi mulai catat keuangan.",
-    popular: false,
-    features: [
-      "Dompet & transaksi tak terbatas",
-      "Dashboard keuangan dasar",
-      "10 transaksi/bulan via bot WhatsApp",
-      "Target tabungan",
-      "Ekspor CSV bulanan",
-    ],
-    cta: "Mulai Gratis",
-    href: "/register",
-  },
-  {
-    name: "Pro",
-    price: "Rp 29rb",
-    period: "/bulan",
-    desc: "Untuk pengguna aktif dengan portofolio & tim.",
-    popular: true,
-    features: [
-      "Semua fitur Starter",
-      "Investasi real-time + Yahoo Finance",
-      "Bot WhatsApp/Telegram tak terbatas",
-      "Split Bill QRIS + public payment",
-      "Multi-user (owner + 3 member)",
-      "Laporan PDF otomatis",
-    ],
-    cta: "Coba Gratis 7 Hari",
-    href: "/register?plan=pro",
-  },
-  {
-    name: "Enterprise",
-    price: "Rp 99rb",
-    period: "/bulan",
-    desc: "Untuk bisnis & keluarga besar.",
-    popular: false,
-    features: [
-      "Semua fitur Pro",
-      "User & role tak terbatas",
-      "AI prediksi anggaran",
-      "Export data legal (PDF/CSV/Excel)",
-      "Prioritas support via WhatsApp",
-      "White-label branding",
-    ],
-    cta: "Hubungi Kami",
-    href: "mailto:support@fintrack.app",
-  },
-] as const;
-
 const FAQS = [
   {
     q: "Apakah data saya aman?",
@@ -164,8 +110,8 @@ const FAQS = [
     a: "Bisa! Dengan fitur Multi-User, kamu bisa tambah pasangan atau anak sebagai Member dengan hak akses terbatas: cocok untuk keuangan keluarga atau bisnis kecil.",
   },
   {
-    q: "Apakah ada uji coba gratis?",
-    a: "Ya, kamu bisa coba semua fitur Pro gratis selama 7 hari tanpa komitmen. Tidak perlu kartu kredit.",
+    q: "Apakah FinTrack berbayar?",
+    a: "Saat ini FinTrack bisa digunakan gratis. Paket berbayar dan pembayaran langganan belum tersedia. Harga dan ketentuan paket akan diumumkan saat layanan langganan siap.",
   },
   {
     q: "Data investasi dari mana?",
@@ -419,32 +365,6 @@ export default function LandingPage() {
               </div>
             ))}
           </div>
-
-          {/* Stats bar */}
-          <div className="mt-14 grid grid-cols-2 gap-4 border-t border-[var(--border)] pt-10 sm:grid-cols-4">
-            {[
-              { value: "Rp 2,4T+", label: "Transaksi Dicatat" },
-              { value: "50.000+", label: "Pengguna Aktif" },
-              { value: "99.9%", label: "Uptime Server" },
-              { value: "4.9★", label: "Rating Pengguna" },
-            ].map(({ value, label }) => (
-              <div key={label} className="text-center">
-                <p
-                  className="text-xl font-extrabold sm:text-2xl"
-                  style={{
-                    background: "var(--gradient-primary)",
-                    WebkitBackgroundClip: "text",
-                    WebkitTextFillColor: "transparent",
-                  }}
-                >
-                  {value}
-                </p>
-                <p className="mt-0.5 text-xs text-[var(--text-muted)]">
-                  {label}
-                </p>
-              </div>
-            ))}
-          </div>
         </div>
       </section>
 
@@ -524,9 +444,9 @@ export default function LandingPage() {
                 </span>
               </h2>
               <p className="mt-4 text-sm leading-relaxed text-[var(--text-secondary)]">
-                {config.appName} dirancang agar kamu tidak perlu berpindah aplikasi.
-                Cukup kirim pesan ke bot, foto struk, atau buka dashboard: semua
-                terpantau.
+                {config.appName} dirancang agar kamu tidak perlu berpindah
+                aplikasi. Cukup kirim pesan ke bot, foto struk, atau buka
+                dashboard: semua terpantau.
               </p>
 
               <div className="mt-8 space-y-5">
@@ -651,82 +571,34 @@ export default function LandingPage() {
         style={{ background: "var(--gradient-surface)" }}
       >
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
-          <div className="mx-auto max-w-2xl text-center">
-            <p className="text-primary mb-3 text-xs font-semibold tracking-widest uppercase">
-              Harga
-            </p>
-            <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">
-              Investasi kecil untuk{" "}
-              <span
-                style={{
-                  background: "var(--gradient-primary)",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                }}
+          <div className="mx-auto grid max-w-4xl gap-8 rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] p-6 sm:p-10 md:grid-cols-[1.5fr_1fr] md:items-center">
+            <div>
+              <p className="mb-3 text-sm font-semibold text-[var(--text-secondary)]">
+                Harga
+              </p>
+              <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">
+                Gunakan {config.appName} gratis saat ini
+              </h2>
+              <p className="mt-4 text-sm leading-relaxed text-[var(--text-secondary)]">
+                Mulai catat transaksi, kelola dompet, dan pantau target tabungan
+                tanpa biaya langganan.
+              </p>
+              <Link
+                href="/register"
+                className="bg-primary text-on-primary hover:bg-primary-hover mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-lg px-6 py-3 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] sm:w-auto"
               >
-                masa depan finansial
-              </span>
-            </h2>
-            <p className="mt-4 text-sm leading-relaxed text-[var(--text-secondary)]">
-              Pilih paket yang sesuai. Semua paket bisa upgrade kapan saja.
-            </p>
-          </div>
-
-          <div className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-3">
-            {PRICING.map((p) => (
-              <div
-                key={p.name}
-                className={`relative rounded-2xl border p-6 transition-all hover:shadow-lg ${
-                  p.popular
-                    ? "border-primary/40 bg-primary/[0.04] shadow-primary/10"
-                    : "border-[var(--border)] bg-[var(--bg-surface)]"
-                }`}
-              >
-                {p.popular && (
-                  <div
-                    className="text-on-primary absolute -top-3 right-6 rounded-full px-3 py-0.5 text-[10px] font-bold shadow-lg"
-                    style={{ background: "var(--gradient-primary)" }}
-                  >
-                    POPULER
-                  </div>
-                )}
-
-                <h3 className="text-lg font-bold">{p.name}</h3>
-                <p className="mt-1 text-xs text-[var(--text-muted)]">
-                  {p.desc}
-                </p>
-
-                <div className="mt-5 mb-5">
-                  <span className="text-3xl font-extrabold">{p.price}</span>
-                  {p.period && (
-                    <span className="ml-1 text-sm text-[var(--text-muted)]">
-                      {p.period}
-                    </span>
-                  )}
-                </div>
-
-                <ul className="mb-6 space-y-2.5">
-                  {p.features.map((f) => (
-                    <li key={f} className="flex items-start gap-2.5 text-xs">
-                      <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#22c55e]" />
-                      <span className="text-[var(--text-secondary)]">{f}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                <Link
-                  href={p.href}
-                  className={`flex w-full items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-semibold transition-all ${
-                    p.popular
-                      ? "bg-primary text-on-primary hover:bg-primary-hover shadow-primary/25 shadow-lg"
-                      : "border border-[var(--border)] bg-[var(--bg-elevated)] text-[var(--text-primary)] hover:bg-[var(--border)]"
-                  }`}
-                >
-                  {p.cta}
-                  <ArrowUpRight className="h-3.5 w-3.5" />
-                </Link>
-              </div>
-            ))}
+                Buat akun gratis
+              </Link>
+            </div>
+            <div className="border-t border-[var(--border)] pt-6 md:border-t-0 md:border-l md:pt-0 md:pl-8">
+              <h3 className="text-base font-semibold">
+                Paket berbayar belum tersedia
+              </h3>
+              <p className="mt-3 text-sm leading-relaxed text-[var(--text-secondary)]">
+                Harga dan ketentuan paket akan diumumkan saat layanan langganan
+                siap. Saat ini belum ada pembayaran atau perpanjangan langganan.
+              </p>
+            </div>
           </div>
         </div>
       </section>
@@ -756,7 +628,7 @@ export default function LandingPage() {
             {FAQS.map((faq, i) => (
               <div
                 key={i}
-                className="rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] transition-colors hover:border-primary/20"
+                className="hover:border-primary/20 rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] transition-colors"
               >
                 <button
                   type="button"
@@ -820,8 +692,8 @@ export default function LandingPage() {
                 keuanganmu?
               </h2>
               <p className="mx-auto mt-4 max-w-lg text-sm leading-relaxed text-[var(--text-secondary)]">
-                Gabung 50.000+ pengguna yang sudah merapikan keuangan dengan{" "}
-                {config.appName}. Gratis selamanya, tanpa kartu kredit.
+                Catat pemasukan dan pengeluaranmu di {config.appName}, lalu
+                pantau saldo setiap dompet. Saat ini bisa digunakan gratis.
               </p>
               <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
                 <Link
@@ -866,7 +738,8 @@ export default function LandingPage() {
             </div>
           </div>
           <p className="mt-6 text-center text-[11px] text-[var(--text-muted)] sm:text-left">
-            &copy; {new Date().getFullYear()} {config.appName}. {config.footerText || "All rights reserved."}
+            &copy; {new Date().getFullYear()} {config.appName}.{" "}
+            {config.footerText || "All rights reserved."}
           </p>
         </div>
       </footer>

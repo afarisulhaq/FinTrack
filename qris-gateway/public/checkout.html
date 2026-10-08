@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Pembayaran QRIS</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <script type="module" src="/checkout.js"></script>
+  </head>
+  <body>
+    <main class="checkout">
+      <p class="eyebrow">QRIS Gateway</p>
+      <section class="panel">
+        <h1>Pembayaran QRIS</h1>
+        <div id="payment">
+          <p role="status" class="muted">Memuat invoice...</p>
+        </div>
+        <p id="checkout-error" class="error" role="alert"></p>
+        <button id="retry" class="quiet" hidden>Muat ulang invoice</button>
+      </section>
+      <p class="footnote">
+        Pastikan nama merchant dan nominal sesuai sebelum membayar. Kode QR lama
+        mungkin tetap dapat dibayar oleh bank; jangan gunakan setelah batas
+        waktu.
+      </p>
+    </main>
+  </body>
+</html>

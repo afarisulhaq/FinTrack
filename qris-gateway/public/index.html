@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>QRIS Gateway</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <script type="module" src="/app.js"></script>
+  </head>
+  <body>
+    <section id="login-screen" class="login-screen">
+      <div class="login-panel">
+        <p class="eyebrow">QRIS Gateway</p>
+        <h1>Pembayaran dalam satu catatan.</h1>
+        <p class="muted">
+          Kelola invoice, koneksi merchant, dan API pembayaran QRIS.
+        </p>
+        <form id="login-form">
+          <label
+            >Nama login<input name="username" autocomplete="username" required
+          /></label>
+          <label
+            >Password<input
+              name="password"
+              type="password"
+              autocomplete="current-password"
+              required
+          /></label>
+          <button class="primary" type="submit">Masuk ke dashboard</button>
+        </form>
+        <p id="login-error" role="alert" class="error"></p>
+        <p class="footnote">
+          Login admin terpisah dari akun GoBiz. Akun admin dibuat melalui setup
+          di server.
+        </p>
+      </div>
+    </section>
+    <div id="workspace" hidden>
+      <aside class="sidebar">
+        <a class="brand" href="#overview">QRIS <span>Gateway</span></a>
+        <p class="sidebar-caption">Pembayaran merchant</p>
+        <nav aria-label="Navigasi utama">
+          <a href="#overview">Ringkasan</a><a href="#invoices">Invoice QRIS</a>
+          <a href="#transactions">Mutasi</a
+          ><a href="#connection">Koneksi merchant</a
+          ><a href="#keys">API & integrasi</a>
+        </nav>
+        <div class="sidebar-bottom">
+          <p id="operator"></p>
+          <button id="logout" class="quiet">Keluar</button>
+        </div>
+      </aside>
+      <div class="main-shell">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Panel merchant</p>
+            <h1 id="page-title">Ringkasan</h1>
+          </div>
+          <div class="header-actions">
+            <button id="theme-button" class="quiet" aria-label="Ganti tema">
+              Tema gelap</button
+            ><button id="refresh" class="quiet">Muat ulang</button>
+          </div>
+        </header>
+        <main>
+          <p id="notice" role="status" class="notice" hidden></p>
+          <p id="page-error" role="alert" class="error-panel" hidden></p>
+          <div id="content"><p class="muted">Memuat data gateway...</p></div>
+        </main>
+        <footer>QRIS Gateway · Integrasi GoPay merchant tidak resmi</footer>
+      </div>
+    </div>
+    <dialog id="invoice-dialog">
+      <div class="dialog-header">
+        <h2>Invoice QRIS baru</h2>
+        <button
+          type="button"
+          id="close-invoice"
+          class="quiet"
+          aria-label="Tutup formulir invoice"
+        >
+          Tutup
+        </button>
+      </div>
+      <form id="invoice-form">
+        <label
+          >Referensi invoice<input
+            name="reference"
+            maxlength="120"
+            placeholder="Contoh: nomor pesanan"
+            required /></label
+        ><label
+          >Keterangan<input
+            name="description"
+            maxlength="300"
+            placeholder="Apa yang dibayar?"
+            required /></label
+        ><label
+          >Harga dasar (Rp)<input
+            name="amount"
+            type="number"
+            min="1"
+            max="100000000"
+            step="1"
+            required
+        /></label>
+        <p class="footnote">
+          Total pembayaran akan ditambah nominal unik Rp1 sampai Rp999. Rincian
+          total ditampilkan setelah invoice dibuat. QRIS berlaku lima menit.
+        </p>
+        <button type="submit" class="primary">Buat invoice</button>
+        <p class="dialog-error error" role="alert"></p>
+      </form>
+    </dialog>
+    <dialog id="payment-dialog">
+      <div class="dialog-header">
+        <h2>Rincian invoice</h2>
+        <button
+          id="close-payment"
+          class="quiet"
+          aria-label="Tutup rincian invoice"
+        >
+          Tutup
+        </button>
+      </div>
+      <div id="payment-details"></div>
+      <p class="dialog-error error" role="alert"></p>
+    </dialog>
+    <dialog id="key-dialog">
+      <div class="dialog-header">
+        <h2>API key dibuat</h2>
+        <button id="close-key" class="quiet" aria-label="Tutup API key">
+          Tutup
+        </button>
+      </div>
+      <p>
+        Simpan API key ini di backend aplikasi. Setelah ditutup, nilainya tidak
+        ditampilkan lagi.
+      </p>
+      <label>API key<input id="new-key" readonly autocomplete="off" /></label
+      ><button id="copy-key" class="primary">Salin API key</button>
+      <p id="copy-status" role="status"></p>
+    </dialog>
+  </body>
+</html>
