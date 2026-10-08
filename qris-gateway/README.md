@@ -134,6 +134,13 @@ jaringan Compose; jangan memakai localhost untuk komunikasi antar container.
 Gateway mempunyai healthcheck dan volume `qris-gateway-data` tersendiri. Gateway
 menyala sebelum FinTrack mulai, tanpa membutuhkan akun merchant untuk healthcheck.
 
+Compose utama mempertahankan jaringan eksternal `web` untuk FinTrack dan reverse
+proxy. FinTrack dan gateway berbagi jaringan bridge `gateway`; gateway tetap bisa
+menghubungi GoBiz. Jaringan `web` harus sudah tersedia di server. Jika reverse
+proxy berada dalam container pada jaringan `web` dan akan mempublikasikan dashboard
+gateway, hubungkan proxy juga ke jaringan gateway atau tambahkan `web` pada
+service `qris-gateway`, kemudian atur origin HTTPS dashboard.
+
 Untuk domain gateway publik, isi `QRIS_GATEWAY_PUBLIC_URL` dengan origin HTTPS
 dan `QRIS_GATEWAY_SECURE_COOKIES=true` di `.env.production`. Pasang reverse proxy
 ke port localhost 3010. Bila mengubah `QRIS_GATEWAY_PORT`, sesuaikan juga port

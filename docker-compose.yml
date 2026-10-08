@@ -34,6 +34,9 @@ services:
     depends_on:
       qris-gateway:
         condition: service_healthy
+    networks:
+      - web
+      - gateway
     ports:
       # Browser-facing Next.js. Put a reverse proxy (Caddy / Nginx /
       # Cloudflare Tunnel) in front of this in production for TLS
@@ -75,6 +78,8 @@ services:
       dockerfile: Dockerfile
     image: fintrack-qris-gateway:latest
     restart: unless-stopped
+    networks:
+      - gateway
     environment:
       HOST: 0.0.0.0
       PORT: 3010
@@ -105,3 +110,8 @@ volumes:
   whatsapp-session:
   fintrack-data:
   qris-gateway-data:
+
+networks:
+  web:
+    external: true
+  gateway:
