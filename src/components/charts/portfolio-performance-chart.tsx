@@ -98,9 +98,17 @@ function PortfolioPerformanceChart({
 
   // Sort best → worst for a clean ladder
   const sorted = [...data].sort((a, b) => b.value - a.value);
+  const chartHeight = Math.max(height, sorted.length * 32);
 
   return (
-    <div style={{ height }}>
+    <div
+      role="region"
+      aria-label="Grafik performa aset"
+      tabIndex={chartHeight > height ? 0 : undefined}
+      style={{ maxHeight: height, overflowY: "auto" }}
+      className="focus-visible:outline-2 focus-visible:outline-text-primary"
+    >
+      <div style={{ height: chartHeight }}>
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
           data={sorted}
@@ -131,6 +139,7 @@ function PortfolioPerformanceChart({
           </Bar>
         </BarChart>
       </ResponsiveContainer>
+      </div>
     </div>
   );
 }

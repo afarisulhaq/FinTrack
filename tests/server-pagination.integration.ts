@@ -81,6 +81,20 @@ try {
     assert.ok(second.items.every((row) => !first.items.some((item) => item.id === row.id)), resource);
     assert.deepEqual(first.summary, second.summary, `${resource}: summaries must not shrink to the visible page`);
   }
+  const defaultPage = await page("/transactions");
+  assert.equal(defaultPage.pageSize, 10);
+  assert.equal(defaultPage.items.length, 10);
+  assert.equal(defaultPage.totalPages, 3);
+  const defaultSecondPage = await page("/transactions?page=2");
+  assert.equal(defaultSecondPage.pageSize, 10);
+  assert.equal(defaultSecondPage.items.length, 10);
+  assert.ok(defaultSecondPage.items.every((row) => !defaultPage.items.some((item) => item.id === row.id)));
+  for (const pageSize of [50, 100, 200]) {
+    const enlarged = await page(`/transactions?pageSize=${pageSize}`);
+    assert.equal(enlarged.pageSize, pageSize);
+    assert.equal(enlarged.items.length, 25);
+    assert.equal(enlarged.totalPages, 1);
+  }
   const transactions = await page(`/transactions?month=${month}&pageSize=6`);
   assert.equal(transactions.total, 25);
   assert.deepEqual(transactions.summary?.monthStats, { income: 2400, expense: 1300, net: 1100 });
@@ -99,7 +113,7 @@ try {
   assert.deepEqual(last.items.map((row) => row.id), [recordId("transaction", 24)]);
   const empty = await page("/transactions?search=does-not-exist&page=999&pageSize=6");
   assert.equal(empty.page, 1); assert.equal(empty.totalPages, 1); assert.deepEqual(empty.items, []);
-  for (const query of ["page=0", "page=-1", "pageSize=49", "pageSize=0", "page=NaN"])
+  for (const query of ["page=0", "page=-1", "pageSize=201", "pageSize=0", "page=NaN"])
     assert.equal((await request(`/transactions?${query}`)).status, 400);
   assert.equal((await request("/record-ids/constructor")).status, 404);
   const userDays = z.array(z.object({ day: z.string(), users: z.number() }));
@@ -115,7 +129,11 @@ try {
   const budget = await page("/budgets?period=monthly&pageSize=6");
   assert.equal(budget.total, 13); assert.equal(budget.summary?.totalLimit, 1300); assert.equal(budget.summary?.totalSpent, 1560); assert.equal(budget.summary?.overspentCount, 7);
   assert.deepEqual((await page("/notes?search=needle-tag&pageSize=6")).items.map((row) => row.id), [recordId("note", 24)]);
-  assert.equal((await page("/investments?view=performance&pageSize=6")).total, 25);
+  const performance = await page("/investments?view=performance&pageSize=10");
+  const fullSeries = z.array(z.object({ id: z.string(), value: z.number(), pl: z.number() })).parse(performance.summary?.series);
+  assert.deepEqual(fullSeries.map((row) => row.id), indices.map((index) => recordId("investment", index)));
+  assert.ok(fullSeries.every((row) => row.value === 20 && row.pl === 20));
+  assert.deepEqual(performance.items, []);
   const investments = await page("/investments?pageSize=6");
   assert.equal(investments.summary?.totalValue, 3000); assert.equal(investments.summary?.totalPL, 500);
   const pockets = await page(`/wallets?parentId=${parentId}&pageSize=6`);

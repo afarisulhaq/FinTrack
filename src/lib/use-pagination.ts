@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { DEFAULT_PAGE_SIZE } from "~/lib/pagination";
 
 export function usePagination<T>(
   rows: readonly T[],
   {
-    pageSize: initialSize = 12,
+    pageSize: initialSize = DEFAULT_PAGE_SIZE,
     resetKey = "",
   }: { pageSize?: number; resetKey?: string } = {},
 ) {

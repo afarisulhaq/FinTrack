@@ -1,4 +1,4 @@
-import type { PageResult } from "../../src/lib/pagination.js";
+import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, type PageResult } from "../../src/lib/pagination.js";
 
 export class PaginationError extends Error {
   readonly status = 400;
@@ -10,9 +10,9 @@ export type SerializeRecord = (resource: string, row: unknown) => Record<string,
 
 export function readPage(query: ListQuery): PageInput {
   const page = query.page === undefined ? 1 : Number(query.page);
-  const pageSize = query.pageSize === undefined ? 12 : Number(query.pageSize);
-  if (!Number.isSafeInteger(page) || page < 1 || !Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > 48)
-    throw new PaginationError("Halaman harus positif dan ukuran halaman antara 1 dan 48");
+  const pageSize = query.pageSize === undefined ? DEFAULT_PAGE_SIZE : Number(query.pageSize);
+  if (!Number.isSafeInteger(page) || page < 1 || !Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > MAX_PAGE_SIZE)
+    throw new PaginationError(`Halaman harus positif dan ukuran halaman antara 1 dan ${MAX_PAGE_SIZE}`);
   return { page, pageSize };
 }
 export function pageMeta(total: number, input: PageInput) {

@@ -118,7 +118,7 @@ export default function GamificationPage() {
                 progres lencana.
               </p>
             )}
-            <PaginatedList rows={activity.badges} label="lencana" pageSize={6}>{(badges) => (
+            <PaginatedList rows={activity.badges} label="lencana">{(badges) => (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {badges.map((badge) => (
                 <button

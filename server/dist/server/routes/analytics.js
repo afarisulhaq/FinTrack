@@ -3,6 +3,7 @@ import { requireAuth } from "../auth-middleware.js";
 import { extractToken, verifyToken } from "../auth.js";
 import { fail, ok } from "../utils.js";
 import { AnalyticsError, getActivity, getAnalytics } from "../services/analytics.js";
+import { DEFAULT_PAGE_SIZE } from "../../src/lib/pagination.js";
 function scopeFor(request) {
     const token = extractToken(request.headers.get("authorization") ?? undefined);
     const auth = token ? verifyToken(token) : null;
@@ -11,7 +12,7 @@ function scopeFor(request) {
     return { authId: auth.sub, userId: auth.role === "admin" ? null : auth.sub };
 }
 function summaryPage(summary) {
-    return { items: [], total: 0, totalPages: 1, page: 1, pageSize: 12, summary };
+    return { items: [], total: 0, totalPages: 1, page: 1, pageSize: DEFAULT_PAGE_SIZE, summary };
 }
 export const analyticsRoutes = new Elysia({ prefix: "/api/analytics" })
     .use(requireAuth)

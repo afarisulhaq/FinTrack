@@ -347,7 +347,7 @@ try {
   assert.equal(firstPage.items.length, 1);
   assert.notEqual(firstPage.items[0].id, secondPage.items[0].id);
   assert.equal(firstPage.summary.expense, 200000);
-  assert.equal((await request("GET", `${path}?pageSize=49`)).status, 400);
+  assert.equal((await request("GET", `${path}?pageSize=201`)).status, 400);
   assert.equal((await request("GET", path, undefined, foreignToken)).status, 404);
   assert.equal((await request("DELETE", `/${businessId}`)).status, 409);
   for (const id of [

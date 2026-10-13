@@ -77,11 +77,11 @@ export default function MarketWatchPage() {
   const [searchText, setSearchText] = useState("");
   const quoteRequest = useRef(0);
   const watchlistPager = useServerPagination<string, { symbols: string[] | null; storage: string }>(
-    "/market-watchlist/", {}, { pageSize: 6 },
+    "/market-watchlist/",
   );
   const searchPager = useServerPagination<SearchResult>(
     "/market-search", { q: searchText, assetClass: "stock" },
-    { pageSize: 6, enabled: query.trim().length >= 2 && searchText === query },
+    { enabled: query.trim().length >= 2 && searchText === query },
   );
   const results = searchText === query ? searchPager.items : [];
   const searching = query.trim().length >= 2 && (searchText !== query || searchPager.loading);

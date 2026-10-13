@@ -3,12 +3,13 @@
 import type { ReactNode } from "react";
 import { Pagination } from "~/components/ui/pagination";
 import { usePagination } from "~/lib/use-pagination";
+import { DEFAULT_PAGE_SIZE } from "~/lib/pagination";
 
 export function PaginatedList<T>({
   rows,
   children,
   label = "data",
-  pageSize = 12,
+  pageSize = DEFAULT_PAGE_SIZE,
   resetKey = "",
 }: {
   rows: readonly T[];

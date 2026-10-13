@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { getApiBaseUrl } from "~/lib/api";
 import { useAuthStore } from "~/store/useAuthStore";
-import type { PageQuery, PageResult } from "~/lib/pagination";
+import { DEFAULT_PAGE_SIZE, type PageQuery, type PageResult } from "~/lib/pagination";
 import { removePageRecords, setPageRecords } from "~/lib/page-records";
 import { z } from "zod";
 import { parsePage } from "~/lib/page-schema";
@@ -16,7 +16,7 @@ const empty: never[] = [];
 export function useServerPagination<T, S = Record<string, unknown>>(
   path: string | null,
   query: PageQuery = {},
-  { pageSize: initialSize = 12, resource, enabled = true }: { pageSize?: number; resource?: string; enabled?: boolean } = {},
+  { pageSize: initialSize = DEFAULT_PAGE_SIZE, resource, enabled = true }: { pageSize?: number; resource?: string; enabled?: boolean } = {},
 ) {
   const token = useAuthStore((state) => state.token);
   const id = useId();

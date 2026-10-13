@@ -2,6 +2,7 @@
 
 import { useId } from "react";
 import { Button } from "~/components/ui/button";
+import { DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS } from "~/lib/pagination";
 
 interface PaginationProps {
   page: number;
@@ -23,7 +24,7 @@ export function Pagination({
   label = "data",
 }: PaginationProps) {
   const id = useId();
-  if (total === 0) return null;
+  if (total <= DEFAULT_PAGE_SIZE) return null;
   const start = (page - 1) * pageSize + 1;
   const end = Math.min(page * pageSize, total);
   return (
@@ -48,12 +49,13 @@ export function Pagination({
           onChange={(event) => onPageSizeChange(Number(event.target.value))}
           className="border-border bg-bg-surface text-text-primary focus-visible:ring-text-primary h-11 rounded-lg border px-2 focus-visible:ring-2 focus-visible:outline-none"
         >
-          {[6, 12, 24, 48].map((size) => (
+          {PAGE_SIZE_OPTIONS.map((size) => (
             <option key={size} value={size}>
               {size}
             </option>
           ))}
         </select>
+        {totalPages > 1 && (
         <div className="flex items-center gap-1">
           <Button
             type="button"
@@ -102,6 +104,7 @@ export function Pagination({
             »
           </Button>
         </div>
+        )}
       </div>
     </nav>
   );

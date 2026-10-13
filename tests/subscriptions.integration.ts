@@ -160,7 +160,7 @@ try {
   const historicalId = invoiceHistory.items[0].id;
   assert.equal((await request("GET", `/invoices/${historicalId}`, a.id)).status, 200);
   assert.equal((await request("GET", `/invoices/${historicalId}`, b.id)).status, 404);
-  assert.equal((await request("GET", "/invoices?pageSize=49", a.id)).status, 400);
+  assert.equal((await request("GET", "/invoices?pageSize=201", a.id)).status, 400);
   const time = new Date().toISOString();
   const candidate = {
     transaction_id: "subscription-test-payment",

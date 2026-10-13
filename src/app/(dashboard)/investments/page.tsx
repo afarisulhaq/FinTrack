@@ -155,9 +155,12 @@ export default function InvestmentsPage() {
     () => ["Semua", ...new Set([...BROKER_OPTIONS, ...(investmentPager.summary?.brokers ?? [])])],
     [investmentPager.summary?.brokers],
   );
-  const performancePager = useServerPagination<{ id: string; name: string; value: number; pl: number }>("/investments", { view: "performance" });
+  const performancePager = useServerPagination<
+    never,
+    { series: { id: string; name: string; value: number; pl: number }[] }
+  >("/investments", { view: "performance" });
   const symbolPager = useServerPagination<MarketSearchResult>("/market-search", { q: form.symbol.trim(), assetClass: form.assetClass }, {
-    pageSize: 6, enabled: showModal && symbolSearchOpen && form.symbol.trim().length >= 2 && debouncedSymbol === form.symbol,
+    enabled: showModal && symbolSearchOpen && form.symbol.trim().length >= 2 && debouncedSymbol === form.symbol,
   });
   const symbolSuggestions = symbolPager.items;
   const symbolSearching = symbolPager.loading;
@@ -586,8 +589,7 @@ export default function InvestmentsPage() {
           </CardHeader>
           <CardBody>
             <ServerListStatus loading={performancePager.loading} error={performancePager.error} reload={performancePager.reload} />
-            <PortfolioPerformanceChart data={performancePager.items} height={260} />
-            <Pagination {...performancePager} label="performa aset" />
+            <PortfolioPerformanceChart data={performancePager.summary?.series ?? []} height={260} />
           </CardBody>
         </Card>
       </div>

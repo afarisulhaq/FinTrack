@@ -86,16 +86,18 @@ A single-container image is provided. See [Deployment](#deployment-1) below for 
 
 ## List pagination
 
-Data lists use shared pagination controls with 6, 12, 24, or 48 records per page.
-Most lists start at 12; market candidates and watchlist cards start at 6.
-Controls show the visible range and provide first, previous, next, and last
-page navigation. Search/filter changes reset the page; deleting the final
-record on a page returns to the last available page.
+Data lists start at 10 records per page and offer 10, 50, 100, or 200 records.
+Pagination controls are hidden when the filtered total is 10 or fewer.
+For larger totals, the size selector stays available even when all results fit
+on one page; navigation arrows appear only when multiple pages exist.
+Search/filter changes reset the page; deleting the final record on a page
+returns to the last available page.
 
 Persisted lists use server-side pagination. Finance queries count matching rows,
 apply database `skip`/`take` or SQL `LIMIT`/`OFFSET`, and use a stable ID tie-breaker.
 The response contains `items`, `page`, `pageSize`, `total`, `totalPages`, and an
-optional `summary`. Invalid page numbers or sizes above 48 return HTTP 400.
+optional `summary`. Page sizes must be positive integers up to 200; invalid
+page numbers or sizes return HTTP 400.
 The server clamps a page that no longer exists after deletion.
 
 Search and filters run on the server. Global or period-wide balances, totals,
@@ -110,7 +112,7 @@ consistent filtering and date labels.
 Coverage includes finance lists, nested wallet pockets/category subcategories,
 debt groups and installments, split-bill participants/reminders, business
 transactions, admin users, invoice history, team members, bot permissions/contacts,
-investment performance, market candidates, and watchlists. Watchlist metadata
+market candidates, and watchlists. Watchlist metadata
 includes membership IDs; quote requests cover only visible symbols. Historical
 screening uses the server cache and returns only the requested candidate page.
 
@@ -123,6 +125,13 @@ settings, not transaction, debt, invoice, or other history arrays. `/export`
 returns full records only for an explicit export. Imports fetch paged record IDs
 for duplicate detection; resets delete bounded batches. Explicit portfolio-wide
 price refresh reads all positions, while automatic refresh covers visible assets.
+
+Wallet balance distribution shows every root wallet, ordered by combined balance
+from largest to smallest, including nested pockets. It has no pagination.
+Investment performance returns all eligible chart points in `summary.series`,
+without raw investment records or pagination controls. Longer charts scroll
+vertically and support keyboard scrolling; main wallet/investment lists remain
+server-paginated.
 
 Unsaved chat, OCR/import previews, static sessions/activity logs, finite badges,
 and aggregate chart legends retain local pagination. They are not persisted
@@ -143,6 +152,12 @@ Database regression coverage uses an isolated `fintrack_test` database on port
 ```bash
 DATABASE_URL=postgresql://fintrack_test@127.0.0.1:55432/fintrack_test \
   npx tsx tests/server-pagination.integration.ts
+```
+
+Check the requested control visibility and size choices:
+
+```bash
+npx tsx tests/pagination-controls.regression.ts
 ```
 
 ## API Endpoints

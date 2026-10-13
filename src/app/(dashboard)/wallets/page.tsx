@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Plus,
   Pencil,
@@ -23,6 +23,7 @@ import type { Wallet, WalletType } from "~/lib/types";
 import { Pagination } from "~/components/ui/pagination";
 import { ServerListStatus, ServerPaginatedList } from "~/components/ui/server-paginated-list";
 import { useServerPagination } from "~/lib/use-server-pagination";
+import { walletGroupBalance } from "~/lib/wallets";
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
@@ -90,10 +91,13 @@ export default function WalletsPage() {
     Wallet & { childCount: number; groupBalance: number },
     { totalBalance: number; childCount: number; parentCount: number }
   >("/wallets", { view: "parents" }, { resource: "wallets" });
-  const distributionPager = useServerPagination<
-    Wallet & { childCount: number; groupBalance: number },
-    { totalBalance: number; childCount: number; parentCount: number }
-  >("/wallets", { view: "parents" }, { resource: "wallets" });
+  const distribution = useMemo(
+    () => wallets
+      .map((wallet) => ({ ...wallet, groupBalance: walletGroupBalance(wallet) }))
+      .sort((a, b) => b.groupBalance - a.groupBalance || a.id.localeCompare(b.id)),
+    [wallets],
+  );
+  const distributionTotal = distribution.reduce((sum, wallet) => sum + wallet.groupBalance, 0);
   const { totalBalance = 0, childCount = 0, parentCount = 0 } = walletPager.summary ?? {};
 
   // ── Modal helpers ────────────────────────────────────────────────────────────
@@ -371,10 +375,9 @@ export default function WalletsPage() {
               </Badge>
             </CardHeader>
             <CardBody>
-              <ServerListStatus {...distributionPager} />
               <div className="space-y-4">
-                {distributionPager.items.map((wallet) => {
-                  const pct = percentage(wallet.groupBalance, totalBalance);
+                {distribution.map((wallet) => {
+                  const pct = percentage(wallet.groupBalance, distributionTotal);
                   return (
                     <div key={wallet.id} className="space-y-1.5">
                       <div className="flex items-center justify-between text-xs">
@@ -417,20 +420,19 @@ export default function WalletsPage() {
                     </div>
                   );
                 })}
-                {distributionPager.initialized && !distributionPager.loading && !distributionPager.error && distributionPager.total === 0 && (
+                {distribution.length === 0 && (
                   <p className="text-text-muted py-6 text-center text-sm">
                     Belum ada data
                   </p>
                 )}
               </div>
-              <Pagination {...distributionPager} label="distribusi dompet" />
 
               {/* Total */}
-              {distributionPager.total > 0 && (
+              {distribution.length > 0 && (
                 <div className="border-border mt-5 flex items-center justify-between border-t pt-4">
                   <span className="text-text-muted text-xs">Total Saldo</span>
                   <span className="text-text-primary text-sm font-bold">
-                    {formatCurrency(totalBalance)}
+                    {formatCurrency(distributionTotal)}
                   </span>
                 </div>
               )}

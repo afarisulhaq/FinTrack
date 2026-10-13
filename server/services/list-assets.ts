@@ -174,26 +174,25 @@ export async function listAssets(resource: string, scope: ListScope, query: List
   if (query.view === "performance") {
     const performanceWhere: Prisma.InvestmentWhereInput = { ...own, sellPrice: null };
     if (connected) {
-      const page = await databasePage(input,
-        () => prisma.investment.count({ where: performanceWhere }),
-        (skip, take) => prisma.investment.findMany({
-          where: performanceWhere, skip, take, orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-          select: { id: true, symbol: true, quantity: true, currentPrice: true, avgBuyPrice: true, buyFee: true },
-        }),
-      );
-      return { ...page, items: page.items.map((row) => {
+      const rows = await prisma.investment.findMany({
+        where: performanceWhere,
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+        select: { id: true, symbol: true, quantity: true, currentPrice: true, avgBuyPrice: true, buyFee: true },
+      });
+      const series = rows.map((row) => {
         const value = Number(row.quantity) * Number(row.currentPrice);
         const cost = Number(row.quantity) * Number(row.avgBuyPrice) + Number(row.buyFee ?? 0);
         return { id: row.id, name: row.symbol.replace(/\.JK$/, ""), value: cost > 0 ? (value - cost) / cost * 100 : 0, pl: value - cost };
-      }) };
+      });
+      return { items: [], total: 0, totalPages: 1, page: 1, pageSize: input.pageSize, summary: { series } };
     }
     const rows = memoryRows(memory.investments as Investment[], scope).filter((row) => row.sellPrice == null).sort((a, b) => a.id.localeCompare(b.id));
-    const page = pageArray(rows, input);
-    return { ...page, items: page.items.map((row) => {
+    const series = rows.map((row) => {
       const value = row.quantity * row.currentPrice;
       const cost = row.quantity * row.avgBuyPrice + (row.buyFee ?? 0);
       return { id: row.id, name: row.symbol.replace(/\.JK$/, ""), value: cost > 0 ? (value - cost) / cost * 100 : 0, pl: value - cost };
-    }) };
+    });
+    return { items: [], total: 0, totalPages: 1, page: 1, pageSize: input.pageSize, summary: { series } };
   }
   if (connected) {
     const [page, aggregates] = await Promise.all([

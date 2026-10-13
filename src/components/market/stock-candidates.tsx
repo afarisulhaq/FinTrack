@@ -33,7 +33,7 @@ export function StockCandidates({
   const pager = useServerPagination<StockAnalysis, ScanSummary>(
     "/stock-screening",
     { showAll, search: query },
-    { pageSize: 6, enabled: !!token },
+    { enabled: !!token },
   );
   const data = pager.summary;
   const loading = pager.loading;
@@ -252,7 +252,6 @@ export function StockCandidates({
                 path="/stock-screening"
                 query={{ view: "unavailable" }}
                 label="saham belum dianalisis"
-                pageSize={6}
               >
                 {(items) => (
                   <div>

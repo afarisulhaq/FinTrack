@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { PageResult } from "./pagination";
+import { MAX_PAGE_SIZE } from "./pagination";
 
 const id = z.string().min(1);
 const number = z.number().finite();
@@ -77,7 +78,10 @@ export function parsePage<T, S>(value: unknown, address: string): PageResult<T, 
   if (resource === "debts" && url.searchParams.get("view") === "installments") itemSchema = installment;
   if (resource === "splitBills" && url.searchParams.get("view") === "participants") { itemSchema = participant; summarySchema = schemas.splitBills; }
   if (resource === "cards" && url.searchParams.get("view") === "billing") itemSchema = z.object({ name: text, date: number, label: text, type: text }).passthrough();
-  if (resource === "investments" && url.searchParams.get("view") === "performance") itemSchema = z.object({ ...base, name: text, value: number, pl: number });
+  if (resource === "investments" && url.searchParams.get("view") === "performance") {
+    itemSchema = z.never();
+    summarySchema = z.object({ series: z.array(z.object({ ...base, name: text, value: number, pl: number })) });
+  }
   if (resource === "businesses") {
     itemSchema = parts.includes("transactions") ? z.object({ ...base, type: text, amount: number, description: text, date: text, walletId: text.nullish(), walletName: text.nullish() }).passthrough() : z.object({ ...base, name: text, description: text, summary: businessTotals }).passthrough();
     summarySchema = businessTotals;
@@ -91,7 +95,7 @@ export function parsePage<T, S>(value: unknown, address: string): PageResult<T, 
   const schema = z.object({
     items: z.array(z.custom<T>((row) => itemSchema.safeParse(row).success, "Record daftar tidak valid")),
     page: z.number().int().positive(),
-    pageSize: z.number().int().min(1).max(48),
+    pageSize: z.number().int().min(1).max(MAX_PAGE_SIZE),
     total: z.number().int().nonnegative(),
     totalPages: z.number().int().positive(),
     summary: z.custom<S>((summary) => summarySchema.safeParse(summary).success, "Ringkasan daftar tidak valid").optional(),
