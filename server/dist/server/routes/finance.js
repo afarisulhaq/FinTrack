@@ -1364,7 +1364,7 @@ async function deletePrismaResource(resource, resourceId, userId) {
     }
 }
 async function getExportFromDb(userId, notificationUserId) {
-    const filter = userId ? { userId } : { userId: { not: null } };
+    const filter = userId ? { userId } : {};
     const [wallets, transactions, budgets, investments, bills, savingGoals, notes, recurring, debts, debtContacts, cards, wishlist, reimbursements, teamMembers, splitBills, categories, subCategories,] = await Promise.all([
         prisma.wallet.findMany({ where: filter }),
         prisma.transaction.findMany({
@@ -1451,7 +1451,7 @@ async function getExportFromDb(userId, notificationUserId) {
     };
 }
 async function getLookupFromDb(userId, accountId) {
-    const where = userId ? { userId } : { userId: { not: null } };
+    const where = userId ? { userId } : {};
     const [wallets, categories, subCategories, profile, setting, notifications] = await Promise.all([
         prisma.wallet.findMany({
             where,
@@ -1575,7 +1575,7 @@ export const financeRoutes = new Elysia({ prefix: "/api" })
     const input = readPage(query);
     const userId = currentUserIdFromRequest(request);
     if (await canUseDatabase()) {
-        const tenant = userId ? Prisma.sql `"userId" = ${userId}` : Prisma.sql `"userId" IS NOT NULL`;
+        const tenant = userId ? Prisma.sql `"userId" = ${userId}` : Prisma.sql `TRUE`;
         const identifier = Prisma.raw(`"${table}"`);
         return ok(await databasePage(input, async () => Number((await prisma.$queryRaw(Prisma.sql `SELECT COUNT(*) AS count FROM ${identifier} WHERE ${tenant}`))[0].count), (skip, take) => prisma.$queryRaw(Prisma.sql `SELECT "id" FROM ${identifier} WHERE ${tenant} ORDER BY "id" LIMIT ${take} OFFSET ${skip}`)));
     }

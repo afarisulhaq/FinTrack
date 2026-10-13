@@ -10,7 +10,7 @@ const normalizedContact = Prisma.sql`lower(regexp_replace(trim("name"), '\\s+', 
 const normalize = (name: string) => name.trim().replace(/\s+/g, " ").toLowerCase();
 const numeric = (value: unknown) => Number(value ?? 0);
 const date = (value: Date | string | null) => value == null ? undefined : value instanceof Date ? value.toISOString() : value;
-function ownerSql(scope: ListScope) { return scope.userId ? Prisma.sql`"userId" = ${scope.userId}` : Prisma.sql`"userId" IS NOT NULL`; }
+function ownerSql(scope: ListScope) { return scope.userId ? Prisma.sql`"userId" = ${scope.userId}` : Prisma.sql`TRUE`; }
 function hiddenNames(query: ListQuery): string[] {
   if (!query.excludeNames) return [];
   let names: unknown;
@@ -32,7 +32,7 @@ function splitMetadata(bill: SplitBill) {
 function memoryList(resource: string, scope: ListScope, query: ListQuery, input: PageInput) {
   const scoped = <T>(rows: readonly T[]) => rows.filter((row) => {
     const userId = (row as T & { userId?: string | null }).userId;
-    return userId ? (!scope.userId || userId === scope.userId) : scope.authId === "usr-demo-001";
+    return !scope.userId || userId === scope.userId || (!userId && scope.authId === "usr-demo-001");
   });
   const search = query.search?.trim().toLowerCase() ?? "";
   const debts = scoped(memory.debts as Debt[]);

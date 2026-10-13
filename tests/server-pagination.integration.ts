@@ -91,9 +91,9 @@ try {
   assert.equal((await page("/transactions?pageSize=6", otherToken)).total, 1);
   assert.equal((await page(`/transactions?search=${owner}&pageSize=6`, adminToken)).total, 0);
   const adminRows = await page(`/transactions?walletId=${parentId}&pageSize=48`, adminToken);
-  assert.equal(adminRows.total, 26);
+  assert.equal(adminRows.total, 27);
   assert.ok(adminRows.items.some((row) => row.id === `${owner}-foreign-transaction`));
-  assert.ok(!adminRows.items.some((row) => row.id === `${owner}-orphan-transaction`));
+  assert.ok(adminRows.items.some((row) => row.id === `${owner}-orphan-transaction`));
   const last = await page("/transactions?page=999&pageSize=6");
   assert.equal(last.page, 5);
   assert.deepEqual(last.items.map((row) => row.id), [recordId("transaction", 24)]);

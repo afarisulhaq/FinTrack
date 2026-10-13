@@ -7,7 +7,7 @@ const normalizedContact = Prisma.sql `lower(regexp_replace(trim("name"), '\\s+',
 const normalize = (name) => name.trim().replace(/\s+/g, " ").toLowerCase();
 const numeric = (value) => Number(value ?? 0);
 const date = (value) => value == null ? undefined : value instanceof Date ? value.toISOString() : value;
-function ownerSql(scope) { return scope.userId ? Prisma.sql `"userId" = ${scope.userId}` : Prisma.sql `"userId" IS NOT NULL`; }
+function ownerSql(scope) { return scope.userId ? Prisma.sql `"userId" = ${scope.userId}` : Prisma.sql `TRUE`; }
 function hiddenNames(query) {
     if (!query.excludeNames)
         return [];
@@ -36,7 +36,7 @@ function splitMetadata(bill) {
 function memoryList(resource, scope, query, input) {
     const scoped = (rows) => rows.filter((row) => {
         const userId = row.userId;
-        return userId ? (!scope.userId || userId === scope.userId) : scope.authId === "usr-demo-001";
+        return !scope.userId || userId === scope.userId || (!userId && scope.authId === "usr-demo-001");
     });
     const search = query.search?.trim().toLowerCase() ?? "";
     const debts = scoped(memory.debts);

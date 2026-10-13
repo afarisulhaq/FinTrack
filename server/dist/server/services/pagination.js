@@ -18,7 +18,7 @@ export function pageArray(rows, input, summary) {
     return { ...meta, items: rows.slice(start, start + meta.pageSize), ...(summary === undefined ? {} : { summary }) };
 }
 export function ownership(scope) {
-    return scope.userId ? { userId: scope.userId } : { userId: { not: null } };
+    return scope.userId ? { userId: scope.userId } : {};
 }
 export async function databasePage(input, count, read) {
     const meta = pageMeta(await count(), input);

@@ -114,6 +114,10 @@ investment performance, market candidates, and watchlists. Watchlist metadata
 includes membership IDs; quote requests cover only visible symbols. Historical
 screening uses the server cache and returns only the requested candidate page.
 
+Admin reads include legacy records whose `userId` is `NULL`, as before pagination.
+Owner/member reads remain restricted to their authenticated user ID. Restoring
+legacy visibility does not reassign or rewrite financial records.
+
 `/bootstrap` and `/lookups` contain wallet/category form options and account
 settings, not transaction, debt, invoice, or other history arrays. `/export`
 returns full records only for an explicit export. Imports fetch paged record IDs

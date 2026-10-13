@@ -12,7 +12,7 @@ export async function listLedger(resource: string, scope: ListScope, query: List
   const connected = await canUseDatabase();
   if (!connected && isDatabaseConfigured()) throw new Error("Database sementara tidak tersedia");
   const own = ownership(scope);
-  const tenant = scope.userId ? Prisma.sql`"userId" = ${scope.userId}` : Prisma.sql`"userId" IS NOT NULL`;
+  const tenant = scope.userId ? Prisma.sql`"userId" = ${scope.userId}` : Prisma.sql`TRUE`;
   const search = (query.search ?? "").trim();
   const lower = search.toLowerCase();
   const now = new Date();

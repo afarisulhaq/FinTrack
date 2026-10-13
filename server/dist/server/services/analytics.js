@@ -32,10 +32,10 @@ async function context(scope) {
 function memoryOwned(rows, scope) {
     return rows.filter((row) => {
         const userId = typeof row === "object" && row !== null && "userId" in row ? row.userId : undefined;
-        return scope.userId === null ? userId !== null : userId === scope.userId || (userId === undefined && scope.authId === "usr-demo-001");
+        return scope.userId === null || userId === scope.userId || (userId === undefined && scope.authId === "usr-demo-001");
     });
 }
-function sqlOwner(scope) { return scope.userId ? Prisma.sql `"userId" = ${scope.userId}` : Prisma.sql `"userId" IS NOT NULL`; }
+function sqlOwner(scope) { return scope.userId ? Prisma.sql `"userId" = ${scope.userId}` : Prisma.sql `TRUE`; }
 function rangeStart(today, period) {
     const [year, month] = today.split("-").map(Number);
     const length = period === "year" ? month : period === "3" ? 3 : period === "6" ? 6 : 1;

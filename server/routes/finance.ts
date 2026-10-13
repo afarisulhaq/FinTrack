@@ -1779,7 +1779,7 @@ async function getExportFromDb(
   userId: string | null,
   notificationUserId: string | null,
 ) {
-  const filter = userId ? { userId } : { userId: { not: null } };
+  const filter = userId ? { userId } : {};
   const [
     wallets,
     transactions,
@@ -1886,7 +1886,7 @@ async function getExportFromDb(
 }
 
 async function getLookupFromDb(userId: string | null, accountId: string) {
-  const where = userId ? { userId } : { userId: { not: null } };
+  const where = userId ? { userId } : {};
   const [wallets, categories, subCategories, profile, setting, notifications] = await Promise.all([
     prisma.wallet.findMany({
       where,
@@ -2003,7 +2003,7 @@ export const financeRoutes = new Elysia({ prefix: "/api" })
     const input = readPage(query);
     const userId = currentUserIdFromRequest(request);
     if (await canUseDatabase()) {
-      const tenant = userId ? Prisma.sql`"userId" = ${userId}` : Prisma.sql`"userId" IS NOT NULL`;
+      const tenant = userId ? Prisma.sql`"userId" = ${userId}` : Prisma.sql`TRUE`;
       const identifier = Prisma.raw(`"${table}"`);
       return ok(await databasePage(input,
         async () => Number((await prisma.$queryRaw<{ count: bigint }[]>(Prisma.sql`SELECT COUNT(*) AS count FROM ${identifier} WHERE ${tenant}`))[0].count),

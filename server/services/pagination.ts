@@ -25,7 +25,7 @@ export function pageArray<T, S = Record<string, unknown>>(rows: readonly T[], in
   return { ...meta, items: rows.slice(start, start + meta.pageSize), ...(summary === undefined ? {} : { summary }) };
 }
 export function ownership(scope: ListScope) {
-  return scope.userId ? { userId: scope.userId } : { userId: { not: null } };
+  return scope.userId ? { userId: scope.userId } : {};
 }
 export async function databasePage<T>(input: PageInput, count: () => Promise<number>, read: (skip: number, take: number) => Promise<T[]>) {
   const meta = pageMeta(await count(), input);
