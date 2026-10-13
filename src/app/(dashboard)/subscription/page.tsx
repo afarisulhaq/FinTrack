@@ -111,8 +111,7 @@ export default function SubscriptionPage() {
         {},
       );
       setInvoice(saved);
-      invoicePager.reload();
-      invalidateServerLists();
+      invalidateServerLists(["/subscriptions/invoices"]);
       setSelectedId(saved.id);
       await load();
     } catch (cause) {

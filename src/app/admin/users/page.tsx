@@ -118,8 +118,7 @@ export default function AdminUsersPage() {
               ...(form.password ? { password: form.password } : {}),
             },
           );
-          pager.reload();
-          invalidateServerLists();
+          invalidateServerLists(["/users", "/admin/users"]);
           toast.success("Pengguna diperbarui");
           setModalOpen(false);
         } catch (err) {
@@ -145,8 +144,7 @@ export default function AdminUsersPage() {
             role: form.role,
             status: form.status,
           });
-          pager.reload();
-          invalidateServerLists();
+          invalidateServerLists(["/users", "/admin/users"]);
           toast.success("Pengguna ditambahkan");
           setModalOpen(false);
         } catch (err) {
@@ -168,8 +166,7 @@ export default function AdminUsersPage() {
     if (!ok || !token) return;
     try {
       await api.delete<{ id: string }>(`/users/${id}`, token);
-      pager.reload();
-      invalidateServerLists();
+      invalidateServerLists(["/users", "/admin/users"]);
       toast.success("Pengguna dihapus");
     } catch (err) {
       toast.error(
@@ -185,7 +182,7 @@ export default function AdminUsersPage() {
       target.status === "active" ? "inactive" : "active";
     void api
       .put<ManagedUser>(`/users/${id}`, token, { status: next })
-      .then(() => { pager.reload(); invalidateServerLists(); })
+      .then(() => { invalidateServerLists(["/users", "/admin/users"]); })
       .catch((err) => {
         toast.error(
           "Gagal mengubah status",

@@ -100,6 +100,51 @@ function getBackendToken() {
 
 const financeSync = createFinanceSync();
 const bootstrapRequests = new Map<string, Promise<boolean>>();
+const manualBootstrapRequests = new Set<string>();
+const pendingInvalidations = new Map<string, Set<string>>();
+const pendingWalletLookups = new Set<string>();
+let invalidationTimer: number | null = null;
+const mutationResources: Record<string, readonly string[]> = {
+  wallets: ["/wallets", "/analytics"],
+  transactions: ["/transactions", "/wallets", "/budgets", "/analytics"],
+  budgets: ["/budgets", "/transactions"],
+  investments: ["/investments", "/analytics"],
+  bills: ["/bills", "/wallets", "/analytics"],
+  savingGoals: ["/savingGoals", "/wallets", "/analytics"],
+  debts: ["/debts", "/debtContacts", "/wallets", "/analytics"],
+  "split-bills": ["/splitBills", "/split-bills", "/wallets", "/analytics"],
+  categories: ["/categories", "/subCategories"],
+  subCategories: ["/categories", "/subCategories"],
+};
+
+function scheduleInvalidation(token: string, paths: readonly string[]) {
+  if (typeof window === "undefined") return;
+  const pending = pendingInvalidations.get(token) ?? new Set<string>();
+  for (const path of paths) pending.add(path);
+  pendingInvalidations.set(token, pending);
+  if (invalidationTimer !== null) return;
+  invalidationTimer = window.setTimeout(() => {
+    if (!financeSync.isCurrent(financeSync.snapshot())) {
+      void financeSync.waitForWrites().then(() => {
+        invalidationTimer = null;
+        scheduleInvalidation(token, []);
+      });
+      return;
+    }
+    const currentToken = getBackendToken();
+    const resources = currentToken ? pendingInvalidations.get(currentToken) : undefined;
+    const refreshWallets = currentToken ? pendingWalletLookups.has(currentToken) : false;
+    pendingInvalidations.clear();
+    pendingWalletLookups.clear();
+    invalidationTimer = null;
+    if (!resources?.size) return;
+    if (refreshWallets) void useFinanceStore.getState().refreshWallets();
+    if (resources.has("/categories") || resources.has("/subCategories"))
+      void useFinanceStore.getState().refreshCategories();
+    invalidateServerLists([...resources]);
+  }, 0);
+}
+
 
 async function readCurrent<T>(
   token: string,
@@ -120,13 +165,29 @@ async function persistResource<T = unknown>(
   method: "POST" | "PUT" | "DELETE",
   body?: unknown,
 ): Promise<PersistResult<T>> {
+  const token = getBackendToken();
   const finish = financeSync.beginWrite();
+  let result: PersistResult<T>;
   try {
-    return await executePersistResource<T>(path, method, body);
+    result = await executePersistResource<T>(path, method, body);
   } finally {
     finish();
-    invalidateServerLists();
   }
+  if (result.ok && token && token === getBackendToken()) {
+    const resource = path.split(/[/?#]/)[1];
+    if ((resource === "wallets" && method === "DELETE") ||
+      (resource !== "wallets" && mutationResources[resource]?.includes("/wallets")))
+      pendingWalletLookups.add(token);
+    const paths = mutationResources[resource] ?? [path.startsWith("/user/") ? path : `/${resource}`];
+    if (method === "DELETE" && (resource === "categories" || resource === "subCategories")) {
+      scheduleInvalidation(token, ["/transactions", "/budgets", "/recurringTransactions"]);
+      if (resource === "categories") scheduleInvalidation(token, ["/bills"]);
+    }
+    if (path === "/user/profile" && body && typeof body === "object" && "timezone" in body)
+      scheduleInvalidation(token, ["/analytics"]);
+    scheduleInvalidation(token, paths);
+  }
+  return result;
 }
 
 export type PersistResult<T> =
@@ -223,8 +284,6 @@ async function withPersist<T = unknown>(
     );
   } else {
     opts.onSuccess?.(result.data);
-    if (/^\/(bills|savingGoals|debts)(\/|$)/.test(path))
-      void useFinanceStore.getState().refreshWallets();
     if (opts.successTitle) toast.success(opts.successTitle);
   }
   return result;
@@ -506,7 +565,6 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
       lastSyncedAt: Date.now(),
       syncError: null,
     }));
-    invalidateServerLists();
   },
 
   // ── Wallet Actions ─────────────────────────────────────────────────────────
@@ -625,9 +683,6 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
             ),
           }));
         }
-        // Refresh the affected slices so wallet balance + budget spent
-        // reflect the server’s authoritative values.
-        void Promise.all([get().refreshWallets(), get().refreshBudgets()]);
       },
       onError: () => {
         set((state) => ({
@@ -654,7 +709,6 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
             ),
           }));
         }
-        void Promise.all([get().refreshWallets(), get().refreshBudgets()]);
       },
       onError: () => {
         if (!previous) return;
@@ -674,9 +728,6 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
       transactions: state.transactions.filter((tx) => tx.id !== id),
     }));
     void withPersist(`/transactions/${id}`, "DELETE", undefined, {
-      onSuccess: () => {
-        void Promise.all([get().refreshWallets(), get().refreshBudgets()]);
-      },
       onError: () => {
         if (!previous) return;
         // Re-insert at its original index so order is preserved.
@@ -717,8 +768,10 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
   },
 
   refreshBudgets: async () => {
+    const token = getBackendToken();
+    if (!token) return;
     await financeSync.waitForWrites();
-    invalidateServerLists();
+    if (token === getBackendToken()) scheduleInvalidation(token, ["/budgets"]);
   },
 
   // ── Budget Actions ─────────────────────────────────────────────────────────
@@ -913,7 +966,6 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
     if (result.ok && result.data) {
       set((state) => ({ splitBills: [result.data!, ...state.splitBills] }));
       toast.success("Split bill dibuat");
-      await get().refreshWallets();
     } else if (!result.ok) {
       toast.error("Gagal membuat split bill", result.error);
       throw new Error(result.error);
@@ -939,7 +991,7 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
         }));
       }
       toast.error("Gagal memperbarui split bill", result.error);
-    } else await get().refreshWallets();
+    }
   },
 
   toggleParticipantPaid: async (billId, participantId, paid, walletId) => {
@@ -952,7 +1004,6 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
       toast.error("Gagal mengubah status peserta", result.error);
       throw new Error(result.error);
     }
-    await get().refreshWallets();
   },
 
   deleteSplitBill: async (id) => {
@@ -968,13 +1019,14 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
       toast.error("Gagal menghapus split bill", result.error);
     } else {
       toast.success("Split bill dihapus");
-      await get().refreshWallets();
     }
   },
 
   refreshSplitBills: async () => {
+    const token = getBackendToken();
+    if (!token) return;
     await financeSync.waitForWrites();
-    invalidateServerLists();
+    if (token === getBackendToken()) scheduleInvalidation(token, ["/splitBills", "/split-bills"]);
   },
 
   // ── Bill Actions ───────────────────────────────────────────────────────────
@@ -1063,7 +1115,6 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
             ),
           }));
         }
-        void get().refreshSavingGoals();
       },
       onError: () => {
         set((state) => ({
@@ -1135,9 +1186,6 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
       walletId,
     };
     void withPersist(`/savingGoals/${id}`, "PUT", updates, {
-      onSuccess: () => {
-        void get().refreshSavingGoals();
-      },
       onError: () => {
         if (!previous) return;
         set((state) => ({
@@ -1151,8 +1199,10 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
   },
 
   refreshSavingGoals: async () => {
+    const token = getBackendToken();
+    if (!token) return;
     await financeSync.waitForWrites();
-    invalidateServerLists();
+    if (token === getBackendToken()) scheduleInvalidation(token, ["/savingGoals"]);
   },
 
   // ── Debt Actions ───────────────────────────────────────────────────────────
@@ -1200,21 +1250,18 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
 
   addDebtInstallment: (debtId, installment) => {
     void withPersist(`/debts/${debtId}/installments`, "POST", installment, {
-      onSuccess: () => { void get().refreshWallets(); },
       errorTitle: "Gagal menambah cicilan",
     });
   },
 
   updateDebtInstallment: (debtId, installmentId, changes) => {
     void withPersist(`/debts/${debtId}/installments/${installmentId}`, "PUT", changes, {
-      onSuccess: () => { void get().refreshWallets(); },
       errorTitle: "Gagal memperbarui cicilan",
     });
   },
 
   deleteDebtInstallment: (debtId, installmentId) => {
     void withPersist(`/debts/${debtId}/installments/${installmentId}`, "DELETE", undefined, {
-      onSuccess: () => { void get().refreshWallets(); },
       errorTitle: "Gagal menghapus cicilan",
     });
   },
@@ -1785,6 +1832,7 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
   refreshAll: async (options) => {
     const token = getBackendToken();
     if (!token || token === "dev-fallback-token") return false;
+    if (!options?.silent) manualBootstrapRequests.add(token);
     const existing = bootstrapRequests.get(token);
     if (existing) return existing;
     const request = (async () => {
@@ -1792,15 +1840,16 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
         const data = await readCurrent(token, () =>
           api.bootstrap<BootstrapData>(token, AbortSignal.timeout(15000)),
         );
-        if (!data) return false;
+        if (!data || token !== getBackendToken() || !financeSync.isCurrent(financeSync.snapshot())) return false;
         get().hydrateFromBackend(data);
+        if (manualBootstrapRequests.delete(token)) invalidateServerLists("all");
         return true;
       } catch (error) {
         console.warn("Failed to refresh all data", error);
         if (token !== getBackendToken()) return false;
         set({
           syncError:
-            "Tidak bisa memuat data dari server. Sinkronisasi akan dicoba kembali.",
+            "Tidak bisa memuat data dari server. Coba sinkronkan kembali.",
         });
         if (!options?.silent)
           toast.warning(
@@ -1810,6 +1859,7 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
         return false;
       } finally {
         bootstrapRequests.delete(token);
+        manualBootstrapRequests.delete(token);
       }
     })();
     bootstrapRequests.set(token, request);

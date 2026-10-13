@@ -249,7 +249,7 @@ export default function InvestmentsPage() {
         token,
       );
       await api.put(`/investments/${encodeURIComponent(inv.id)}`, token, { currentPrice: result.price });
-      if (reload) invalidateServerLists();
+      if (reload) invalidateServerLists(["/investments", "/analytics"]);
       return true;
     } catch (error) {
       console.warn("Refresh harga gagal", error);
@@ -257,10 +257,12 @@ export default function InvestmentsPage() {
     }
   }
 
-  async function refreshPortfolioPrices(scope: "visible" | "all" = "all") {
+  async function refreshPortfolioPrices(scope: "visible" | "all" = "all", silent = false) {
     if (!token) return;
-    setPortfolioRefreshing(true);
-    setPortfolioStatus("Mengambil harga terbaru dari Yahoo Finance...");
+    if (!silent) {
+      setPortfolioRefreshing(true);
+      setPortfolioStatus("Mengambil harga terbaru dari Yahoo Finance...");
+    }
     try {
       const openInvestments = scope === "visible"
         ? investmentPager.items.filter((investment) => investment.quantity > 0)
@@ -269,8 +271,8 @@ export default function InvestmentsPage() {
         openInvestments.map((inv) => refreshInvestmentPrice(inv, false)),
       );
       const success = results.filter(Boolean).length;
-      invalidateServerLists();
-      setPortfolioStatus(
+      if (success > 0) invalidateServerLists(["/investments", "/analytics"]);
+      if (!silent) setPortfolioStatus(
         `Harga diperbarui: ${success}/${openInvestments.length} aset.`,
       );
     } catch (error) {
@@ -278,7 +280,7 @@ export default function InvestmentsPage() {
         error instanceof Error ? error.message : "Gagal memuat aset investasi.",
       );
     } finally {
-      setPortfolioRefreshing(false);
+      if (!silent) setPortfolioRefreshing(false);
     }
   }
 
@@ -286,7 +288,7 @@ export default function InvestmentsPage() {
     if (autoRefreshStarted.current || activeCount === 0 || !investmentPager.items.length || !token)
       return;
     autoRefreshStarted.current = true;
-    void refreshPortfolioPrices("visible");
+    void refreshPortfolioPrices("visible", true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeCount, token, investmentPager.items]);
 

@@ -23,6 +23,7 @@ import { cn } from "~/lib/utils";
 import { api } from "~/lib/api";
 import { useAuthStore } from "~/store/useAuthStore";
 import { useAppConfigStore } from "~/store/useAppConfigStore";
+import { useFinanceStore } from "~/store/useFinanceStore";
 
 import { PaginatedList } from "~/components/ui/paginated-list";
 import { Pagination } from "~/components/ui/pagination";
@@ -475,7 +476,10 @@ export default function AiBotPage() {
               reply:
                 "✅ Demo lokal: pesan diterima. Jalankan backend agar parser AI aktif.",
             };
-      if ("saved" in result && result.saved) invalidateServerLists();
+      if ("saved" in result && result.saved) {
+        invalidateServerLists(["/transactions", "/wallets", "/budgets", "/analytics"]);
+        await useFinanceStore.getState().refreshWallets();
+      }
       setLiveMessages((items) => [
         ...items,
         {
@@ -676,7 +680,7 @@ export default function AiBotPage() {
           channel,
         },
       );
-      invalidateServerLists();
+      invalidateServerLists(["/bot/permissions", "/bot/contacts"]);
       setShowAddPermission(false);
       setSearchQuery("");
       setBotStatus(
@@ -693,7 +697,7 @@ export default function AiBotPage() {
     if (!token || token === "dev-fallback-token") return;
     try {
       await api.delete(`/bot/permissions/${permissionId}`, token);
-      invalidateServerLists();
+      invalidateServerLists(["/bot/permissions", "/bot/contacts"]);
       setBotStatus("✅ Kontak dihapus dari izin akses.");
     } catch (error) {
       setBotStatus(

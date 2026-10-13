@@ -4,7 +4,7 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { getApiBaseUrl } from "~/lib/api";
 import { useAuthStore } from "~/store/useAuthStore";
 import { DEFAULT_PAGE_SIZE, type PageQuery, type PageResult } from "~/lib/pagination";
-import { removePageRecords, setPageRecords } from "~/lib/page-records";
+import { removePageRecords, setPageRecords, subscribeServerListInvalidation } from "~/lib/page-records";
 import { z } from "zod";
 import { parsePage } from "~/lib/page-schema";
 
@@ -39,9 +39,9 @@ export function useServerPagination<T, S = Record<string, unknown>>(
   const [status, setStatus] = useState({ key: "", loading: false, error: "" });
   const reload = useCallback(() => setRevision((value) => value + 1), []);
   useEffect(() => {
-    window.addEventListener("fintrack:data-changed", reload);
-    return () => window.removeEventListener("fintrack:data-changed", reload);
-  }, [reload]);
+    if (!path || !token || !enabled) return;
+    return subscribeServerListInvalidation(path, reload);
+  }, [path, token, enabled, reload]);
   useEffect(() => {
     if (!token || !path || !enabled || current.current?.key === key) return;
     const controller = new AbortController();
@@ -75,8 +75,9 @@ export function useServerPagination<T, S = Record<string, unknown>>(
   useEffect(() => {
     if (!resource || !token || !enabled) return;
     if (hasRecordIds(items)) setPageRecords(id, resource, items, token);
-    return () => removePageRecords(id);
   }, [id, resource, items, token, enabled]);
+  useEffect(() => () => removePageRecords(id), [id, resource, token, enabled]);
+  const fetching = enabled && !!path && !!token && (status.key !== key || status.loading);
   return {
     items,
     summary: context?.summary,
@@ -84,7 +85,8 @@ export function useServerPagination<T, S = Record<string, unknown>>(
     totalPages: context ? Math.max(1, Math.ceil(context.total / state.pageSize)) : 1,
     page: data?.page ?? page,
     pageSize: state.pageSize,
-    loading: enabled && !!path && !!token && (status.key !== key || status.loading),
+    loading: fetching && data === null,
+    refreshing: fetching && data !== null,
     error: status.key === key ? status.error : "",
     initialized: data !== null,
     reload,

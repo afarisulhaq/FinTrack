@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { createFinanceSync } from "../src/lib/finance-sync";
 import type { Wallet } from "../src/lib/types";
+import { subscribeServerListInvalidation } from "../src/lib/page-records";
 
 const sync = createFinanceSync();
 const before = sync.snapshot();
@@ -23,9 +24,19 @@ Object.defineProperty(globalThis, "window", {
   value: Object.assign(new EventTarget(), {
     localStorage: { getItem: () => JSON.stringify({ state: { token } }) },
     location: { origin: "http://localhost" },
+    setTimeout: globalThis.setTimeout,
   }),
   configurable: true,
 });
+let walletReloads = 0;
+let noteReloads = 0;
+let resolveWalletRefresh!: () => void;
+const walletRefreshed = new Promise<void>((resolve) => { resolveWalletRefresh = resolve; });
+const unsubscribeWallets = subscribeServerListInvalidation("/wallets", () => {
+  walletReloads++;
+  resolveWalletRefresh();
+});
+const unsubscribeNotes = subscribeServerListInvalidation("/notes", () => noteReloads++);
 const originalFetch = globalThis.fetch;
 const requests: {
   path: string;
@@ -57,13 +68,14 @@ try {
   assert.equal(
     requests.length,
     1,
-    "concurrent navigation and focus share one request",
+    "concurrent bootstrap reads share one request",
   );
-  assert.equal(requests[0]!.options?.cache, "no-store");
   respond(0, { wallets: [{ ...wallet, balance: 200 }] });
   assert.equal(await first, true);
   assert.equal(await duplicate, true);
   assert.equal(useFinanceStore.getState().wallets[0]!.balance, 200);
+  assert.equal(walletReloads, 0, "silent bootstrap does not refresh loaded wallet lists");
+  assert.equal(noteReloads, 0, "silent bootstrap does not refresh unrelated lists");
 
   const race = useFinanceStore.getState().refreshAll({ silent: true });
   await settle();
@@ -84,6 +96,9 @@ try {
   );
   respond(3, { wallets: [{ ...wallet, balance: 300 }] });
   assert.equal(await race, true);
+  await walletRefreshed;
+  assert.equal(walletReloads, 1, "wallet edit refreshes the affected list once");
+  assert.equal(noteReloads, 0, "wallet edit does not refresh notes");
 
   const failed = useFinanceStore.getState().refreshAll({ silent: true });
   await settle();
@@ -114,9 +129,18 @@ try {
     0,
     "previous session response is discarded",
   );
+  const beforeManual = { wallets: walletReloads, notes: noteReloads };
+  const manual = useFinanceStore.getState().refreshAll();
+  await settle();
+  respond(7, { wallets: [wallet] });
+  assert.equal(await manual, true);
+  assert.equal(walletReloads, beforeManual.wallets + 1);
+  assert.equal(noteReloads, beforeManual.notes + 1, "explicit sync refreshes all mounted lists");
   console.log(
-    "PASS: deduplication, uncached reads, optimistic-write race, retry, failure preserves data, remote deletion, stale session",
+    "PASS: deduplication, silent bootstrap, selective mutations, manual sync, optimistic-write race, retry, failure preserves data, remote deletion, stale session",
   );
 } finally {
+  unsubscribeWallets();
+  unsubscribeNotes();
   globalThis.fetch = originalFetch;
 }

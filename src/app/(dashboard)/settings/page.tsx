@@ -1965,7 +1965,7 @@ interface PendingImport {
 }
 
 function DataEksporTab() {
-  const { wallets, refreshAll } = useFinanceStore();
+  const { wallets, refreshAll, hydrateFromBackend } = useFinanceStore();
 
   const { config } = useAppConfigStore();
   const appName = config.appName;
@@ -1988,6 +1988,18 @@ function DataEksporTab() {
   const [resetting, setResetting] = useState<"transactions" | "all" | null>(
     null,
   );
+
+  async function refreshTransactionData(token: string) {
+    invalidateServerLists(["/transactions", "/wallets", "/budgets", "/analytics"]);
+    try {
+      const lookup = await api.get<{ wallets: Wallet[] }>("/lookups", token);
+      if (token !== useAuthStore.getState().token) return false;
+      hydrateFromBackend(lookup);
+      return true;
+    } catch {
+      return false;
+    }
+  }
 
   function setExportingKey(key: ExportKey, value: boolean) {
     setExporting((prev) => ({ ...prev, [key]: value }));
@@ -2202,8 +2214,7 @@ function DataEksporTab() {
           return { ...item, walletName: wallet.name, categoryIcon: "Package" };
         });
         const result = await persistTransactions(transactionsToSave, token, (progress) => setImportProgress(progress.added));
-        invalidateServerLists();
-        const synced = await refreshAll();
+        const synced = await refreshTransactionData(token);
         if (synced) toast.success("Import selesai", `${result.added} transaksi tersimpan, ${result.skipped} sudah ada${issues.length ? `, ${issues.length} catatan file` : ""}.`);
         else toast.warning("Import tersimpan", `${result.added} transaksi tersimpan. Muat ulang halaman untuk melihat data terbaru.`);
       } else if (pendingImport.kind === "json" && pendingImport.jsonPreview?.bundle) {
@@ -2212,15 +2223,14 @@ function DataEksporTab() {
         const missing = bundle.transactions.find((item) => !availableIds.has(item.walletId));
         if (missing) throw new Error(`Pilih dompet tujuan untuk transaksi ${missing.description || missing.id}.`);
         const result = await persistBackup(bundle, token, (progress) => setImportProgress(progress.added));
-        invalidateServerLists();
         const synced = await refreshAll();
         if (synced) toast.success("Restore selesai", `${result.added} data tersimpan, ${result.skipped} sudah ada.`);
         else toast.warning("Restore tersimpan", `${result.added} data tersimpan. Muat ulang halaman untuk melihat data terbaru.`);
       }
       setPendingImport(null);
     } catch (err) {
-      invalidateServerLists();
-      await refreshAll();
+      if (pendingImport.kind === "csv") await refreshTransactionData(token);
+      else await refreshAll();
       toast.error("Import terhenti", err instanceof Error ? err.message : "Gagal menyimpan data.");
     } finally {
       setImporting(false);
@@ -2271,8 +2281,9 @@ function DataEksporTab() {
       failure = err instanceof Error ? err.message : "Gagal menghapus data.";
     } finally {
       if (confirmed) {
-        invalidateServerLists();
-        const synced = await refreshAll();
+        const synced = kind === "transactions"
+          ? await refreshTransactionData(token)
+          : await refreshAll();
         if (failure) {
           toast.error("Reset terhenti", `${deleted} record sudah dihapus. Data yang belum dihapus tetap tersimpan. ${failure}${synced ? "" : " Muat ulang halaman untuk melihat data terbaru."}`);
         } else if (synced) {

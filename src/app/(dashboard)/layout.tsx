@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
 import { Sidebar } from "~/components/layout/sidebar";
 import AuthGuard from "~/components/auth/auth-guard";
 import { ToastContainer } from "~/components/ui/toast";
@@ -20,20 +19,8 @@ export default function DashboardLayout({
   const { collapsed, mobileOpen, closeMobile } = useSidebarStore();
   const token = useAuthStore((state) => state.token);
   const refreshAll = useFinanceStore((state) => state.refreshAll);
-  const lastSyncedAt = useFinanceStore((state) => state.lastSyncedAt);
+  const dataToken = useFinanceStore((state) => state.dataToken);
   const syncError = useFinanceStore((state) => state.syncError);
-  const hasData = useFinanceStore((state) =>
-    [
-      state.wallets,
-      state.transactions,
-      state.budgets,
-      state.investments,
-      state.bills,
-      state.notes,
-      state.categories,
-    ].some((items) => items.length > 0),
-  );
-  const pathname = usePathname();
   // Read once at render — `useAppConfigStore` already persists the
   // config to localStorage, so a refresh preserves the footer text
   // without needing a server round-trip on every navigation.
@@ -59,30 +46,16 @@ export default function DashboardLayout({
   }, []);
 
   useEffect(() => {
-    if (!token || token === "dev-fallback-token") return;
-
     fetchData();
-  }, [fetchData, token, pathname]);
+  }, [fetchData]);
 
-  // Refetch when the tab regains focus (user switched back from another
-  // tab/window/app). Catches the "I made a change on my phone, now I'm
-  // back on the laptop" case without burning requests in the background.
   useEffect(() => {
-    if (!token || token === "dev-fallback-token") return;
-    const onVisible = () => {
-      if (document.visibilityState === "visible") fetchData();
+    const retryFailedBootstrap = () => {
+      if (useFinanceStore.getState().syncError) fetchData();
     };
-    document.addEventListener("visibilitychange", onVisible);
-    window.addEventListener("focus", onVisible);
-    window.addEventListener("online", onVisible);
-    const interval = window.setInterval(onVisible, 15000);
-    return () => {
-      document.removeEventListener("visibilitychange", onVisible);
-      window.removeEventListener("focus", onVisible);
-      window.removeEventListener("online", onVisible);
-      window.clearInterval(interval);
-    };
-  }, [fetchData, token]);
+    window.addEventListener("online", retryFailedBootstrap);
+    return () => window.removeEventListener("online", retryFailedBootstrap);
+  }, [fetchData]);
 
   const sidebarWidth = collapsed ? 64 : 240;
 
@@ -119,10 +92,7 @@ export default function DashboardLayout({
                 </button>
               </div>
             )}
-            {!lastSyncedAt &&
-            !hasData &&
-            token &&
-            token !== "dev-fallback-token" ? (
+            {dataToken !== token && token && token !== "dev-fallback-token" ? (
               <div role="status" className="text-text-secondary p-6 text-sm">
                 {syncError
                   ? "Data belum berhasil dimuat. Coba sinkronkan kembali."

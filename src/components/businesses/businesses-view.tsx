@@ -3,7 +3,7 @@
 import { WalletPicker } from "~/components/ui/wallet-select";
 
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -63,7 +63,11 @@ export function BusinessesView({ businessId }: { businessId?: string }) {
   const token = useAuthStore((s) => s.token);
   const wallets = useFinanceStore((s) => s.wallets);
   const hydrate = useFinanceStore((s) => s.hydrateFromBackend);
-  const [selected, setSelected] = useState<Business | null>(null);
+  const detailScope = `${token ?? ""}|${businessId ?? ""}`;
+  const currentDetailScope = useRef(detailScope);
+  currentDetailScope.current = detailScope;
+  const [detail, setDetail] = useState<{ scope: string; business: Business } | null>(null);
+  const selected = detail?.scope === detailScope ? detail.business : null;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -83,29 +87,29 @@ export function BusinessesView({ businessId }: { businessId?: string }) {
     businessId ? `/businesses/${businessId}/transactions` : null,
   );
   const businesses = businessPager.items;
-  const reloadBusinesses = businessPager.reload;
-  const reloadEntries = entryPager.reload;
 
   const load = useCallback(async () => {
-    reloadBusinesses();
-    reloadEntries();
     if (!businessId || !token) { setLoading(false); return; }
     setLoading(true);
     try {
-      setSelected(await api.get<Business>(`/businesses/${businessId}`, token));
+      const business = await api.get<Business>(`/businesses/${businessId}`, token);
+      if (currentDetailScope.current !== detailScope) return;
+      setDetail({ scope: detailScope, business });
       setError("");
     } catch (err) {
-      setSelected(null);
+      if (currentDetailScope.current !== detailScope) return;
       setError(err instanceof Error ? err.message : "Gagal memuat bisnis");
-    } finally { setLoading(false); }
-  }, [token, businessId, reloadBusinesses, reloadEntries]);
+    } finally {
+      if (currentDetailScope.current === detailScope) setLoading(false);
+    }
+  }, [token, businessId, detailScope]);
   useEffect(() => { void load(); }, [load]);
 
   async function refreshWallets() {
-    invalidateServerLists();
+    invalidateServerLists(["/businesses", "/wallets", "/analytics"]);
     try {
-      const data = await api.bootstrap<Parameters<typeof hydrate>[0]>(token!);
-      hydrate(data);
+      const data = await api.get<{ wallets: Parameters<typeof hydrate>[0]["wallets"] }>("/lookups", token!);
+      if (token === useAuthStore.getState().token) hydrate(data);
     } catch {
       setError(
         "Transaksi tersimpan, tetapi saldo dompet belum diperbarui di layar. Muat ulang halaman.",
@@ -118,9 +122,12 @@ export function BusinessesView({ businessId }: { businessId?: string }) {
     setSaving(true);
     setFormError("");
     try {
-      if (editingBusiness)
+      if (editingBusiness) {
         await api.put(`/businesses/${editingBusiness}`, token, businessForm);
-      else {
+        if (currentDetailScope.current === detailScope && selected) {
+          setDetail({ scope: detailScope, business: { ...selected, ...businessForm, name: businessForm.name.trim() } });
+        }
+      } else {
         const saved = await api.post<Business>(
           "/businesses/",
           token,
@@ -129,7 +136,7 @@ export function BusinessesView({ businessId }: { businessId?: string }) {
         router.push(`/businesses/${saved.id}`);
       }
       setBusinessModal(false);
-      await load();
+      invalidateServerLists(["/businesses"]);
     } catch (err) {
       setFormError(
         err instanceof Error ? err.message : "Gagal menyimpan bisnis",
@@ -163,7 +170,6 @@ export function BusinessesView({ businessId }: { businessId?: string }) {
       if (editingEntry) await api.put(`${path}/${editingEntry}`, token, body);
       else await api.post(path, token, body);
       setEntryModal(false);
-      await load();
       await refreshWallets();
     } catch (err) {
       setFormError(
@@ -190,7 +196,6 @@ export function BusinessesView({ businessId }: { businessId?: string }) {
         `/businesses/${selected.id}/transactions/${entry.id}`,
         token,
       );
-      await load();
       await refreshWallets();
     } catch (err) {
       setError(
@@ -214,7 +219,7 @@ export function BusinessesView({ businessId }: { businessId?: string }) {
     try {
       await api.delete(`/businesses/${selected.id}`, token);
       router.push("/businesses");
-      await load();
+      invalidateServerLists(["/businesses"]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal menghapus bisnis");
     } finally {
@@ -293,7 +298,7 @@ export function BusinessesView({ businessId }: { businessId?: string }) {
           </Button>
         </div>
       )}
-      {loading || (!businessId && businessPager.loading) ? (
+      {(loading && !selected) || (!businessId && businessPager.loading) ? (
         <p role="status" className="text-text-secondary">
           Memuat bisnis...
         </p>
