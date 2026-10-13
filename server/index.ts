@@ -13,6 +13,8 @@ import { financeRoutes, resourceRoutes } from "./routes/finance.js";
 import { businessRoutes } from "./routes/business.js";
 import { subscriptionRoutes } from "./routes/subscriptions.js";
 import { botRoutes } from "./routes/bot.js";
+import { stockScreeningRoutes } from "./routes/stock-screening.js";
+import { marketWatchlistRoutes } from "./routes/market-watchlist.js";
 import { publicMarketRoutes } from "./routes/public-market.js";
 import { publicSplitBillRoutes } from "./routes/public-split-bills.js";
 import { pushRoutes } from "./routes/push.js";
@@ -55,6 +57,8 @@ const app = new Elysia({ adapter: node() })
   .use(resourceRoutes)
   .use(botRoutes)
   .use(publicMarketRoutes)
+  .use(marketWatchlistRoutes)
+  .use(stockScreeningRoutes)
   .use(publicSplitBillRoutes)
   .use(pushRoutes)
   .onError(({ code, set }) => {

@@ -873,7 +873,8 @@ export default function TransactionsPage() {
                   id="transaction-destination"
                   value={form.destinationWalletId}
                   onChange={(value) => fld("destinationWalletId", value)}
-                  wallets={allWallets.filter((w) => w.id !== form.walletId)}
+                  wallets={allWallets}
+                  excludeId={form.walletId}
                   placeholder="Pilih dompet tujuan..."
                 />
               </div>

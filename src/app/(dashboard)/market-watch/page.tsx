@@ -1,12 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Eye,
   Plus,
   RefreshCw,
   Search,
-  Sparkles,
   Trash2,
   TrendingDown,
   TrendingUp,
@@ -16,6 +15,7 @@ import { Card } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { useAuthStore } from "~/store/useAuthStore";
+import { StockCandidates } from "~/components/market/stock-candidates";
 import { api } from "~/lib/api";
 import { formatCurrency } from "~/lib/utils";
 
@@ -41,95 +41,6 @@ interface SearchResult {
   currency: string;
 }
 
-type RecCategory = "buy" | "up" | "down";
-
-interface Recommendation {
-  quote: MarketQuote;
-  category: RecCategory;
-  rangePosition: number | null;
-  signal: string;
-}
-
-const RECOMMENDATION_UNIVERSE: string[] = [
-  "BBCA",
-  "BBRI",
-  "BMRI",
-  "BBNI",
-  "BRIS",
-  "TLKM",
-  "ISAT",
-  "UNVR",
-  "ICBP",
-  "INDF",
-  "MYOR",
-  "SIDO",
-  "ASII",
-  "AUTO",
-  "ANTM",
-  "INCO",
-  "MDKA",
-  "ADRO",
-  "PTBA",
-  "ITMG",
-  "BSDE",
-  "PWON",
-  "GOTO",
-  "EMTK",
-  "BUKA",
-  "UNTR",
-  "KAEF",
-  "HMSP",
-  "GGRM",
-];
-
-function classify(quote: MarketQuote): Recommendation | null {
-  const { price, changePercent, fiftyTwoWeekHigh, fiftyTwoWeekLow } = quote;
-
-  let rangePosition: number | null = null;
-  if (
-    fiftyTwoWeekHigh &&
-    fiftyTwoWeekLow &&
-    fiftyTwoWeekHigh > fiftyTwoWeekLow
-  ) {
-    rangePosition =
-      ((price - fiftyTwoWeekLow) / (fiftyTwoWeekHigh - fiftyTwoWeekLow)) * 100;
-  }
-
-  if (changePercent < -2) {
-    return {
-      quote,
-      category: "down",
-      rangePosition,
-      signal: `Turun ${Math.abs(changePercent).toFixed(2)}% hari ini`,
-    };
-  }
-  if (rangePosition !== null && rangePosition > 80) {
-    return {
-      quote,
-      category: "down",
-      rangePosition,
-      signal: `Di ${rangePosition.toFixed(0)}% range 52W`,
-    };
-  }
-  if (rangePosition !== null && rangePosition < 30) {
-    return {
-      quote,
-      category: "buy",
-      rangePosition,
-      signal: `Diskon di ${rangePosition.toFixed(0)}% range 52W`,
-    };
-  }
-  if (changePercent > 1) {
-    return {
-      quote,
-      category: "up",
-      rangePosition,
-      signal: `Naik ${changePercent.toFixed(2)}% hari ini`,
-    };
-  }
-  return null;
-}
-
 const STORAGE_KEY = "fintrack:market-watchlist";
 const DEFAULT_SYMBOLS = ["BBCA", "BBRI", "TLKM", "ANTM", "GOTO"];
 
@@ -139,7 +50,8 @@ function loadWatchlist(): string[] {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_SYMBOLS;
     const parsed = JSON.parse(raw) as string[];
-    return Array.isArray(parsed) && parsed.length > 0
+    return Array.isArray(parsed) &&
+      parsed.every((symbol) => typeof symbol === "string")
       ? parsed
       : DEFAULT_SYMBOLS;
   } catch {
@@ -149,6 +61,11 @@ function loadWatchlist(): string[] {
 
 export default function MarketWatchPage() {
   const token = useAuthStore((state) => state.token);
+  const [watchlistError, setWatchlistError] = useState("");
+  const [watchlistStorage, setWatchlistStorage] = useState("");
+  const [loadedToken, setLoadedToken] = useState<string | null>(null);
+  const savingWatchlist = useRef(false);
+  const [saving, setSaving] = useState(false);
   const [symbols, setSymbols] = useState<string[]>([]);
   const [quotes, setQuotes] = useState<Record<string, MarketQuote>>({});
   const [loading, setLoading] = useState(false);
@@ -156,71 +73,43 @@ export default function MarketWatchPage() {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
 
-  // Recommendations state
-  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
-  const [recLoading, setRecLoading] = useState(false);
-
-  const fetchRecommendations = useCallback(async () => {
+  useEffect(() => {
+    let cancelled = false;
+    setLoadedToken(null);
+    setSymbols([]);
+    setWatchlistError("");
+    setWatchlistStorage("");
     if (!token) return;
-    setRecLoading(true);
-    try {
-      const entries = await Promise.allSettled(
-        RECOMMENDATION_UNIVERSE.map((symbol) =>
-          api.get<MarketQuote>(
-            `/market-quote/${encodeURIComponent(symbol)}?assetClass=stock`,
-            token,
-          ),
-        ),
-      );
-      const recs: Recommendation[] = [];
-      for (const entry of entries) {
-        if (entry.status === "fulfilled") {
-          const r = classify(entry.value);
-          if (r) recs.push(r);
+    async function load() {
+      try {
+        let list = await api.get<{ symbols: string[] | null; storage: string }>(
+          "/market-watchlist/",
+          token!,
+        );
+        if (cancelled) return;
+        if (list.symbols === null) {
+          list = await api.post("/market-watchlist/", token!, {
+            symbols: loadWatchlist(),
+          });
+          if (cancelled) return;
+          if (list.storage === "database")
+            window.localStorage.removeItem(STORAGE_KEY);
         }
+        setSymbols(list.symbols ?? []);
+        setWatchlistStorage(list.storage);
+        setLoadedToken(token);
+      } catch {
+        if (!cancelled)
+          setWatchlistError(
+            "Watchlist gagal dimuat. Muat ulang halaman untuk mencoba lagi.",
+          );
       }
-      setRecommendations(recs);
-    } finally {
-      setRecLoading(false);
     }
+    void load();
+    return () => {
+      cancelled = true;
+    };
   }, [token]);
-
-  useEffect(() => {
-    void fetchRecommendations();
-  }, [fetchRecommendations]);
-
-  const buyRecs = useMemo(
-    () =>
-      recommendations
-        .filter((r) => r.category === "buy")
-        .sort((a, b) => (a.rangePosition ?? 50) - (b.rangePosition ?? 50)),
-    [recommendations],
-  );
-  const upRecs = useMemo(
-    () =>
-      recommendations
-        .filter((r) => r.category === "up")
-        .sort((a, b) => b.quote.changePercent - a.quote.changePercent),
-    [recommendations],
-  );
-  const downRecs = useMemo(
-    () =>
-      recommendations
-        .filter((r) => r.category === "down")
-        .sort((a, b) => a.quote.changePercent - b.quote.changePercent),
-    [recommendations],
-  );
-
-  // Load watchlist from localStorage on mount
-  useEffect(() => {
-    setSymbols(loadWatchlist());
-  }, []);
-
-  // Persist watchlist
-  useEffect(() => {
-    if (symbols.length === 0) return;
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(symbols));
-  }, [symbols]);
 
   const fetchQuotes = useCallback(async () => {
     if (!token || symbols.length === 0) return;
@@ -276,22 +165,38 @@ export default function MarketWatchPage() {
     return () => clearTimeout(timer);
   }, [query, token]);
 
-  function addSymbol(symbol: string) {
+  async function changeSymbol(symbol: string, action: "add" | "remove") {
+    if (!token || loadedToken !== token || savingWatchlist.current) return;
     const clean = symbol.trim().toUpperCase().replace(/\.JK$/, "");
-    if (!clean || symbols.includes(clean)) return;
-    setSymbols((prev) => [...prev, clean]);
-    setQuery("");
-    setResults([]);
+    if (!clean || (action === "add" && symbols.includes(clean))) return;
+    savingWatchlist.current = true;
+    setSaving(true);
+    setWatchlistError("");
+    try {
+      const list = await api.put<{ symbols: string[]; storage: string }>(
+        "/market-watchlist/",
+        token,
+        { symbol: clean, action },
+      );
+      if (useAuthStore.getState().token !== token) return;
+      setSymbols(list.symbols);
+      if (action === "add") {
+        setQuery("");
+        setResults([]);
+      }
+    } catch {
+      if (useAuthStore.getState().token === token)
+        setWatchlistError(
+          "Perubahan watchlist gagal disimpan. Silakan coba lagi.",
+        );
+    } finally {
+      savingWatchlist.current = false;
+      setSaving(false);
+    }
   }
 
-  function removeSymbol(symbol: string) {
-    setSymbols((prev) => prev.filter((s) => s !== symbol));
-    setQuotes((prev) => {
-      const next = { ...prev };
-      delete next[symbol];
-      return next;
-    });
-  }
+  const addSymbol = (symbol: string) => void changeSymbol(symbol, "add");
+  const removeSymbol = (symbol: string) => void changeSymbol(symbol, "remove");
 
   return (
     <PageWrapper
@@ -309,77 +214,40 @@ export default function MarketWatchPage() {
         </Button>
       }
     >
+      {watchlistError && (
+        <p role="alert" className="text-danger mb-4 text-sm">
+          {watchlistError}
+        </p>
+      )}
+      {watchlistStorage === "memory" && (
+        <p className="text-warning mb-4 text-sm">
+          Database belum dikonfigurasi. Watchlist sementara tidak bertahan
+          setelah backend dimulai ulang.
+        </p>
+      )}
+      {!loadedToken && !watchlistError && (
+        <p className="text-text-secondary mb-4 text-sm">Memuat watchlist…</p>
+      )}
+      {saving && (
+        <p role="status" className="text-text-secondary mb-4 text-sm">
+          Menyimpan watchlist…
+        </p>
+      )}
       {/* Disclaimer */}
       <Card className="border-warning/30 bg-warning/5">
         <p className="text-text-secondary text-xs leading-relaxed">
-          <span className="text-warning font-semibold">Catatan:</span> Halaman
-          ini menampilkan data harga pasar apa adanya untuk membantu kamu
-          memantau saham. Ini{" "}
-          <span className="font-semibold">bukan rekomendasi beli/jual</span>.
-          Pergerakan harga besok tidak bisa diprediksi pasti - gunakan data
-          range harga di bawah sebagai acuan area pantau, dan selalu lakukan
-          analisis sendiri.
+          Analisis harga dan volume untuk menyusun daftar pantauan. Level
+          historis tidak menjamin pergerakan berikutnya; periksa risiko dan aksi
+          korporasi sebelum mengambil keputusan.
         </p>
       </Card>
 
-      {/* Recommendations */}
-      <Card>
-        <div className="mb-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Sparkles className="text-primary h-5 w-5" />
-            <h3 className="text-text-primary font-semibold">
-              Rekomendasi Hari Ini
-            </h3>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            loading={recLoading}
-            leftIcon={<RefreshCw className="h-3.5 w-3.5" />}
-            onClick={() => void fetchRecommendations()}
-          >
-            Refresh
-          </Button>
-        </div>
-        <p className="text-text-muted mb-4 text-xs">
-          Dihasilkan otomatis dari posisi harga dalam rentang 52 minggu dan
-          momentum harian.{" "}
-          <span className="text-warning font-semibold">
-            Bukan saran investasi.
-          </span>{" "}
-          Selalu riset sendiri.
-        </p>
-
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <RecColumn
-            title="Peluang Beli"
-            icon={<TrendingUp className="h-4 w-4" />}
-            borderClass="border-success/30"
-            bgClass="bg-success/5"
-            titleClass="text-success"
-            recs={buyRecs}
-            emptyText="Tidak ada saham di area diskon 52W saat ini"
-          />
-          <RecColumn
-            title="Potensi Naik"
-            icon={<TrendingUp className="h-4 w-4" />}
-            borderClass="border-primary/30"
-            bgClass="bg-primary/5"
-            titleClass="text-primary"
-            recs={upRecs}
-            emptyText="Tidak ada saham dengan momentum naik kuat"
-          />
-          <RecColumn
-            title="Potensi Turun"
-            icon={<TrendingDown className="h-4 w-4" />}
-            borderClass="border-danger/30"
-            bgClass="bg-danger/5"
-            titleClass="text-danger"
-            recs={downRecs}
-            emptyText="Tidak ada sinyal penurunan saat ini"
-          />
-        </div>
-      </Card>
+      <StockCandidates
+        token={token}
+        symbols={symbols}
+        onAdd={addSymbol}
+        disabled={saving || loadedToken !== token}
+      />
 
       {/* Add ticker */}
       <Card>
@@ -407,6 +275,7 @@ export default function MarketWatchPage() {
               {results.map((r) => (
                 <button
                   key={r.symbol}
+                  disabled={saving || loadedToken !== token}
                   onClick={() => addSymbol(r.symbol)}
                   className="hover:bg-bg-surface flex w-full items-center justify-between px-3 py-2 text-left"
                 >
@@ -434,6 +303,7 @@ export default function MarketWatchPage() {
           return (
             <Card key={symbol} className="relative">
               <button
+                disabled={saving || loadedToken !== token}
                 onClick={() => removeSymbol(symbol)}
                 className="text-text-muted hover:text-danger absolute top-3 right-3 transition-colors"
                 aria-label={`Hapus ${symbol}`}
@@ -519,96 +389,5 @@ export default function MarketWatchPage() {
         </Card>
       )}
     </PageWrapper>
-  );
-}
-
-// ── Recommendation helpers ──────────────────────────────────────────────────
-
-function RecColumn({
-  title,
-  icon,
-  borderClass,
-  bgClass,
-  titleClass,
-  recs,
-  emptyText,
-}: {
-  title: string;
-  icon: React.ReactNode;
-  borderClass: string;
-  bgClass: string;
-  titleClass: string;
-  recs: Recommendation[];
-  emptyText: string;
-}) {
-  return (
-    <div className={`rounded-lg border p-3 ${borderClass} ${bgClass}`}>
-      <div className="mb-3 flex items-center justify-between">
-        <div className="flex items-center gap-1.5">
-          <span className={titleClass}>{icon}</span>
-          <span className={`text-sm font-semibold ${titleClass}`}>{title}</span>
-        </div>
-        <span className="text-text-muted text-xs font-medium">
-          {recs.length}
-        </span>
-      </div>
-      <div className="space-y-2">
-        {recs.slice(0, 5).map((rec) => (
-          <RecItem key={rec.quote.symbol} rec={rec} />
-        ))}
-        {recs.length === 0 && (
-          <p className="text-text-muted px-1 py-3 text-center text-xs">
-            {emptyText}
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function RecItem({ rec }: { rec: Recommendation }) {
-  const { quote, rangePosition, signal } = rec;
-  const positive = quote.changePercent >= 0;
-  const clampedPos =
-    rangePosition !== null ? Math.max(0, Math.min(100, rangePosition)) : null;
-  return (
-    <div className="bg-bg-surface rounded-lg p-2.5">
-      <div className="mb-1 flex items-center justify-between">
-        <span className="text-text-primary text-sm font-bold">
-          {quote.symbol.replace(/\.JK$/, "")}
-        </span>
-        <span className="text-text-secondary text-xs">
-          {formatCurrency(quote.price)}
-        </span>
-      </div>
-      <div className="mb-1.5 flex items-center justify-between">
-        <span
-          className={
-            positive
-              ? "text-success text-xs font-semibold"
-              : "text-danger text-xs font-semibold"
-          }
-        >
-          {positive ? "+" : ""}
-          {quote.changePercent.toFixed(2)}%
-        </span>
-        {clampedPos !== null && (
-          <span className="text-text-muted text-[10px]">
-            {clampedPos.toFixed(0)}% range
-          </span>
-        )}
-      </div>
-      {clampedPos !== null && (
-        <div className="bg-bg-elevated relative mb-1.5 h-1 overflow-hidden rounded-full">
-          <div className="from-success/30 via-warning/30 to-danger/30 absolute inset-0 bg-gradient-to-r" />
-          <div
-            className="border-primary absolute h-2.5 w-2.5 -translate-x-1/2 rounded-full border-2 bg-white shadow-sm"
-            style={{ left: `${clampedPos}%`, top: "-0.75px" }}
-            aria-label={`Posisi ${clampedPos.toFixed(0)}% dari 52W low`}
-          />
-        </div>
-      )}
-      <p className="text-text-muted text-[10px] leading-tight">{signal}</p>
-    </div>
   );
 }

@@ -2,10 +2,12 @@
 
 import * as Select from "@radix-ui/react-select";
 import { Check, ChevronDown, CornerDownRight } from "lucide-react";
-import { useId } from "react";
+import { useId, useMemo } from "react";
 import { normalizeWalletTree } from "~/lib/wallets";
 import type { Wallet } from "~/lib/types";
 import { useFinanceStore } from "~/store/useFinanceStore";
+
+const EMPTY_WALLETS: Wallet[] = [];
 
 export function WalletPicker({
   value,
@@ -28,15 +30,54 @@ export function WalletPicker({
   excludeId?: string;
   currency?: string;
 }) {
-  const storedWallets = useFinanceStore((state) => state.wallets);
-  const rows: { wallet: Wallet; depth: number }[] = [];
-  function visit(wallet: Wallet, depth: number) {
-    if (wallet.id !== excludeId && (!currency || wallet.currency === currency))
-      rows.push({ wallet, depth });
-    wallet.children?.forEach((child) => visit(child, depth + 1));
-  }
-  normalizeWalletTree(wallets ?? storedWallets).forEach((wallet) =>
-    visit(wallet, 0),
+  const storedWallets = useFinanceStore((state) =>
+    wallets ? undefined : state.wallets,
+  );
+  const sourceWallets = wallets ?? storedWallets ?? EMPTY_WALLETS;
+  const tree = useMemo(
+    () => normalizeWalletTree(sourceWallets),
+    [sourceWallets],
+  );
+  const rows = useMemo(() => {
+    const result: { wallet: Wallet; depth: number }[] = [];
+    function visit(wallet: Wallet, depth: number) {
+      if (
+        wallet.id !== excludeId &&
+        (!currency || wallet.currency === currency)
+      )
+        result.push({ wallet, depth });
+      wallet.children?.forEach((child) => visit(child, depth + 1));
+    }
+    tree.forEach((wallet) => visit(wallet, 0));
+    return result;
+  }, [tree, excludeId, currency]);
+  const options = useMemo(
+    () =>
+      rows.map(({ wallet, depth }) => (
+        <Select.Item
+          key={wallet.id}
+          value={wallet.id}
+          textValue={wallet.name}
+          style={{ paddingLeft: 12 + depth * 20 }}
+          className="data-[highlighted]:bg-bg-elevated relative flex min-h-10 cursor-pointer items-center gap-2 rounded-md py-2 pr-8 text-sm outline-none"
+        >
+          {depth > 0 && (
+            <CornerDownRight
+              aria-hidden
+              className="text-text-muted h-3.5 w-3.5 shrink-0"
+            />
+          )}
+          <Select.ItemText>
+            <span className={depth === 0 ? "font-medium" : ""}>
+              {wallet.name}
+            </span>
+          </Select.ItemText>
+          <Select.ItemIndicator className="absolute right-2">
+            <Check className="text-primary h-4 w-4" />
+          </Select.ItemIndicator>
+        </Select.Item>
+      )),
+    [rows],
   );
   const selected = rows.find(({ wallet }) => wallet.id === value)?.wallet;
   return (
@@ -71,30 +112,7 @@ export function WalletPicker({
                 <Select.ItemText>{emptyLabel}</Select.ItemText>
               </Select.Item>
             )}
-            {rows.map(({ wallet, depth }) => (
-              <Select.Item
-                key={wallet.id}
-                value={wallet.id}
-                textValue={wallet.name}
-                style={{ paddingLeft: 12 + depth * 20 }}
-                className="data-[highlighted]:bg-bg-elevated relative flex min-h-10 cursor-pointer items-center gap-2 rounded-md py-2 pr-8 text-sm outline-none"
-              >
-                {depth > 0 && (
-                  <CornerDownRight
-                    aria-hidden
-                    className="text-text-muted h-3.5 w-3.5 shrink-0"
-                  />
-                )}
-                <Select.ItemText>
-                  <span className={depth === 0 ? "font-medium" : ""}>
-                    {wallet.name}
-                  </span>
-                </Select.ItemText>
-                <Select.ItemIndicator className="absolute right-2">
-                  <Check className="text-primary h-4 w-4" />
-                </Select.ItemIndicator>
-              </Select.Item>
-            ))}
+            {options}
             {!rows.length && (
               <p className="text-text-secondary px-3 py-2 text-sm">
                 Belum ada dompet yang tersedia. Tambahkan melalui menu Dompet.

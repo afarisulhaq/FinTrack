@@ -90,10 +90,7 @@ const DIRECT_YAHOO_SEARCH_URL =
 // put the proxy first in the list and keep the direct hosts as a
 // fallback in case the worker is down. When unset, behaviour is
 // unchanged — we just talk to Yahoo directly.
-const YAHOO_PROXY_URL = process.env.YAHOO_PROXY_URL?.trim().replace(
-  /\/$/,
-  "",
-);
+const YAHOO_PROXY_URL = process.env.YAHOO_PROXY_URL?.trim().replace(/\/$/, "");
 const YAHOO_CHART_HOSTS = YAHOO_PROXY_URL
   ? [YAHOO_PROXY_URL, ...DIRECT_YAHOO_CHART_HOSTS]
   : DIRECT_YAHOO_CHART_HOSTS;
@@ -175,13 +172,9 @@ function usdQuoteToIdr(
     dayHigh: quote.dayHigh != null ? quote.dayHigh * rate : null,
     dayLow: quote.dayLow != null ? quote.dayLow * rate : null,
     fiftyTwoWeekHigh:
-      quote.fiftyTwoWeekHigh != null
-        ? quote.fiftyTwoWeekHigh * rate
-        : null,
+      quote.fiftyTwoWeekHigh != null ? quote.fiftyTwoWeekHigh * rate : null,
     fiftyTwoWeekLow:
-      quote.fiftyTwoWeekLow != null
-        ? quote.fiftyTwoWeekLow * rate
-        : null,
+      quote.fiftyTwoWeekLow != null ? quote.fiftyTwoWeekLow * rate : null,
   };
 }
 
@@ -706,12 +699,14 @@ export type MarketQuote = {
 // null if every host is unreachable. Non-2xx responses (401, 403,
 // 429) are returned as-is so the caller can decide what to do —
 // 401/403 trigger the next host, 429 trips the global cooldown.
-async function fetchYahooChart(
+export async function fetchYahooChart(
   symbol: string,
   range: string,
+  signal?: AbortSignal,
 ): Promise<{ host: string; response: Response } | null> {
   const lastAttemptStatus: number[] = [];
   for (const host of YAHOO_CHART_HOSTS) {
+    if (signal?.aborted) return null;
     const url = `${host}/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=${range}`;
     let response: Response;
     try {
@@ -721,7 +716,12 @@ async function fetchYahooChart(
           "User-Agent": "Mozilla/5.0 FinTrack/1.0",
           ...yahooAuthHeaders,
         },
-        signal: AbortSignal.timeout(YAHOO_FETCH_TIMEOUT_MS),
+        signal: signal
+          ? AbortSignal.any([
+              signal,
+              AbortSignal.timeout(YAHOO_FETCH_TIMEOUT_MS),
+            ])
+          : AbortSignal.timeout(YAHOO_FETCH_TIMEOUT_MS),
       });
     } catch (err) {
       console.warn(
@@ -1033,7 +1033,11 @@ export async function getYahooFinancePrice(
   // own native currency, which we leave alone for now).
   const finalResult: YahooPriceResult =
     assetClass === "crypto"
-      ? { ...result, price: result.price * (await getUsdIdrRate()), currency: "IDR" }
+      ? {
+          ...result,
+          price: result.price * (await getUsdIdrRate()),
+          currency: "IDR",
+        }
       : result;
   writeCache(priceCache, cacheKey, finalResult, PRICE_TTL_MS);
   persistentPriceCache.set(cacheKey, {
