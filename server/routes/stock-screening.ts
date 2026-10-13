@@ -1,8 +1,9 @@
 import { Elysia } from "elysia";
 import { extractToken, verifyToken } from "../auth.js";
 import { fetchYahooChart } from "../services/market-price.js";
-import { analyzeStock, parseDailyBars } from "../services/stock-screening.js";
+import { analyzeStock, parseDailyBars, type StockAnalysis } from "../services/stock-screening.js";
 import { fail, ok } from "../utils.js";
+import { PaginationError, readPage, pageArray, type ListQuery } from "../services/pagination.js";
 const universe = [
   "BBCA",
   "BBRI",
@@ -25,12 +26,17 @@ const universe = [
   "PWON",
   "GOTO",
 ];
-let cached:
-  | { data: Awaited<ReturnType<typeof scan>>; expires: number }
-  | undefined;
-let pending: Promise<Awaited<ReturnType<typeof scan>>> | undefined;
-async function scan() {
-  const candidates: ReturnType<typeof analyzeStock>[] = [];
+interface StockScan {
+  candidates: StockAnalysis[];
+  unavailable: { symbol: string; reason: string }[];
+  scanned: number;
+  generatedAt: string;
+  methodology: string;
+}
+let cached: { data: StockScan; expires: number } | undefined;
+let pending: Promise<StockScan> | undefined;
+async function scan(): Promise<StockScan> {
+  const candidates: StockAnalysis[] = [];
   const unavailable: { symbol: string; reason: string }[] = [];
   let index = 0;
   const deadline = AbortSignal.timeout(45_000);
@@ -86,7 +92,27 @@ async function scan() {
     methodology: "price-volume-v1",
   };
 }
+function scanPage(data: StockScan, query: ListQuery) {
+  const input = readPage(query);
+  const search = (query.search ?? "").trim().toLowerCase();
+  const summary = {
+    scanned: data.scanned,
+    analyzedCount: data.candidates.length,
+    generatedAt: data.generatedAt,
+    signalCount: data.candidates.filter((item) => item.signals.length > 0).length,
+    unavailableCount: data.unavailable.length,
+  };
+  if (query.view === "unavailable") return pageArray(data.unavailable, input, summary);
+  const rows = data.candidates.filter((item) =>
+    (query.showAll === "true" || item.signals.length > 0) &&
+    (!search || `${item.symbol} ${item.name}`.toLowerCase().includes(search)));
+  return pageArray(rows, input, summary);
+}
+
 export const stockScreeningRoutes = new Elysia({ prefix: "/api" })
+  .onError(({ error, set }) => {
+    if (error instanceof PaginationError) { set.status = error.status; return fail(error.message); }
+  })
   .onBeforeHandle(({ request, set }) => {
     const token = extractToken(request.headers.get("authorization") ?? undefined);
     if (!token || !verifyToken(token)) {
@@ -94,9 +120,10 @@ export const stockScreeningRoutes = new Elysia({ prefix: "/api" })
       return fail("Unauthorized");
     }
   })
-  .get("/stock-screening", async ({ set }) => {
+  .get("/stock-screening", async ({ set, query }) => {
+    readPage(query);
     if (cached && cached.expires > Date.now()) {
-      if (cached.data.candidates.length) return ok(cached.data);
+      if (cached.data.candidates.length) return ok(scanPage(cached.data, query));
       set.status = 503;
       return fail(
         "Riwayat harga dan volume belum tersedia. Coba lagi setelah koneksi Yahoo pulih.",
@@ -120,5 +147,5 @@ export const stockScreeningRoutes = new Elysia({ prefix: "/api" })
         "Riwayat harga dan volume belum tersedia. Coba lagi setelah koneksi Yahoo pulih.",
       );
     }
-    return ok(data);
+    return ok(scanPage(data, query));
   });

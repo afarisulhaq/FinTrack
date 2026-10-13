@@ -1,4 +1,4 @@
-import type { GamificationBadge } from "./types";
+import type { GamificationBadge } from "./types.js";
 
 export const ACTIVITY_LEVELS = [
   { name: "Mulai mencatat", xp: 0 },
@@ -70,11 +70,39 @@ export function calculateActivity(
   ).length;
   const paidBills = data.bills.filter((bill) => bill.status === "paid").length;
   const settledDebts = data.debts.filter((debt) => debt.isSettled).length;
+  return calculateActivityAggregate({
+    recordCount: records.length,
+    currentStreak,
+    longestStreak,
+    activeDays: days.length,
+    achievedGoals,
+    paidBills,
+    settledDebts,
+    last7Days: Array.from({ length: 7 }, (_, i) => ({
+      date: new Date((today - 6 + i) * 86400000).toISOString().slice(0, 10),
+      count: records.filter((day) => day === today - 6 + i).length,
+    })),
+  });
+}
+
+export interface ActivityAggregate {
+  recordCount: number;
+  currentStreak: number;
+  longestStreak: number;
+  activeDays: number;
+  achievedGoals: number;
+  paidBills: number;
+  settledDebts: number;
+  last7Days: { date: string; count: number }[];
+}
+
+export function calculateActivityAggregate(data: ActivityAggregate) {
+  const { recordCount, currentStreak, longestStreak } = data;
   const definitions = [
     {
       id: "first-record",
       name: "Catatan pertama",
-      count: records.length,
+      count: recordCount,
       target: 1,
       reward: 20,
       icon: "Receipt",
@@ -83,7 +111,7 @@ export function calculateActivity(
     {
       id: "ten-records",
       name: "Sepuluh catatan",
-      count: records.length,
+      count: recordCount,
       target: 10,
       reward: 50,
       icon: "NotebookPen",
@@ -92,7 +120,7 @@ export function calculateActivity(
     {
       id: "fifty-records",
       name: "Lima puluh catatan",
-      count: records.length,
+      count: recordCount,
       target: 50,
       reward: 100,
       icon: "BookOpen",
@@ -119,7 +147,7 @@ export function calculateActivity(
     {
       id: "saving-goal",
       name: "Target tabungan tercapai",
-      count: achievedGoals,
+      count: data.achievedGoals,
       target: 1,
       reward: 100,
       icon: "PiggyBank",
@@ -128,7 +156,7 @@ export function calculateActivity(
     {
       id: "paid-bill",
       name: "Tagihan dibayar",
-      count: paidBills,
+      count: data.paidBills,
       target: 1,
       reward: 30,
       icon: "BadgeCheck",
@@ -137,7 +165,7 @@ export function calculateActivity(
     {
       id: "settled-debt",
       name: "Utang atau piutang selesai",
-      count: settledDebts,
+      count: data.settledDebts,
       target: 1,
       reward: 50,
       icon: "Handshake",
@@ -157,7 +185,7 @@ export function calculateActivity(
     xpReward: rule.reward,
   }));
   const totalXP =
-    records.length * 5 +
+    recordCount * 5 +
     badges
       .filter((badge) => badge.isUnlocked)
       .reduce((sum, badge) => sum + badge.xpReward, 0);
@@ -183,11 +211,8 @@ export function calculateActivity(
     progress,
     currentStreak,
     longestStreak,
-    recordCount: records.length,
-    activeDays: days.length,
-    last7Days: Array.from({ length: 7 }, (_, i) => ({
-      date: new Date((today - 6 + i) * 86400000).toISOString().slice(0, 10),
-      count: records.filter((day) => day === today - 6 + i).length,
-    })),
+    recordCount,
+    activeDays: data.activeDays,
+    last7Days: data.last7Days,
   };
 }

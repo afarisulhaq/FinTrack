@@ -204,10 +204,10 @@ console.log(
 );
 
 Object.defineProperty(globalThis, "window", {
-  value: {
+  value: Object.assign(new EventTarget(), {
     localStorage: { getItem: () => JSON.stringify({ state: { token } }) },
     location: { origin: "http://localhost" },
-  },
+  }),
   configurable: true,
 });
 const originalFetch = globalThis.fetch;

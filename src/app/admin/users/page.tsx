@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import {
   Plus,
   Search,
@@ -21,6 +21,9 @@ import { confirm } from "~/components/ui/confirm-dialog";
 import { toast } from "~/components/ui/toast";
 import { api } from "~/lib/api";
 import { useAuthStore } from "~/store/useAuthStore";
+import { Pagination } from "~/components/ui/pagination";
+import { useServerPagination } from "~/lib/use-server-pagination";
+import { invalidateServerLists } from "~/lib/page-records";
 
 interface ManagedUser {
   id: string;
@@ -63,9 +66,6 @@ function formatJoinedAt(iso: string): string {
 
 export default function AdminUsersPage() {
   const token = useAuthStore((state) => state.token);
-  const [users, setUsers] = useState<ManagedUser[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [role, setRole] = useState("all");
   const [status, setStatus] = useState("all");
@@ -74,72 +74,14 @@ export default function AdminUsersPage() {
   const [editing, setEditing] = useState<ManagedUser | null>(null);
   const [form, setForm] = useState(emptyForm);
 
-  // ── Fetch real users from the backend ────────────────────────────
-  // The previous version of this page shipped with 11 hardcoded
-  // `initialUsers` so the table looked populated, which made any
-  // delete/refresh round-trip confusing (the rows came right back).
-  // Now we hit `GET /api/users` on mount and show whatever's actually
-  // in the database. Add / edit / delete are not yet wired to the
-  // backend, so changes stay local until the matching POST/PUT/DELETE
-  // endpoints are added.
-  const loadUsers = useCallback(async () => {
-    if (!token) {
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    setLoadError(null);
-    try {
-      const rows = await api.get<
-        Array<{
-          id: string;
-          name: string;
-          email: string;
-          role: string;
-          status: string;
-          createdAt: string;
-        }>
-      >("/users", token);
-      setUsers(
-        rows.map((u) => ({
-          id: u.id,
-          name: u.name,
-          email: u.email,
-          role: u.role as ManagedUser["role"],
-          status: u.status as ManagedUser["status"],
-          joinedAt: formatJoinedAt(u.createdAt),
-          transactions: 0,
-          wallets: 0,
-        })),
-      );
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Gagal memuat daftar pengguna";
-      setLoadError(message);
-      toast.error("Gagal memuat pengguna", message);
-    } finally {
-      setLoading(false);
-    }
-  }, [token]);
-
-  useEffect(() => {
-    void loadUsers();
-  }, [loadUsers]);
-
-  const filtered = useMemo(
-    () =>
-      users.filter((user) => {
-        const matchesSearch = `${user.name} ${user.email}`
-          .toLowerCase()
-          .includes(search.toLowerCase());
-        return (
-          matchesSearch &&
-          (role === "all" || user.role === role) &&
-          (status === "all" || user.status === status)
-        );
-      }),
-    [role, search, status, users],
-  );
+  const pager = useServerPagination<ManagedUser>("/users", {
+    search, role: role === "all" ? undefined : role,
+    status: status === "all" ? undefined : status,
+  });
+  const users = pager.items;
+  const loading = pager.loading;
+  const loadError = pager.error;
+  const loadUsers = pager.reload;
 
   function openAdd() {
     setEditing(null);
@@ -165,7 +107,7 @@ export default function AdminUsersPage() {
       void (async () => {
         if (!token) return;
         try {
-          const updated = await api.put<ManagedUser>(
+          await api.put<ManagedUser>(
             `/users/${editing.id}`,
             token,
             {
@@ -176,19 +118,8 @@ export default function AdminUsersPage() {
               ...(form.password ? { password: form.password } : {}),
             },
           );
-          setUsers((list) =>
-            list.map((u) =>
-              u.id === editing.id
-                ? {
-                    ...u,
-                    name: updated.name,
-                    email: updated.email,
-                    role: updated.role,
-                    status: updated.status,
-                  }
-                : u,
-            ),
-          );
+          pager.reload();
+          invalidateServerLists();
           toast.success("Pengguna diperbarui");
           setModalOpen(false);
         } catch (err) {
@@ -207,26 +138,15 @@ export default function AdminUsersPage() {
       void (async () => {
         if (!token) return;
         try {
-          const created = await api.post<ManagedUser>("/users", token, {
+          await api.post<ManagedUser>("/users", token, {
             name: form.name,
             email: form.email,
             password: form.password,
             role: form.role,
             status: form.status,
           });
-          setUsers((list) => [
-            {
-              id: created.id,
-              name: created.name,
-              email: created.email,
-              role: created.role,
-              status: created.status,
-              joinedAt: formatJoinedAt(created.createdAt ?? new Date().toISOString()),
-              transactions: 0,
-              wallets: 0,
-            },
-            ...list,
-          ]);
+          pager.reload();
+          invalidateServerLists();
           toast.success("Pengguna ditambahkan");
           setModalOpen(false);
         } catch (err) {
@@ -248,7 +168,8 @@ export default function AdminUsersPage() {
     if (!ok || !token) return;
     try {
       await api.delete<{ id: string }>(`/users/${id}`, token);
-      setUsers((list) => list.filter((user) => user.id !== id));
+      pager.reload();
+      invalidateServerLists();
       toast.success("Pengguna dihapus");
     } catch (err) {
       toast.error(
@@ -262,18 +183,10 @@ export default function AdminUsersPage() {
     if (!target || !token) return;
     const next: ManagedUser["status"] =
       target.status === "active" ? "inactive" : "active";
-    // Optimistic update so the table feels instant; revert on error.
-    setUsers((list) =>
-      list.map((u) => (u.id === id ? { ...u, status: next } : u)),
-    );
     void api
       .put<ManagedUser>(`/users/${id}`, token, { status: next })
+      .then(() => { pager.reload(); invalidateServerLists(); })
       .catch((err) => {
-        setUsers((list) =>
-          list.map((u) =>
-            u.id === id ? { ...u, status: target.status } : u,
-          ),
-        );
         toast.error(
           "Gagal mengubah status",
           err instanceof Error ? err.message : "Unknown error",
@@ -355,7 +268,7 @@ export default function AdminUsersPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((user) => (
+              {pager.items.map((user) => (
                 <tr
                   key={user.id}
                   className="border-border/60 hover:bg-bg-elevated/30 border-b"
@@ -392,7 +305,7 @@ export default function AdminUsersPage() {
                       {user.status === "active" ? "Aktif" : "Nonaktif"}
                     </Badge>
                   </td>
-                  <td className="text-text-muted">{user.joinedAt}</td>
+                  <td className="text-text-muted">{formatJoinedAt(user.createdAt ?? user.joinedAt)}</td>
                   <td>
                     <div className="flex justify-end gap-1 pr-3">
                       <button
@@ -449,7 +362,7 @@ export default function AdminUsersPage() {
               Coba lagi
             </Button>
           </div>
-        ) : filtered.length === 0 ? (
+        ) : pager.total === 0 ? (
           <div className="text-text-muted flex flex-col items-center gap-2 py-16 text-center">
             <Users className="h-8 w-8" />
             <p className="text-sm">
@@ -460,6 +373,7 @@ export default function AdminUsersPage() {
           </div>
         ) : null}
       </div>
+      <Pagination {...pager} label="pengguna" />
 
       <Modal
         open={modalOpen}

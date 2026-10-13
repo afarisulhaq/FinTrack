@@ -14,12 +14,12 @@ async function request(user: string | null, method = "GET", body?: unknown) {
   return { status: response.status, json: await response.json() };
 }
 assert.equal((await request(null)).status, 401);
-assert.equal((await request("a")).json.data.symbols, null);
+assert.equal((await request("a")).json.data.summary.symbols, null);
 assert.deepEqual((await request("a", "POST", { symbols: ["bbca.JK", "BBCA", "TLKM"] })).json.data.symbols, ["BBCA", "TLKM"]);
 assert.deepEqual((await request("a", "POST", { symbols: ["GOTO"] })).json.data.symbols, ["BBCA", "TLKM"]);
-assert.equal((await request("b")).json.data.symbols, null);
+assert.equal((await request("b")).json.data.summary.symbols, null);
 await Promise.all([request("a", "PUT", { action: "add", symbol: "ANTM" }), request("a", "PUT", { action: "add", symbol: "BBRI" })]);
-assert.deepEqual((await request("a")).json.data.symbols, ["BBCA", "TLKM", "ANTM", "BBRI"]);
+assert.deepEqual((await request("a")).json.data.summary.symbols, ["BBCA", "TLKM", "ANTM", "BBRI"]);
 for (const symbol of ["BBCA", "TLKM", "ANTM", "BBRI"]) await request("a", "PUT", { action: "remove", symbol });
 assert.deepEqual((await request("a", "POST", { symbols: ["GOTO"] })).json.data.symbols, []);
 assert.equal((await request("a", "POST", { symbols: ["<bad>"] })).status, 422);

@@ -6,6 +6,27 @@ export type DailyBar = {
   close: number;
   volume: number;
 };
+export interface StockAnalysis {
+  symbol: string;
+  name: string;
+  price: number;
+  asOf: string;
+  signals: string[];
+  reasons: string[];
+  risks: string[];
+  support: number;
+  resistance: number;
+  invalidation: number;
+  relativeVolume: number;
+  cmf: number;
+  obvChange: number;
+  rsi: number;
+  atrPercent: number;
+  turnover: number;
+  sma20: number;
+  sma50: number;
+  stale: boolean;
+}
 const mean = (values: number[]) =>
   values.reduce((sum, value) => sum + value, 0) / values.length;
 export function analyzeStock(
@@ -13,7 +34,7 @@ export function analyzeStock(
   name: string,
   bars: DailyBar[],
   now = Date.now(),
-) {
+): StockAnalysis {
   if (bars.length < 51) throw new Error("Riwayat kurang dari 51 sesi lengkap");
   const latest = bars.at(-1)!;
   const previous20 = bars.slice(-21, -1);

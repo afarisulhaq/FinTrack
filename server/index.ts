@@ -18,6 +18,8 @@ import { marketWatchlistRoutes } from "./routes/market-watchlist.js";
 import { publicMarketRoutes } from "./routes/public-market.js";
 import { publicSplitBillRoutes } from "./routes/public-split-bills.js";
 import { pushRoutes } from "./routes/push.js";
+import { analyticsRoutes } from "./routes/analytics.js";
+import { pagedPeopleRoutes } from "./routes/paged-people.js";
 import { prewarmCommonSymbols } from "./services/market-price.js";
 import { startReminderScheduler } from "./services/reminder-scheduler.js";
 import { startWhatsAppBot } from "./services/whatsapp.js";
@@ -54,6 +56,8 @@ const app = new Elysia({ adapter: node() })
   .use(financeRoutes)
   .use(businessRoutes)
   .use(subscriptionRoutes)
+  .use(analyticsRoutes)
+  .use(pagedPeopleRoutes)
   .use(resourceRoutes)
   .use(botRoutes)
   .use(publicMarketRoutes)

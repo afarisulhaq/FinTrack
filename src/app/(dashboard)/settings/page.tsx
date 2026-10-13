@@ -43,13 +43,20 @@ import { Input } from "~/components/ui/input";
 import { DatePicker } from "~/components/ui/date-picker";
 import { Modal } from "~/components/ui/modal";
 import { confirm } from "~/components/ui/confirm-dialog";
+import { PaginatedList } from "~/components/ui/paginated-list";
+import { Pagination } from "~/components/ui/pagination";
+import { ServerListStatus } from "~/components/ui/server-paginated-list";
 import { QrisImageUpload } from "~/components/qris/qris-image-upload";
 import { useFinanceStore } from "~/store/useFinanceStore";
 import { useAppConfigStore } from "~/store/useAppConfigStore";
-import { getApiBaseUrl } from "~/lib/api";
+import { api, getApiBaseUrl } from "~/lib/api";
+import { invalidateServerLists } from "~/lib/page-records";
+import type { PageResult } from "~/lib/pagination";
+import { useServerPagination } from "~/lib/use-server-pagination";
 import { flattenWalletList, persistBackup, persistTransactions } from "~/lib/import-persist";
 import { cn } from "~/lib/utils";
 import {
+  buildMonthlyReportHTML,
   downloadBackupJSONTemplate,
   downloadFullBackup,
   downloadTransactionsCSV,
@@ -57,7 +64,6 @@ import {
   downloadWalletsCSVTemplate,
   importBackupFromJSON,
   importTransactionsFromCSV,
-  openMonthlyReportPrint,
 } from "~/lib/import-export";
 import { toast } from "~/components/ui/toast";
 import { DynamicIcon } from "~/components/ui/dynamic-icon";
@@ -666,13 +672,13 @@ function MemberInitials({ name }: { name: string }) {
 function AnggotaTimTab() {
   const {
     userProfile,
-    teamMembers,
     addTeamMember,
     removeTeamMember,
     updateTeamMember,
     wallets,
   } = useFinanceStore();
   const { config } = useAppConfigStore();
+  const teamPager = useServerPagination<TeamMember>("/teamMembers", {}, { resource: "teamMembers" });
 
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteForm, setInviteForm] = useState<InviteForm>(EMPTY_INVITE);
@@ -721,7 +727,7 @@ function AnggotaTimTab() {
         <div>
           <h3 className="text-text-primary font-semibold">Manajemen Anggota</h3>
           <p className="text-text-muted text-sm">
-            {1 + teamMembers.length} anggota di tim ini
+            {teamPager.initialized ? `${1 + teamPager.total} anggota di tim ini` : teamPager.error ? "Jumlah anggota belum tersedia" : "Memuat jumlah anggota..."}
           </p>
         </div>
         <Button
@@ -767,7 +773,8 @@ function AnggotaTimTab() {
       </Card>
 
       {/* Team member cards */}
-      {teamMembers.map((member) => (
+      <ServerListStatus {...teamPager} />
+      {teamPager.items.map((member) => (
         <Card key={member.id}>
           <CardBody>
             <div className="flex flex-wrap items-start gap-4">
@@ -837,8 +844,9 @@ function AnggotaTimTab() {
           </CardBody>
         </Card>
       ))}
+      <Pagination {...teamPager} label="anggota tim" />
 
-      {teamMembers.length === 0 && (
+      {teamPager.initialized && !teamPager.loading && !teamPager.error && teamPager.total === 0 && (
         <div className="border-border flex flex-col items-center gap-2 rounded-xl border border-dashed py-12 text-center">
           <Users className="text-text-muted h-8 w-8" />
           <p className="text-text-muted text-sm">Belum ada anggota tim</p>
@@ -1836,7 +1844,7 @@ function KeamananTab() {
           </div>
         </CardHeader>
         <CardBody className="space-y-3">
-          {sessions.map((s) => (
+          <PaginatedList rows={sessions} label="sesi aktif">{(items) => items.map((s) => (
             <div
               key={s.id}
               className="bg-bg-elevated flex items-center justify-between gap-3 rounded-lg p-3"
@@ -1874,7 +1882,7 @@ function KeamananTab() {
                 </Button>
               )}
             </div>
-          ))}
+          ))}</PaginatedList>
         </CardBody>
       </Card>
 
@@ -1884,6 +1892,7 @@ function KeamananTab() {
           <p className="text-text-primary font-semibold">Log Aktivitas</p>
         </CardHeader>
         <CardBody>
+          <PaginatedList rows={MOCK_ACTIVITY} label="log aktivitas">{(items) => (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -1903,7 +1912,7 @@ function KeamananTab() {
                 </tr>
               </thead>
               <tbody className="divide-border divide-y">
-                {MOCK_ACTIVITY.map((log) => (
+                {items.map((log) => (
                   <tr key={log.id}>
                     <td className="text-text-secondary py-2.5 text-xs">
                       {log.date}
@@ -1927,6 +1936,7 @@ function KeamananTab() {
               </tbody>
             </table>
           </div>
+          )}</PaginatedList>
         </CardBody>
       </Card>
     </div>
@@ -1939,7 +1949,7 @@ type ExportKey = "pdf" | "csv" | "json";
 type ImportKind = "csv" | "json";
 
 import type { Transaction, Wallet } from "~/lib/types";
-import type { BackupBundle, ImportResult } from "~/lib/import-export";
+import type { BackupBundle, BackupSnapshot, ImportResult } from "~/lib/import-export";
 
 interface PendingImport {
   kind: ImportKind;
@@ -1955,37 +1965,7 @@ interface PendingImport {
 }
 
 function DataEksporTab() {
-  const {
-    transactions,
-    wallets,
-    budgets,
-    investments,
-    bills,
-    savingGoals,
-    debts,
-    cards,
-    wishlist,
-    reimbursements,
-    notes,
-    recurringTransactions,
-    splitBills,
-    addTransaction,
-    deleteTransaction,
-    deleteWallet,
-    deleteBudget,
-    deleteInvestment,
-    deleteBill,
-    deleteSavingGoal,
-    deleteDebt,
-    deleteCard,
-    deleteWishlistItem,
-    deleteReimbursement,
-    deleteNote,
-    deleteRecurringTransaction,
-    deleteSplitBill,
-    hydrateFromBackend,
-    refreshAll,
-  } = useFinanceStore();
+  const { wallets, refreshAll } = useFinanceStore();
 
   const { config } = useAppConfigStore();
   const appName = config.appName;
@@ -2013,42 +1993,48 @@ function DataEksporTab() {
     setExporting((prev) => ({ ...prev, [key]: value }));
   }
 
-  function runExport(key: ExportKey) {
+  async function runExport(key: ExportKey) {
+    if (exporting[key]) return;
+    const token = useAuthStore.getState().token;
+    if (!token || token === "dev-fallback-token") {
+      toast.error("Ekspor gagal", "Login ke server diperlukan untuk mengekspor data.");
+      return;
+    }
+    const reportWindow = key === "pdf" ? window.open("", "_blank") : null;
+    if (key === "pdf" && !reportWindow) {
+      toast.error("Laporan tidak dibuka", "Izinkan popup untuk membuka laporan PDF, lalu coba lagi.");
+      return;
+    }
+    if (reportWindow) reportWindow.document.body.textContent = "Memuat laporan...";
     setExportingKey(key, true);
     try {
+      const snapshot = await api.get<BackupSnapshot>("/export", token);
       if (key === "pdf") {
-        openMonthlyReportPrint(transactions, wallets, selectedMonth, appName);
+        if (!reportWindow || reportWindow.closed) throw new Error("Tab laporan sudah ditutup.");
+        const html = buildMonthlyReportHTML(snapshot.transactions, snapshot.wallets, selectedMonth, appName);
+        reportWindow.document.open();
+        reportWindow.document.write(html);
+        reportWindow.addEventListener("load", () => {
+          setTimeout(() => {
+            if (!reportWindow.closed) reportWindow.print();
+          }, 50);
+        }, { once: true });
+        reportWindow.document.close();
         toast.success(
           "Laporan dibuka",
           "Gunakan ‘Save as PDF’ di dialog print browser.",
         );
       } else if (key === "csv") {
-        downloadTransactionsCSV(transactions, wallets, {
+        downloadTransactionsCSV(snapshot.transactions, snapshot.wallets, {
           month: selectedMonth,
         });
         toast.success("CSV diunduh", `transaksi-${selectedMonth}.csv`);
       } else {
-        downloadFullBackup({
-          wallets,
-          transactions,
-          budgets,
-          investments,
-          bills,
-          savingGoals,
-          debts,
-          cards,
-          wishlist,
-          reimbursements,
-          notes,
-          recurringTransactions,
-          splitBills,
-          categories: [],
-          subCategories: [],
-          appName,
-        });
+        downloadFullBackup({ ...snapshot, appName });
         toast.success("Backup JSON diunduh");
       }
     } catch (err) {
+      reportWindow?.close();
       toast.error(
         "Ekspor gagal",
         err instanceof Error ? err.message : "Unknown error",
@@ -2216,6 +2202,7 @@ function DataEksporTab() {
           return { ...item, walletName: wallet.name, categoryIcon: "Package" };
         });
         const result = await persistTransactions(transactionsToSave, token, (progress) => setImportProgress(progress.added));
+        invalidateServerLists();
         const synced = await refreshAll();
         if (synced) toast.success("Import selesai", `${result.added} transaksi tersimpan, ${result.skipped} sudah ada${issues.length ? `, ${issues.length} catatan file` : ""}.`);
         else toast.warning("Import tersimpan", `${result.added} transaksi tersimpan. Muat ulang halaman untuk melihat data terbaru.`);
@@ -2225,12 +2212,14 @@ function DataEksporTab() {
         const missing = bundle.transactions.find((item) => !availableIds.has(item.walletId));
         if (missing) throw new Error(`Pilih dompet tujuan untuk transaksi ${missing.description || missing.id}.`);
         const result = await persistBackup(bundle, token, (progress) => setImportProgress(progress.added));
+        invalidateServerLists();
         const synced = await refreshAll();
         if (synced) toast.success("Restore selesai", `${result.added} data tersimpan, ${result.skipped} sudah ada.`);
         else toast.warning("Restore tersimpan", `${result.added} data tersimpan. Muat ulang halaman untuk melihat data terbaru.`);
       }
       setPendingImport(null);
     } catch (err) {
+      invalidateServerLists();
       await refreshAll();
       toast.error("Import terhenti", err instanceof Error ? err.message : "Gagal menyimpan data.");
     } finally {
@@ -2238,60 +2227,62 @@ function DataEksporTab() {
     }
   }
 
-  async function resetTransactions() {
-    const ok = await confirm({
-      title: "Reset semua transaksi?",
-      message: `Menghapus ${transactions.length} transaksi. Dompet, anggaran, dan data lain tetap. Tindakan ini tidak bisa dibatalkan.`,
-      variant: "warning",
-      confirmText: "Reset",
-    });
-    if (!ok) return;
-    setResetting("transactions");
-    try {
-      for (const tx of [...transactions]) deleteTransaction(tx.id);
-      toast.success("Semua transaksi dihapus");
-    } catch (err) {
-      toast.error(
-        "Reset gagal",
-        err instanceof Error ? err.message : "Unknown error",
-      );
-    } finally {
-      setResetting(null);
+  async function resetData(kind: "transactions" | "all") {
+    if (resetting) return;
+    const token = useAuthStore.getState().token;
+    if (!token || token === "dev-fallback-token") {
+      toast.error("Reset gagal", "Login ke server diperlukan untuk menghapus data.");
+      return;
     }
-  }
-
-  async function resetAll() {
-    const ok = await confirm({
-      title: "Reset SEMUA data?",
-      message:
-        "Menghapus dompet, transaksi, anggaran, investasi, tagihan, tabungan, utang, kartu, wishlist, reimbursement, catatan, transaksi berulang, dan split bill. Tindakan ini TIDAK BISA dibatalkan.",
-      variant: "danger",
-      confirmText: "Reset Semua",
-    });
-    if (!ok) return;
-    setResetting("all");
+    setResetting(kind);
+    let confirmed = false;
+    let deleted = 0;
+    let failure: string | null = null;
     try {
-      for (const id of transactions.map((t) => t.id)) deleteTransaction(id);
-      for (const id of wallets.map((w) => w.id)) deleteWallet(id);
-      for (const id of budgets.map((b) => b.id)) deleteBudget(id);
-      for (const id of investments.map((i) => i.id)) deleteInvestment(id);
-      for (const id of bills.map((b) => b.id)) deleteBill(id);
-      for (const id of savingGoals.map((s) => s.id)) deleteSavingGoal(id);
-      for (const id of debts.map((d) => d.id)) deleteDebt(id);
-      for (const id of cards.map((c) => c.id)) deleteCard(id);
-      for (const id of wishlist.map((w) => w.id)) deleteWishlistItem(id);
-      for (const id of reimbursements.map((r) => r.id)) deleteReimbursement(id);
-      for (const id of notes.map((n) => n.id)) deleteNote(id);
-      for (const id of recurringTransactions.map((r) => r.id))
-        deleteRecurringTransaction(id);
-      for (const b of [...splitBills]) await deleteSplitBill(b.id);
-      toast.success("Semua data dihapus");
+      const count = await api.get<PageResult<{ id: string }>>("/transactions?pageSize=1", token);
+      confirmed = await confirm({
+        title: kind === "transactions" ? "Reset semua transaksi?" : "Reset SEMUA data?",
+        message: kind === "transactions"
+          ? `Menghapus ${count.total} transaksi. Dompet, anggaran, dan data lain tetap. Tindakan ini tidak bisa dibatalkan.`
+          : `Menghapus ${count.total} transaksi beserta dompet, anggaran, investasi, tagihan, tabungan, utang, kartu, wishlist, reimbursement, catatan, transaksi berulang, dan split bill. Kontak dan kategori tetap. Tindakan ini TIDAK BISA dibatalkan.`,
+        variant: kind === "transactions" ? "warning" : "danger",
+        confirmText: kind === "transactions" ? "Reset" : "Reset Semua",
+      });
+      if (!confirmed) return;
+      const resources = kind === "transactions"
+        ? ["transactions"]
+        : [
+            "transactions", "budgets", "investments", "bills", "savingGoals",
+            "debts", "cards", "wishlist", "reimbursements", "notes",
+            "recurringTransactions", "splitBills", "wallets",
+          ];
+      for (const resource of resources) {
+        while (true) {
+          const page = await api.get<PageResult<{ id: string }>>(`/${resource}?page=1&pageSize=48`, token);
+          if (page.items.length === 0) break;
+          for (const row of page.items) {
+            const deletePath = resource === "splitBills" ? "split-bills" : resource;
+            await api.delete(`/${deletePath}/${encodeURIComponent(row.id)}`, token);
+            deleted++;
+          }
+        }
+      }
     } catch (err) {
-      toast.error(
-        "Reset gagal",
-        err instanceof Error ? err.message : "Unknown error",
-      );
+      failure = err instanceof Error ? err.message : "Gagal menghapus data.";
     } finally {
+      if (confirmed) {
+        invalidateServerLists();
+        const synced = await refreshAll();
+        if (failure) {
+          toast.error("Reset terhenti", `${deleted} record sudah dihapus. Data yang belum dihapus tetap tersimpan. ${failure}${synced ? "" : " Muat ulang halaman untuk melihat data terbaru."}`);
+        } else if (synced) {
+          toast.success(kind === "transactions" ? "Semua transaksi dihapus" : "Semua data dihapus");
+        } else {
+          toast.warning("Reset tersimpan", "Data sudah dihapus. Muat ulang halaman untuk melihat data terbaru.");
+        }
+      } else if (failure) {
+        toast.error("Reset gagal", failure);
+      }
       setResetting(null);
     }
   }
@@ -2372,7 +2363,7 @@ function DataEksporTab() {
                           <Download className="h-4 w-4" />
                         ) : undefined
                       }
-                      onClick={() => runExport(card.key)}
+                      onClick={() => void runExport(card.key)}
                     >
                       {exporting[card.key] ? "Memproses..." : card.action}
                     </Button>
@@ -2506,21 +2497,23 @@ function DataEksporTab() {
                     <p className="mb-1 font-semibold">
                       {pendingImport.csvPreview.issues.length} catatan file:
                     </p>
+                    <PaginatedList rows={pendingImport.csvPreview.issues} label="catatan impor">{(issues) => (
                     <ul className="list-disc space-y-0.5 pl-5">
-                      {pendingImport.csvPreview.issues
-                        .map((issue, i) => (
+                      {issues.map((issue, i) => (
                           <li key={i}>
                             Baris {issue.row}: {issue.message}
                           </li>
                         ))}
                     </ul>
+                    )}</PaginatedList>
                   </div>
                 )}
                 <p className="text-text-secondary text-sm">
                   {pendingImport.csvPreview.items.length} transaksi siap diimpor. Periksa dompet tujuan setiap baris.
                 </p>
+                <PaginatedList rows={pendingImport.csvPreview.items} label="transaksi impor" resetKey={pendingImport.fileName}>{(items) => (
                 <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
-                  {pendingImport.csvPreview.items.map((item, index) => (
+                  {items.map((item, index) => (
                     <div key={`${item.id}-${index}`} className="border-border rounded-lg border p-3 text-sm">
                       <div className="flex flex-wrap items-start justify-between gap-2">
                         <div className="min-w-0">
@@ -2531,11 +2524,12 @@ function DataEksporTab() {
                       </div>
                       <label className="text-text-secondary mt-2 block text-xs">
                         Dompet tujuan
-                        <WalletPicker value={item.walletId} onChange={(value) => updateCsvWallet(index, value)} wallets={wallets} />
+                        <WalletPicker value={item.walletId} onChange={(value) => updateCsvWallet(pendingImport.csvPreview!.items.indexOf(item), value)} wallets={wallets} />
                       </label>
                     </div>
                   ))}
                 </div>
+                )}</PaginatedList>
               </>
             )}
 
@@ -2573,15 +2567,16 @@ function DataEksporTab() {
                       {groups.map(([label, entries]) => (
                         <details key={label} className="border-border rounded-lg border" open={label === "Dompet" || label === "Transaksi"}>
                           <summary className="text-text-primary cursor-pointer px-3 py-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">{label} <span className="text-text-muted">({entries.length})</span></summary>
+                          <PaginatedList rows={entries as readonly unknown[]} label={`impor ${label.toLowerCase()}`} resetKey={pendingImport.fileName}>{(items) => (
                           <div className="max-h-64 space-y-2 overflow-y-auto border-t border-border p-3">
                             {entries.length === 0 && <p className="text-text-muted text-xs">Tidak ada data dalam file.</p>}
-                            {entries.map((entry, index) => {
+                            {items.map((entry, index) => {
                               const row = entry as unknown as Record<string, unknown>;
                               const title = String(row.name ?? row.title ?? row.description ?? row.category ?? row.id ?? `Data ${index + 1}`);
                               return (
                                 <div key={`${String(row.id ?? index)}-${index}`} className="bg-bg-elevated rounded-lg px-3 py-2 text-xs">
                                   <p className="text-text-primary break-words font-medium">{title}</p>
-                                  <p className="text-text-muted break-all">ID: {String(row.id ?? "—")}{row.amount !== undefined ? ` · ${Number(row.amount).toLocaleString("id-ID")}` : ""}</p>
+                                  <p className="text-text-muted break-all">ID: {String(row.id ?? "Tidak tersedia")}{row.amount !== undefined ? ` · ${Number(row.amount).toLocaleString("id-ID")}` : ""}</p>
                                   {label === "Dompet" && (
                                     <div className="mt-2 grid gap-2 sm:grid-cols-2">
                                       <label className="text-text-secondary">Nama dompet
@@ -2597,7 +2592,7 @@ function DataEksporTab() {
                                   )}
                                   {label === "Transaksi" && (
                                     <label className="text-text-secondary mt-2 block">Dompet tujuan
-                                      <WalletPicker value={String(row.walletId ?? "")} onChange={(value) => updateBackupTransaction(index, value)} wallets={availableWallets} />
+                                      <WalletPicker value={String(row.walletId ?? "")} onChange={(value) => updateBackupTransaction(entries.findIndex((candidate) => candidate === entry), value)} wallets={availableWallets} />
                                     </label>
                                   )}
                                   {label === "Split bill" && Array.isArray(row.participants) && <p className="text-text-muted mt-1">Peserta: {(row.participants as Array<{name: string}>).map((person) => person.name).join(", ") || "—"}</p>}
@@ -2606,6 +2601,7 @@ function DataEksporTab() {
                               );
                             })}
                           </div>
+                          )}</PaginatedList>
                         </details>
                       ))}
                     </div>
@@ -2664,8 +2660,8 @@ function DataEksporTab() {
                 variant="danger"
                 size="sm"
                 loading={resetting === "transactions"}
-                onClick={() => void resetTransactions()}
-                disabled={transactions.length === 0}
+                onClick={() => void resetData("transactions")}
+                disabled={resetting !== null}
               >
                 Reset Transaksi
               </Button>
@@ -2685,7 +2681,8 @@ function DataEksporTab() {
                   size="sm"
                   className="bg-red-950 text-red-200 hover:bg-red-900"
                   loading={resetting === "all"}
-                  onClick={() => void resetAll()}
+                  onClick={() => void resetData("all")}
+                  disabled={resetting !== null}
                 >
                   Reset Semua Data
                 </Button>

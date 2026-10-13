@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import {
   Plus,
   Pencil,
@@ -19,8 +19,10 @@ import { Input } from "~/components/ui/input";
 import { useFinanceStore } from "~/store/useFinanceStore";
 import { DynamicIcon } from "~/components/ui/dynamic-icon";
 import { formatCurrency, percentage } from "~/lib/utils";
-import { normalizeWalletTree, totalWalletBalance, walletGroupBalance } from "~/lib/wallets";
 import type { Wallet, WalletType } from "~/lib/types";
+import { Pagination } from "~/components/ui/pagination";
+import { ServerListStatus, ServerPaginatedList } from "~/components/ui/server-paginated-list";
+import { useServerPagination } from "~/lib/use-server-pagination";
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
@@ -65,16 +67,6 @@ const EMPTY_FORM: WalletForm = {
   balance: "0",
 };
 
-// ─── Helpers ───────────────────────────────────────────────────────────────────
-
-/** Returns all children of a parent wallet (from embedded array + flat list). */
-function getWalletChildren(allWallets: Wallet[], parentId: string): Wallet[] {
-  const parent = allWallets.find((w) => w.id === parentId);
-  const embedded = parent?.children ?? [];
-  const flat = allWallets.filter((w) => w.parentId === parentId);
-  const flatIds = new Set(flat.map((c) => c.id));
-  return [...flat, ...embedded.filter((c) => !flatIds.has(c.id))];
-}
 
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
@@ -86,6 +78,7 @@ export default function WalletsPage() {
 
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingBalance, setEditingBalance] = useState<number | null>(null);
   const [form, setForm] = useState<WalletForm>(EMPTY_FORM);
 
   const fld = <K extends keyof WalletForm>(k: K, v: WalletForm[K]) =>
@@ -93,40 +86,28 @@ export default function WalletsPage() {
 
   // ── Derived data ─────────────────────────────────────────────────────────────
 
-  const parentWallets = useMemo(
-    () =>
-      normalizeWalletTree(wallets).sort((a, b) => walletGroupBalance(b) - walletGroupBalance(a)),
-    [wallets],
-  );
-
-  const totalBalance = useMemo(
-    () => totalWalletBalance(wallets),
-    [wallets],
-  );
-
-  const childCount = useMemo(
-    () =>
-      parentWallets.reduce(
-        (sum, w) => sum + getWalletChildren(wallets, w.id).length,
-        0,
-      ),
-    [wallets, parentWallets],
-  );
+  const walletPager = useServerPagination<
+    Wallet & { childCount: number; groupBalance: number },
+    { totalBalance: number; childCount: number; parentCount: number }
+  >("/wallets", { view: "parents" }, { resource: "wallets" });
+  const distributionPager = useServerPagination<
+    Wallet & { childCount: number; groupBalance: number },
+    { totalBalance: number; childCount: number; parentCount: number }
+  >("/wallets", { view: "parents" }, { resource: "wallets" });
+  const { totalBalance = 0, childCount = 0, parentCount = 0 } = walletPager.summary ?? {};
 
   // ── Modal helpers ────────────────────────────────────────────────────────────
 
   function openAdd(preParentId?: string) {
     setEditingId(null);
+    setEditingBalance(null);
     setForm({ ...EMPTY_FORM, parentId: preParentId ?? "" });
     setShowModal(true);
   }
 
-  function openEdit(walletId: string) {
-    const w = wallets
-      .flatMap((x) => [x, ...(x.children ?? [])])
-      .find((x) => x.id === walletId);
-    if (!w) return;
-    setEditingId(walletId);
+  function openEdit(w: Wallet) {
+    setEditingId(w.id);
+    setEditingBalance(w.balance);
     setForm({
       name: w.name,
       icon: w.icon,
@@ -141,6 +122,7 @@ export default function WalletsPage() {
   function closeModal() {
     setShowModal(false);
     setEditingId(null);
+    setEditingBalance(null);
     setForm(EMPTY_FORM);
   }
 
@@ -154,16 +136,13 @@ export default function WalletsPage() {
       return;
 
     if (editingId) {
-      const currentWallet = wallets
-        .flatMap((w) => [w, ...(w.children ?? [])])
-        .find((w) => w.id === editingId);
       updateWallet(editingId, {
         name: form.name,
         icon: form.icon,
         type: form.type,
         color: form.color,
         parentId: form.parentId || undefined,
-        ...(currentWallet?.balance !== Number(form.balance)
+        ...(editingBalance !== Number(form.balance)
           ? { balance: Number(form.balance) }
           : {}),
       });
@@ -212,7 +191,7 @@ export default function WalletsPage() {
         />
         <StatCard
           title="Jumlah Dompet"
-          value={String(parentWallets.length)}
+          value={String(parentCount)}
           subtitle="Dompet utama"
           icon={<Layers className="text-success" />}
         />
@@ -227,9 +206,10 @@ export default function WalletsPage() {
       {/* ── Main layout ──────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         {/* Wallet cards */}
-        <div className="space-y-4 xl:col-span-2">
-          {parentWallets.map((wallet) => {
-            const children = getWalletChildren(wallets, wallet.id);
+        <div className="xl:col-span-2">
+          <ServerListStatus {...walletPager} />
+          <div className="space-y-4">
+          {walletPager.items.map((wallet) => {
             return (
               <Card
                 key={wallet.id}
@@ -267,16 +247,16 @@ export default function WalletsPage() {
                     <div className="flex shrink-0 items-start gap-3">
                       <div className="text-right">
                         <p className="text-text-primary text-lg font-bold tabular-nums">
-                          {formatCurrency(walletGroupBalance(wallet))}
+                          {formatCurrency(wallet.groupBalance)}
                         </p>
                         <p className="text-text-muted text-xs font-medium">
-                          {children.length ? "Termasuk kantong" : wallet.currency}
+                          {wallet.childCount ? "Termasuk kantong" : wallet.currency}
                         </p>
-                        {children.length > 0 && <p className="text-text-secondary text-xs">Saldo utama: {formatCurrency(wallet.balance)}</p>}
+                        {wallet.childCount > 0 && <p className="text-text-secondary text-xs">Saldo utama: {formatCurrency(wallet.balance)}</p>}
                       </div>
                       <div className="flex items-center gap-1">
                         <button
-                          onClick={() => openEdit(wallet.id)}
+                          onClick={() => openEdit(wallet)}
                           className="bg-bg-elevated text-text-secondary hover:text-primary hover:bg-primary/10 border-border/50 flex h-11 w-11 items-center justify-center rounded-lg border transition-colors focus-visible:ring-2 focus-visible:ring-primary"
                           title="Edit dompet"
                         >
@@ -294,9 +274,11 @@ export default function WalletsPage() {
                   </div>
 
                   {/* Children / kantong */}
-                  {children.length > 0 && (
+                  {wallet.childCount > 0 && (
+                    <ServerPaginatedList<Wallet> path="/wallets" query={{ parentId: wallet.id }} resource="wallets" label="kantong">
+                      {(items) => (
                     <div className="border-border mt-4 ml-6 space-y-2 border-l-2 pl-4">
-                      {children.map((child) => (
+                      {items.map((child) => (
                         <div
                           key={child.id}
                           className="bg-bg-elevated/70 border-border/60 group/child hover:bg-bg-elevated flex flex-wrap items-center justify-between gap-3 rounded-lg border px-3 py-2 transition-colors"
@@ -321,7 +303,7 @@ export default function WalletsPage() {
                             </span>
                             <button
                               type="button"
-                              onClick={() => openEdit(child.id)}
+                              onClick={() => openEdit(child)}
                               className="text-text-secondary hover:bg-bg-elevated focus-visible:ring-primary flex h-11 w-11 items-center justify-center rounded-lg focus-visible:ring-2"
                               aria-label={`Edit kantong ${child.name}`}
                             >
@@ -338,6 +320,8 @@ export default function WalletsPage() {
                         </div>
                       ))}
                     </div>
+                      )}
+                    </ServerPaginatedList>
                   )}
 
                   {/* Add kantong button */}
@@ -353,7 +337,7 @@ export default function WalletsPage() {
             );
           })}
 
-          {parentWallets.length === 0 && (
+          {walletPager.initialized && !walletPager.loading && !walletPager.error && walletPager.total === 0 && (
             <Card className="py-16 text-center">
               <WalletIcon className="text-text-muted mx-auto mb-3 h-10 w-10" />
               <p className="text-text-muted text-sm">
@@ -371,6 +355,8 @@ export default function WalletsPage() {
               </div>
             </Card>
           )}
+          </div>
+          <Pagination {...walletPager} label="dompet utama" />
         </div>
 
         {/* Distribution sidebar */}
@@ -385,9 +371,10 @@ export default function WalletsPage() {
               </Badge>
             </CardHeader>
             <CardBody>
+              <ServerListStatus {...distributionPager} />
               <div className="space-y-4">
-                {parentWallets.map((wallet) => {
-                  const pct = percentage(walletGroupBalance(wallet), totalBalance);
+                {distributionPager.items.map((wallet) => {
+                  const pct = percentage(wallet.groupBalance, totalBalance);
                   return (
                     <div key={wallet.id} className="space-y-1.5">
                       <div className="flex items-center justify-between text-xs">
@@ -410,7 +397,7 @@ export default function WalletsPage() {
                             {pct}%
                           </span>
                           <span className="text-text-muted tabular-nums">
-                            {formatCurrency(walletGroupBalance(wallet), true)}
+                            {formatCurrency(wallet.groupBalance, true)}
                           </span>
                         </div>
                       </div>
@@ -430,15 +417,16 @@ export default function WalletsPage() {
                     </div>
                   );
                 })}
-                {parentWallets.length === 0 && (
+                {distributionPager.initialized && !distributionPager.loading && !distributionPager.error && distributionPager.total === 0 && (
                   <p className="text-text-muted py-6 text-center text-sm">
                     Belum ada data
                   </p>
                 )}
               </div>
+              <Pagination {...distributionPager} label="distribusi dompet" />
 
               {/* Total */}
-              {parentWallets.length > 0 && (
+              {distributionPager.total > 0 && (
                 <div className="border-border mt-5 flex items-center justify-between border-t pt-4">
                   <span className="text-text-muted text-xs">Total Saldo</span>
                   <span className="text-text-primary text-sm font-bold">
@@ -557,8 +545,8 @@ export default function WalletsPage() {
               className="bg-bg-surface border-border text-text-primary focus:border-primary focus:ring-primary/20 h-10 rounded-lg border px-3 text-sm transition-colors focus:ring-1 focus:outline-none"
             >
               <option value="">(Jadikan Dompet Utama)</option>
-              {parentWallets
-                .filter((w) => w.id !== editingId)
+              {wallets
+                .filter((w) => !w.parentId && w.id !== editingId)
                 .map((w) => (
                   <option key={w.id} value={w.id}>
                     {w.name}

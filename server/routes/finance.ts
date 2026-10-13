@@ -6,6 +6,8 @@ import {
   lockFinanceRecord,
 } from "../services/wallet-effects.js";
 import { Elysia, t } from "elysia";
+import { Prisma } from "@prisma/client";
+import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { appConfig, db, setAppConfig, users } from "../data.js";
 import { extractToken, verifyToken } from "../auth.js";
@@ -22,6 +24,10 @@ import {
   searchYahooFinance,
 } from "../services/market-price.js";
 import { fail, id, ok, publicUser } from "../utils.js";
+import { listLedger } from "../services/list-ledger.js";
+import { listAssets } from "../services/list-assets.js";
+import { listPeople } from "../services/list-people.js";
+import { PaginationError, readPage, pageArray, databasePage, type ListQuery, type ListScope } from "../services/pagination.js";
 
 type ResourceKey = keyof typeof db;
 type Decimalish = { toString(): string } | number | string | null | undefined;
@@ -44,6 +50,30 @@ const prismaResources = new Set<ResourceKey>([
   "categories",
   "subCategories",
 ]);
+const recordIdTables: Record<string, string> = {
+  wallets: "Wallet", transactions: "Transaction", budgets: "Budget",
+  investments: "Investment", bills: "Bill", savingGoals: "SavingGoal",
+  notes: "Note", recurringTransactions: "RecurringTransaction", debts: "Debt",
+  debtContacts: "DebtContact", cards: "Card", wishlist: "WishlistItem",
+  reimbursements: "Reimbursement", teamMembers: "TeamMember",
+  categories: "Category", subCategories: "SubCategory", splitBills: "SplitBill",
+};
+
+const contactBody = z.object({
+  id: z.string().optional(), name: z.string().trim().min(1),
+  phone: z.string().nullish(), note: z.string().nullish(),
+});
+const memberBody = z.object({
+  id: z.string().optional(), name: z.string().min(1), email: z.string().email(),
+  phone: z.string().nullish(), avatar: z.string().nullish(),
+  role: z.enum(["owner", "member", "viewer"]),
+  status: z.enum(["active", "invited", "inactive"]),
+  invitedAt: z.string().optional(),
+  permissions: z.object({
+    canViewAllWallets: z.boolean(), canAddTransactions: z.boolean(),
+    canManageBudgets: z.boolean(), walletIds: z.array(z.string()),
+  }),
+});
 
 function scopedWhere(userId: string | null, id: string) {
   // Non-admin: restrict to their own rows.
@@ -900,7 +930,7 @@ function serializeTeamMember(t: {
       typeof t.permissions === "object" && t.permissions ? t.permissions : {},
     status: t.status,
     invitedAt: t.invitedAt ? toIso(t.invitedAt) : undefined,
-    createdAt: toIso(t.createdAt),
+    joinedAt: toIso(t.createdAt),
   };
 }
 
@@ -1086,122 +1116,51 @@ function strictUserIdFromRequest(request: Request): string | null {
   return auth?.sub ?? null;
 }
 
-async function listPrismaResource(
-  resource: ResourceKey,
-  userId: string | null,
-) {
-  // Non-admin: filter by their own userId.
-  // Admin (userId is null): skip the userId filter so they can see
-  // everything, but still exclude rows that were never assigned to a
-  // user (defense-in-depth against orphan rows leaking into a real
-  // user's bootstrap if the `userId IS NULL` filter is ever bypassed
-  // upstream).
-  const filter = userId ? { userId } : { userId: { not: null } };
-  switch (resource) {
-    case "wallets": {
-      const rows = await prisma.wallet.findMany({ where: filter });
-      return nestWallets(rows.map(serializeWallet));
-    }
-    case "transactions": {
-      const rows = await prisma.transaction.findMany({
-        where: filter,
-        orderBy: { date: "desc" },
-      });
-      return rows.map(serializeTransaction);
-    }
-    case "budgets": {
-      const rows = await prisma.budget.findMany({ where: filter });
-      return rows.map(serializeBudget);
-    }
-    case "investments": {
-      const rows = await prisma.investment.findMany({
-        where: filter,
-        orderBy: [{ broker: "asc" }, { symbol: "asc" }],
-      });
-      return rows.map(serializeInvestment);
-    }
-    case "bills": {
-      const rows = await prisma.bill.findMany({
-        where: filter,
-        orderBy: { dueDate: "asc" },
-      });
-      return rows.map(serializeBill);
-    }
-    case "savingGoals": {
-      const rows = await prisma.savingGoal.findMany({ where: filter });
-      return rows.map(serializeSavingGoal);
-    }
-    case "notes": {
-      const rows = await prisma.note.findMany({
-        where: filter,
-        orderBy: { updatedAt: "desc" },
-      });
-      return rows.map(serializeNote);
-    }
-    case "recurringTransactions": {
-      const rows = await prisma.recurringTransaction.findMany({
-        where: filter,
-      });
-      return rows.map(serializeRecurring);
-    }
-    case "debts": {
-      const rows = await prisma.debt.findMany({
-        where: filter,
-        orderBy: { createdAt: "desc" },
-      });
-      return rows.map(serializeDebt);
-    }
-    case "debtContacts": {
-      const rows = await prisma.debtContact.findMany({
-        where: filter,
-        orderBy: { name: "asc" },
-      });
-      return rows.map(serializeDebtContact);
-    }
-    case "cards": {
-      const rows = await prisma.card.findMany({ where: filter });
-      return rows.map(serializeCard);
-    }
-    case "wishlist": {
-      const rows = await prisma.wishlistItem.findMany({
-        where: filter,
-        orderBy: { createdAt: "desc" },
-      });
-      return rows.map(serializeWishlistItem);
-    }
-    case "reimbursements": {
-      const rows = await prisma.reimbursement.findMany({
-        where: filter,
-        orderBy: { submittedDate: "desc" },
-      });
-      return rows.map(serializeReimbursement);
-    }
-    case "teamMembers": {
-      const rows = await prisma.teamMember.findMany({ where: filter });
-      return rows.map(serializeTeamMember);
-    }
-    case "categories": {
-      const rows = await (prisma as any).category.findMany({
-        where: userId ? { userId } : undefined,
-        orderBy: [{ type: "asc" }, { sortOrder: "asc" }, { name: "asc" }],
-        include: {
-          subCategories: {
-            orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-          },
-        },
-      });
-      return rows.map(serializeCategory);
-    }
-    case "subCategories": {
-      const rows = await (prisma as any).subCategory.findMany({
-        where: userId ? { userId } : undefined,
-        orderBy: [{ categoryId: "asc" }, { sortOrder: "asc" }, { name: "asc" }],
-      });
-      return rows.map(serializeSubCategory);
-    }
-    default:
-      return [];
-  }
+function databaseSerializer<T>(serialize: (row: T) => Record<string, unknown>) {
+  return (value: unknown) => {
+    // The dispatcher pairs these values with rows from the corresponding Prisma model.
+    const row = value as T;
+    return serialize(row);
+  };
+}
+const recordSerializers: Record<string, (row: unknown) => Record<string, unknown>> = {
+  wallets: databaseSerializer(serializeWallet),
+  transactions: databaseSerializer(serializeTransaction),
+  budgets: databaseSerializer(serializeBudget),
+  investments: databaseSerializer(serializeInvestment),
+  bills: databaseSerializer(serializeBill),
+  savingGoals: databaseSerializer(serializeSavingGoal),
+  notes: databaseSerializer(serializeNote),
+  recurringTransactions: databaseSerializer(serializeRecurring),
+  debts: databaseSerializer(serializeDebt),
+  debtContacts: databaseSerializer(serializeDebtContact),
+  splitBills: databaseSerializer(serializeSplitBill),
+  cards: databaseSerializer(serializeCard),
+  wishlist: databaseSerializer(serializeWishlistItem),
+  reimbursements: databaseSerializer(serializeReimbursement),
+  teamMembers: databaseSerializer(serializeTeamMember),
+  categories: databaseSerializer(serializeCategory),
+  subCategories: databaseSerializer(serializeSubCategory),
+};
+function serializeFinanceRecord(resource: string, row: unknown): Record<string, unknown> {
+  const serialize = recordSerializers[resource];
+  if (!serialize) throw new PaginationError("Resource tidak mendukung pagination");
+  return serialize(row);
+}
+
+async function listPagedResource(resource: ResourceKey, request: Request, query: ListQuery) {
+  const input = readPage(query);
+  const scope: ListScope = {
+    userId: currentUserIdFromRequest(request),
+    authId: strictUserIdFromRequest(request)!,
+  };
+  const ledger = await listLedger(resource, scope, query, input, serializeFinanceRecord);
+  if (ledger !== null) return ledger;
+  const assets = await listAssets(resource, scope, query, input, serializeFinanceRecord);
+  if (assets !== null) return assets;
+  const people = await listPeople(resource, scope, query, input, serializeFinanceRecord);
+  if (people !== null) return people;
+  throw new PaginationError("Daftar tidak didukung");
 }
 
 async function createPrismaResource(
@@ -1346,14 +1305,13 @@ async function createPrismaResource(
       return serializeRecurring(created);
     }
     case "debtContacts": {
-      const created = await prisma.debtContact.create({
-        data: {
-          ...data,
-          name: String(body.name ?? "").trim(),
-          phone: body.phone ? String(body.phone).trim() : null,
-          note: body.note ? String(body.note).trim() : null,
-        } as never,
-      });
+      const contact = contactBody.parse(body);
+      const name = contact.name.replace(/\s+/g, " ");
+      const existingIds = await prisma.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT "id" FROM "DebtContact" WHERE "userId" = ${userId} AND lower(regexp_replace(trim("name"), '\\s+', ' ', 'g')) = ${name.toLowerCase()} ORDER BY "id" LIMIT 1`);
+      const fields = { name, phone: contact.phone?.trim(), note: contact.note?.trim() };
+      const created = existingIds.length
+        ? await prisma.debtContact.update({ where: { id: existingIds[0].id }, data: fields })
+        : await prisma.debtContact.create({ data: { ...fields, id: contact.id, userId } });
       return serializeDebtContact(created);
     }
     case "cards": {
@@ -1377,7 +1335,10 @@ async function createPrismaResource(
       return serializeReimbursement(created);
     }
     case "teamMembers": {
-      const created = await prisma.teamMember.create({ data: data as never });
+      const member = memberBody.parse(body);
+      const created = await prisma.teamMember.create({
+        data: { ...member, userId, invitedAt: member.invitedAt ? new Date(member.invitedAt) : undefined },
+      });
       return serializeTeamMember(created);
     }
     case "categories": {
@@ -1814,11 +1775,11 @@ async function deletePrismaResource(
   }
 }
 
-async function getBootstrapFromDb(
+async function getExportFromDb(
   userId: string | null,
   notificationUserId: string | null,
 ) {
-  const filter = userId ? { userId } : undefined;
+  const filter = userId ? { userId } : { userId: { not: null } };
   const [
     wallets,
     transactions,
@@ -1924,15 +1885,98 @@ async function getBootstrapFromDb(
   };
 }
 
+async function getLookupFromDb(userId: string | null, accountId: string) {
+  const where = userId ? { userId } : { userId: { not: null } };
+  const [wallets, categories, subCategories, profile, setting, notifications] = await Promise.all([
+    prisma.wallet.findMany({
+      where,
+      select: { id: true, name: true, type: true, balance: true, currency: true, color: true, icon: true, parentId: true },
+      orderBy: [{ name: "asc" }, { id: "asc" }],
+    }),
+    prisma.category.findMany({ where, orderBy: [{ sortOrder: "asc" }, { id: "asc" }] }),
+    prisma.subCategory.findMany({ where, orderBy: [{ sortOrder: "asc" }, { id: "asc" }] }),
+    prisma.user.findUnique({ where: { id: accountId } }),
+    prisma.appSetting.findFirst(),
+    prisma.notificationSetting.findUnique({ where: { userId: accountId } }),
+  ]);
+  const subRows = subCategories.map(serializeSubCategory);
+  return {
+    wallets: nestWallets(wallets.map(serializeWallet)),
+    categories: categories.map((category) => ({
+      ...serializeCategory(category),
+      subCategories: subRows.filter((sub) => sub.categoryId === category.id),
+    })),
+    subCategories: subRows,
+    ...(profile ? { userProfile: serializeUserProfile(profile) } : {}),
+    ...(notifications ? { notificationSettings: serializeNotificationSetting(notifications) } : {}),
+    appConfig: setting ? serializeAppSetting(setting) : appConfig,
+  };
+}
+
+async function listUsers(query: ListQuery) {
+  const input = readPage(query);
+  const search = (query.search ?? "").trim();
+  const role = query.role;
+  const status = query.status;
+  if (role && !["admin", "owner", "member"].includes(role)) throw new PaginationError("Peran tidak valid");
+  if (status && !["active", "pending", "inactive"].includes(status)) throw new PaginationError("Status tidak valid");
+  const today = new Date();
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+  const days = Array.from({ length: 7 }, (_, index) => new Date(today.getFullYear(), today.getMonth(), today.getDate() - 6 + index));
+  if (await canUseDatabase()) {
+    const signupDate = Prisma.sql`("createdAt" AT TIME ZONE 'UTC' AT TIME ZONE ${Intl.DateTimeFormat().resolvedOptions().timeZone})`;
+    const where: Prisma.UserWhereInput = {
+      ...(role === "admin" || role === "owner" || role === "member" ? { role } : {}),
+      ...(status === "active" || status === "pending" || status === "inactive" ? { status } : {}),
+      ...(search ? { OR: [{ name: { contains: search, mode: "insensitive" as const } }, { email: { contains: search, mode: "insensitive" as const } }] } : {}),
+    };
+    const [result, roleCounts, statusCounts, newThisMonth, daysRows] = await Promise.all([
+      databasePage(input, () => prisma.user.count({ where }), (skip, take) =>
+        prisma.user.findMany({ where, skip, take, orderBy: [{ createdAt: "desc" }, { id: "asc" }] })),
+      prisma.user.groupBy({ by: ["role"], _count: true }),
+      prisma.user.groupBy({ by: ["status"], _count: true }),
+      prisma.user.count({ where: { createdAt: { gte: monthStart } } }),
+      prisma.$queryRaw<{ day: string; users: bigint }[]>(Prisma.sql`SELECT to_char(${signupDate}, 'YYYY-MM-DD') AS day, COUNT(*) AS users FROM "User" WHERE "createdAt" >= ${days[0]} GROUP BY day`),
+    ]);
+    return { ...result, items: result.items.map(publicDbUser), summary: {
+      total: roleCounts.reduce((total, row) => total + row._count, 0),
+      totalUsers: roleCounts.reduce((total, row) => total + row._count, 0),
+      activeUsers: statusCounts.find((row) => row.status === "active")?._count ?? 0,
+      newThisMonth,
+      last7: days.map((day) => ({
+        day: day.toLocaleDateString("id-ID", { weekday: "short" }),
+        users: Number(daysRows.find((row) => row.day === `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`)?.users ?? 0),
+      })),
+      roles: Object.fromEntries(roleCounts.map((row) => [row.role, row._count])),
+      statuses: Object.fromEntries(statusCounts.map((row) => [row.status, row._count])),
+    } };
+  }
+  if (isDatabaseConfigured()) throw new Error("Database tidak tersedia");
+  const rows = users.filter((user) => (!role || user.role === role) && (!status || user.status === status) &&
+    (!search || `${user.name} ${user.email}`.toLowerCase().includes(search.toLowerCase())));
+  return pageArray(rows.map(publicUser), input, {
+    total: users.length,
+    totalUsers: users.length,
+    activeUsers: users.filter((user) => user.status === "active").length,
+    newThisMonth: users.filter((user) => new Date(user.createdAt) >= monthStart).length,
+    last7: days.map((day) => ({ day: day.toLocaleDateString("id-ID", { weekday: "short" }), users: users.filter((user) => new Date(user.createdAt).toDateString() === day.toDateString()).length })),
+    roles: Object.fromEntries(["admin", "owner", "member"].map((key) => [key, users.filter((user) => user.role === key).length])),
+    statuses: Object.fromEntries(["active", "pending", "inactive"].map((key) => [key, users.filter((user) => user.status === key).length])),
+  });
+}
+
 export const financeRoutes = new Elysia({ prefix: "/api" })
   .use(requireAuth)
+  .onError(({ error, set }) => {
+    if (error instanceof PaginationError) {
+      set.status = error.status;
+      return fail(error.message);
+    }
+  })
   .get("/bootstrap", async ({ request, set }) => {
     if (await canUseDatabase()) {
       return ok(
-        await getBootstrapFromDb(
-          currentUserIdFromRequest(request),
-          strictUserIdFromRequest(request),
-        ),
+        await getLookupFromDb(currentUserIdFromRequest(request), strictUserIdFromRequest(request)!),
       );
     }
     if (isDatabaseConfigured()) {
@@ -1941,15 +1985,49 @@ export const financeRoutes = new Elysia({ prefix: "/api" })
         "Database sementara tidak tersedia. Coba sinkronkan kembali.",
       );
     }
+    return ok({ wallets: db.wallets, categories: db.categories, subCategories: db.subCategories, appConfig });
+  })
+  .get("/lookups", async ({ request, set }) => {
+    if (await canUseDatabase()) return ok(await getLookupFromDb(currentUserIdFromRequest(request), strictUserIdFromRequest(request)!));
+    if (isDatabaseConfigured()) { set.status = 503; return fail("Database sementara tidak tersedia"); }
+    return ok({ wallets: db.wallets, categories: db.categories, subCategories: db.subCategories });
+  })
+  .get("/export", async ({ request, set }) => {
+    if (await canUseDatabase()) return ok(await getExportFromDb(currentUserIdFromRequest(request), strictUserIdFromRequest(request)));
+    if (isDatabaseConfigured()) { set.status = 503; return fail("Database sementara tidak tersedia"); }
     return ok({ ...db, appConfig });
   })
+  .get("/record-ids/:resource", async ({ request, params, query, set }) => {
+    const table = Object.hasOwn(recordIdTables, params.resource) ? recordIdTables[params.resource] : undefined;
+    if (!table) { set.status = 404; return fail("Resource tidak ditemukan"); }
+    const input = readPage(query);
+    const userId = currentUserIdFromRequest(request);
+    if (await canUseDatabase()) {
+      const tenant = userId ? Prisma.sql`"userId" = ${userId}` : Prisma.sql`"userId" IS NOT NULL`;
+      const identifier = Prisma.raw(`"${table}"`);
+      return ok(await databasePage(input,
+        async () => Number((await prisma.$queryRaw<{ count: bigint }[]>(Prisma.sql`SELECT COUNT(*) AS count FROM ${identifier} WHERE ${tenant}`))[0].count),
+        (skip, take) => prisma.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT "id" FROM ${identifier} WHERE ${tenant} ORDER BY "id" LIMIT ${take} OFFSET ${skip}`),
+      ));
+    }
+    if (isDatabaseConfigured()) { set.status = 503; return fail("Database sementara tidak tersedia"); }
+    const resource = params.resource as ResourceKey;
+    const records = resource === "wallets" ? flattenWallets(db.wallets as SerializedWallet[]) : db[resource];
+    const authId = strictUserIdFromRequest(request);
+    const rows = records.filter((row) => {
+      const owner = "userId" in row ? row.userId : null;
+      return typeof owner === "string" ? !userId || owner === userId : authId === "usr-demo-001" || !userId;
+    }).map((row) => ({ id: row.id })).sort((a, b) => a.id.localeCompare(b.id));
+    return ok(pageArray(rows, input));
+  })
   .get("/market-search", async ({ query, set }) => {
+    const input = readPage(query);
     try {
       const results = await searchYahooFinance(
         String(query.q ?? ""),
         String(query.assetClass ?? "stock"),
       );
-      return ok(results);
+      return ok(pageArray(results, input));
     } catch (error) {
       set.status = 502;
       return fail(
@@ -1994,20 +2072,12 @@ export const financeRoutes = new Elysia({ prefix: "/api" })
     }
   })
   // Split Bill CRUD
-  .get("/split-bills", async ({ request, set }) => {
-    if (!(await canUseDatabase())) {
-      if (!isDatabaseConfigured()) return ok(db.splitBills);
+  .get("/split-bills", async ({ request, query, set }) => {
+    if (isDatabaseConfigured() && !(await canUseDatabase())) {
       set.status = 503;
-      return fail("Database belum tersedia");
+      return fail("Database sementara tidak tersedia");
     }
-    const userId = currentUserIdFromRequest(request);
-    const rows = await (prisma as any).splitBill.findMany({
-      where: userId ? { userId } : {},
-      include: { participants: true },
-      orderBy: { date: "desc" },
-    });
-    await ensurePayTokens(rows);
-    return ok(rows.map(serializeSplitBill));
+    return ok(await listPagedResource("splitBills", request, query));
   })
   .post("/split-bills", async ({ request, body, set }) => {
     const data = body as any;
@@ -2274,14 +2344,11 @@ export const financeRoutes = new Elysia({ prefix: "/api" })
     return ok({ id: params.id });
   })
   // User list (for admin)
-  .get("/users", async () => {
-    if (await canUseDatabase()) {
-      const rows = await prisma.user.findMany({
-        orderBy: { createdAt: "desc" },
-      });
-      return ok(rows.map(publicDbUser));
-    }
-    return ok(users.map(publicUser));
+  .get("/users", async ({ request, query, set }) => {
+    const token = extractToken(request.headers.get("authorization") ?? undefined);
+    if (verifyToken(token ?? "")?.role !== "admin") { set.status = 403; return fail("Admin required"); }
+    if (isDatabaseConfigured() && !(await canUseDatabase())) { set.status = 503; return fail("Database sementara tidak tersedia"); }
+    return ok(await listUsers(query));
   })
   // Admin CRUD for users. The GET endpoint is the legacy list
   // route above; the POST/PUT/DELETE here are what the /admin/users
@@ -2679,14 +2746,9 @@ export const financeRoutes = new Elysia({ prefix: "/api" })
     return ok(flat);
   })
   .use(requireAdmin)
-  .get("/admin/users", async () => {
-    if (await canUseDatabase()) {
-      const rows = await prisma.user.findMany({
-        orderBy: { createdAt: "desc" },
-      });
-      return ok(rows.map(publicDbUser));
-    }
-    return ok(users.map(publicUser));
+  .get("/admin/users", async ({ query, set }) => {
+    if (isDatabaseConfigured() && !(await canUseDatabase())) { set.status = 503; return fail("Database sementara tidak tersedia"); }
+    return ok(await listUsers(query));
   })
   // Approve / reject / suspend a user. Used by /admin/users to flip
   // a freshly-registered `pending` account to `active` (or back to
@@ -2822,6 +2884,9 @@ function updateMemoryWalletEffects(
 
 export const resourceRoutes = new Elysia({ prefix: "/api" })
   .use(requireAuth)
+  .onError(({ error, set }) => {
+    if (error instanceof PaginationError) { set.status = error.status; return fail(error.message); }
+  })
   .onBeforeHandle(async ({ params, set }) => {
     const resource = (params as { resource?: string }).resource as ResourceKey;
     if (
@@ -2835,18 +2900,13 @@ export const resourceRoutes = new Elysia({ prefix: "/api" })
       );
     }
   })
-  .get("/:resource", async ({ request, params, set }) => {
+  .get("/:resource", async ({ request, params, query, set }) => {
     const resource = params.resource as ResourceKey;
     if (!resources.includes(resource)) {
       set.status = 404;
       return fail("Resource tidak ditemukan");
     }
-    if ((await canUseDatabase()) && prismaResources.has(resource)) {
-      return ok(
-        await listPrismaResource(resource, currentUserIdFromRequest(request)),
-      );
-    }
-    return ok(db[resource]);
+    return ok(await listPagedResource(resource, request, query));
   })
   .post("/:resource", async ({ request, params, body, set }) => {
     const resource = params.resource as ResourceKey;
@@ -2859,9 +2919,7 @@ export const resourceRoutes = new Elysia({ prefix: "/api" })
         const item = await createPrismaResource(
           resource,
           body as Record<string, unknown>,
-          resource === "wallets"
-            ? strictUserIdFromRequest(request)
-            : currentUserIdFromRequest(request),
+          strictUserIdFromRequest(request),
           new URL(request.url).searchParams.get("restore") === "1",
         );
         set.status = 201;
@@ -2879,6 +2937,7 @@ export const resourceRoutes = new Elysia({ prefix: "/api" })
         (db[resource] as unknown[]).unshift({
           ...item,
           id: item.id ?? id(resource),
+          userId: strictUserIdFromRequest(request),
         });
       }
       set.status = 201;
@@ -2889,7 +2948,7 @@ export const resourceRoutes = new Elysia({ prefix: "/api" })
       set.status = 503;
       return fail("Database belum tersedia untuk transfer antar dompet");
     }
-    let item: any = { id: id(resource), ...(body as object) };
+    let item: Record<string, unknown> = { id: id(resource), ...(body as object), userId: strictUserIdFromRequest(request) };
     if (
       resource === "bills" ||
       resource === "savingGoals" ||
@@ -2899,7 +2958,7 @@ export const resourceRoutes = new Elysia({ prefix: "/api" })
         item = resourceWalletUpdate(resource, null, item);
         if (new URL(request.url).searchParams.get("restore") === "1")
           item.walletEffects = [];
-        updateMemoryWalletEffects([], item.walletEffects);
+        updateMemoryWalletEffects([], readWalletEffects(item.walletEffects));
       } catch (error) {
         set.status = 400;
         return fail(

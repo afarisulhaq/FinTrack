@@ -1,8 +1,8 @@
-export interface WalletEffect {
+export type WalletEffect = {
   key: string;
   walletId: string;
   amount: number;
-}
+};
 
 export function readWalletEffects(value: unknown): WalletEffect[] {
   return Array.isArray(value) ? (value as WalletEffect[]) : [];

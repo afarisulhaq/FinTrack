@@ -1,4 +1,4 @@
-import type { Wallet } from "./types";
+import type { Wallet } from "./types.js";
 
 export function flattenWalletTree(wallets: Wallet[]): Wallet[] {
   const records = new Map<string, Wallet>();

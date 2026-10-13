@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import {
   lockFinanceRecord,
   readWalletEffects,
@@ -5,7 +6,7 @@ import {
 } from "./wallet-effects.js";
 
 export async function toggleSplitWalletPayment(
-  client: any,
+  client: Prisma.TransactionClient,
   billId: string,
   participantId: string,
   paid: boolean,
@@ -15,13 +16,12 @@ export async function toggleSplitWalletPayment(
 ) {
   await lockFinanceRecord(client, "splitBills", billId);
   const bill = await client.splitBill.findFirst({
-    where: { id: billId, ...(userId ? { userId } : {}) },
-    include: { participants: true },
+    where: { id: billId, ...(userId ? { userId } : publicPayment ? {} : { userId: { not: null } }) },
   });
   if (!bill) throw new Error("Patungan tidak ditemukan");
-  const participant = bill.participants.find(
-    (item: any) => item.id === participantId,
-  );
+  const participant = await client.splitBillParticipant.findFirst({
+    where: { id: participantId, splitBillId: bill.id },
+  });
   if (!participant)
     throw new Error("Peserta tidak ditemukan dalam patungan ini");
   if (
@@ -58,9 +58,9 @@ export async function toggleSplitWalletPayment(
       walletEffects: effects,
     },
   });
-  const allPaid = bill.participants.every((item: any) =>
-    item.id === participantId ? paid : item.paid,
-  );
+  const allPaid = await client.splitBillParticipant.count({
+    where: { splitBillId: bill.id, paid: false },
+  }) === 0;
   await client.splitBill.update({
     where: { id: billId },
     data: { status: allPaid ? "settled" : "active" },

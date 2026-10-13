@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import {
   CreditCard,
   Plus,
@@ -19,7 +19,10 @@ import { Input } from "~/components/ui/input";
 import { ProgressBar } from "~/components/ui/progress-bar";
 import { useFinanceStore } from "~/store/useFinanceStore";
 import { formatCurrency } from "~/lib/utils";
-import type { CardType } from "~/lib/types";
+import type { Card as FinanceCard, CardType } from "~/lib/types";
+import { Pagination } from "~/components/ui/pagination";
+import { useServerPagination } from "~/lib/use-server-pagination";
+import { ServerListStatus } from "~/components/ui/server-paginated-list";
 
 const BANK_GRADIENTS: Record<string, string> = {
   BCA: "from-blue-600 to-indigo-900",
@@ -49,7 +52,6 @@ const BANKS = [
 ];
 
 export default function CardsPage() {
-  const cards = useFinanceStore((s) => s.cards);
   const addCard = useFinanceStore((s) => s.addCard);
   const deleteCard = useFinanceStore((s) => s.deleteCard);
 
@@ -66,53 +68,15 @@ export default function CardsPage() {
     interestRate: "2.25",
   });
 
-  const { totalLimit, totalUsed } = useMemo(() => {
-    return cards
-      .filter((c) => c.type === "credit")
-      .reduce(
-        (acc, c) => ({
-          totalLimit: acc.totalLimit + (c.limit || 0),
-          totalUsed: acc.totalUsed + (c.used || 0),
-        }),
-        { totalLimit: 0, totalUsed: 0 },
-      );
-  }, [cards]);
-
-  const creditCards = cards.filter((c) => c.type === "credit");
-  const debitCards = cards.filter((c) => c.type === "debit");
-
-  // Upcoming billing dates in next 30 days
+  const cardPager = useServerPagination<
+    FinanceCard,
+    { totalLimit: number; totalUsed: number; creditCount: number; debitCount: number }
+  >("/cards", {}, { resource: "cards" });
+  const billingPager = useServerPagination<
+    { id: string; name: string; date: number; label: string; type: string }
+  >("/cards", { view: "billing" });
+  const { totalLimit = 0, totalUsed = 0, creditCount = 0, debitCount = 0 } = cardPager.summary ?? {};
   const today = new Date();
-  const billingEvents = useMemo(() => {
-    const events: {
-      name: string;
-      date: number;
-      label: string;
-      type: string;
-    }[] = [];
-    cards.forEach((card) => {
-      if (card.type === "credit") {
-        events.push({
-          name: card.name,
-          date: card.statementDate,
-          label: "Tanggal Cetak Struk",
-          type: "statement",
-        });
-        events.push({
-          name: card.name,
-          date: card.dueDate,
-          label: "Jatuh Tempo",
-          type: "due",
-        });
-      }
-    });
-    return events.sort((a, b) => {
-      const aDay = a.date >= today.getDate() ? a.date : a.date + 31;
-      const bDay = b.date >= today.getDate() ? b.date : b.date + 31;
-      return aDay - bDay;
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cards]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -167,8 +131,8 @@ export default function CardsPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard
           title="Total Kartu"
-          value={cards.length}
-          subtitle={`${creditCards.length} kredit, ${debitCards.length} debit`}
+          value={cardPager.total}
+          subtitle={`${creditCount} kredit, ${debitCount} debit`}
           icon={<CreditCard className="text-primary" />}
         />
         <StatCard
@@ -199,7 +163,7 @@ export default function CardsPage() {
       </div>
 
       {/* ── Credit Utilization Bar ─────────────────────────────────── */}
-      {creditCards.length > 0 && (
+      {creditCount > 0 && (
         <Card>
           <CardHeader>
             <span className="text-text-primary text-sm font-semibold">
@@ -235,8 +199,9 @@ export default function CardsPage() {
       )}
 
       {/* ── Cards Grid ──────────────────────────────────────────────── */}
+      <ServerListStatus {...cardPager} />
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
-        {cards.map((card) => (
+        {cardPager.items.map((card) => (
           <div key={card.id} className="group relative">
             {/* Visual Card */}
             <div
@@ -337,7 +302,7 @@ export default function CardsPage() {
           </div>
         ))}
 
-        {cards.length === 0 && (
+        {cardPager.initialized && !cardPager.loading && !cardPager.error && cardPager.total === 0 && (
           <div className="col-span-full">
             <Card className="py-12 text-center">
               <CreditCard className="text-text-muted mx-auto mb-3 h-10 w-10" />
@@ -346,9 +311,11 @@ export default function CardsPage() {
           </div>
         )}
       </div>
+      <Pagination {...cardPager} label="kartu" />
 
       {/* ── Billing Calendar ────────────────────────────────────────── */}
-      {billingEvents.length > 0 && (
+      <ServerListStatus {...billingPager} />
+      {billingPager.total > 0 && (
         <Card>
           <CardHeader>
             <span className="text-text-primary text-sm font-semibold">
@@ -360,7 +327,7 @@ export default function CardsPage() {
           </CardHeader>
           <CardBody>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {billingEvents.map((evt, i) => {
+              {billingPager.items.map((evt, i) => {
                 const daysLeft =
                   evt.date >= today.getDate()
                     ? evt.date - today.getDate()
@@ -400,6 +367,7 @@ export default function CardsPage() {
                 );
               })}
             </div>
+            <Pagination {...billingPager} label="jadwal billing" />
           </CardBody>
         </Card>
       )}

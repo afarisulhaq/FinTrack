@@ -15,6 +15,9 @@ import { Modal } from "~/components/ui/modal";
 
 import { Input } from "~/components/ui/input";
 import { ProgressBar } from "~/components/ui/progress-bar";
+import { Pagination } from "~/components/ui/pagination";
+import { useServerPagination } from "~/lib/use-server-pagination";
+import { ServerListStatus } from "~/components/ui/server-paginated-list";
 import { useFinanceStore } from "~/store/useFinanceStore";
 import { formatCurrency, percentage, getBudgetColor } from "~/lib/utils";
 import type { Budget, Wallet } from "~/lib/types";
@@ -91,7 +94,6 @@ const EMPTY_FORM: BudgetForm = {
 
 export default function BudgetPage() {
   const wallets = useFinanceStore((s) => s.wallets);
-  const budgets = useFinanceStore((s) => s.budgets);
   const categories = useFinanceStore((s) => s.categories);
   const addBudget = useFinanceStore((s) => s.addBudget);
   const updateBudget = useFinanceStore((s) => s.updateBudget);
@@ -112,21 +114,18 @@ export default function BudgetPage() {
 
   const allWallets = useMemo(() => flattenWalletTree(wallets), [wallets]);
 
-  const filteredBudgets = useMemo(
-    () => budgets.filter((b) => b.period === period),
-    [budgets, period],
+  const pager = useServerPagination<Budget, {
+    totalLimit: number;
+    totalSpent: number;
+    overspentCount: number;
+    counts: Record<string, number>;
+  }>("/budgets", { period }, { resource: "budgets" });
+  const breakdownPager = useServerPagination<Budget>(
+    "/budgets", { period, view: "breakdown" }, { resource: "budgets" },
   );
-
-  const { totalLimit, totalSpent, overspentCount } = useMemo(() => {
-    return filteredBudgets.reduce(
-      (acc, b) => ({
-        totalLimit: acc.totalLimit + b.limit,
-        totalSpent: acc.totalSpent + b.spent,
-        overspentCount: acc.overspentCount + (b.spent > b.limit ? 1 : 0),
-      }),
-      { totalLimit: 0, totalSpent: 0, overspentCount: 0 },
-    );
-  }, [filteredBudgets]);
+  const { totalLimit, totalSpent, overspentCount } = pager.summary ?? {
+    totalLimit: 0, totalSpent: 0, overspentCount: 0,
+  };
 
   const totalPct = percentage(totalSpent, totalLimit);
 
@@ -370,15 +369,16 @@ export default function BudgetPage() {
           >
             {t.label}
             <span className="bg-bg-base text-text-muted ml-1.5 rounded-full px-1.5 py-0.5 text-[10px]">
-              {budgets.filter((b) => b.period === t.key).length}
+              {pager.summary?.counts[t.key] ?? 0}
             </span>
           </button>
         ))}
       </div>
 
       {/* ── Budget cards grid ─────────────────────────────────────────────── */}
+      <ServerListStatus {...pager} />
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {filteredBudgets.map((budget) => {
+        {pager.items.map((budget) => {
           const pct = percentage(budget.spent, budget.limit);
           const isOverspent = budget.spent > budget.limit;
           const isWarning = !isOverspent && pct >= 80;
@@ -501,7 +501,7 @@ export default function BudgetPage() {
           );
         })}
 
-        {filteredBudgets.length === 0 && (
+        {pager.total === 0 && !pager.loading && !pager.error && (
           <div className="lg:col-span-2">
             <Card className="py-16 text-center">
               <PiggyBank className="text-text-muted mx-auto mb-3 h-10 w-10" />
@@ -522,9 +522,10 @@ export default function BudgetPage() {
           </div>
         )}
       </div>
+      <Pagination {...pager} label="anggaran" />
 
       {/* ── Budget Analysis ───────────────────────────────────────────────── */}
-      {filteredBudgets.length > 0 && (
+      {pager.total > 0 && (
         <Card>
           <CardHeader>
             <span className="text-text-primary text-sm font-semibold">
@@ -535,11 +536,9 @@ export default function BudgetPage() {
             </Badge>
           </CardHeader>
           <CardBody>
+            <ServerListStatus {...breakdownPager} />
             <div className="space-y-3">
-              {filteredBudgets
-                .slice()
-                .sort((a, b) => b.limit - a.limit)
-                .map((budget) => {
+              {breakdownPager.items.map((budget) => {
                   const sharePct = percentage(budget.limit, totalLimit);
                   const spentPct = percentage(budget.spent, budget.limit);
                   return (
@@ -617,6 +616,7 @@ export default function BudgetPage() {
                   );
                 })}
             </div>
+            <Pagination {...breakdownPager} label="rincian anggaran" />
           </CardBody>
         </Card>
       )}

@@ -89,12 +89,8 @@ function usdQuoteToIdr(quote, rate) {
         changePercent: quote.changePercent, // percentages don't change with FX
         dayHigh: quote.dayHigh != null ? quote.dayHigh * rate : null,
         dayLow: quote.dayLow != null ? quote.dayLow * rate : null,
-        fiftyTwoWeekHigh: quote.fiftyTwoWeekHigh != null
-            ? quote.fiftyTwoWeekHigh * rate
-            : null,
-        fiftyTwoWeekLow: quote.fiftyTwoWeekLow != null
-            ? quote.fiftyTwoWeekLow * rate
-            : null,
+        fiftyTwoWeekHigh: quote.fiftyTwoWeekHigh != null ? quote.fiftyTwoWeekHigh * rate : null,
+        fiftyTwoWeekLow: quote.fiftyTwoWeekLow != null ? quote.fiftyTwoWeekLow * rate : null,
     };
 }
 const QUOTE_TTL_MS = 60 * 1000;
@@ -517,9 +513,11 @@ export async function searchYahooFinance(query, assetClass = "stock") {
 // null if every host is unreachable. Non-2xx responses (401, 403,
 // 429) are returned as-is so the caller can decide what to do —
 // 401/403 trigger the next host, 429 trips the global cooldown.
-async function fetchYahooChart(symbol, range) {
+export async function fetchYahooChart(symbol, range, signal) {
     const lastAttemptStatus = [];
     for (const host of YAHOO_CHART_HOSTS) {
+        if (signal?.aborted)
+            return null;
         const url = `${host}/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=${range}`;
         let response;
         try {
@@ -529,7 +527,12 @@ async function fetchYahooChart(symbol, range) {
                     "User-Agent": "Mozilla/5.0 FinTrack/1.0",
                     ...yahooAuthHeaders,
                 },
-                signal: AbortSignal.timeout(YAHOO_FETCH_TIMEOUT_MS),
+                signal: signal
+                    ? AbortSignal.any([
+                        signal,
+                        AbortSignal.timeout(YAHOO_FETCH_TIMEOUT_MS),
+                    ])
+                    : AbortSignal.timeout(YAHOO_FETCH_TIMEOUT_MS),
             });
         }
         catch (err) {
@@ -806,7 +809,11 @@ export async function getYahooFinancePrice(symbol, assetClass = "stock") {
     // stocks / mutual funds / gold are already in IDR (or their
     // own native currency, which we leave alone for now).
     const finalResult = assetClass === "crypto"
-        ? { ...result, price: result.price * (await getUsdIdrRate()), currency: "IDR" }
+        ? {
+            ...result,
+            price: result.price * (await getUsdIdrRate()),
+            currency: "IDR",
+        }
         : result;
     writeCache(priceCache, cacheKey, finalResult, PRICE_TTL_MS);
     persistentPriceCache.set(cacheKey, {

@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo } from "react";
 import Link from "next/link";
 import {
   TrendingUp,
@@ -21,61 +20,23 @@ import { Badge } from "~/components/ui/badge";
 import { ProgressBar } from "~/components/ui/progress-bar";
 import { DynamicIcon } from "~/components/ui/dynamic-icon";
 import { SpendingTrendChart } from "~/components/charts/spending-trend-chart";
-import { useFinanceStore } from "~/store/useFinanceStore";
-import { totalWalletBalance } from "~/lib/wallets";
+import { useServerPagination } from "~/lib/use-server-pagination";
+import { ServerListStatus } from "~/components/ui/server-paginated-list";
+import type { AnalyticsSummary } from "~/lib/analytics";
 import { useAppConfigStore } from "~/store/useAppConfigStore";
 import { formatCurrency, daysUntil, percentage } from "~/lib/utils";
 
 export default function DashboardPage() {
-  const bills = useFinanceStore((s) => s.bills);
-  const savingGoals = useFinanceStore((s) => s.savingGoals);
-  const investments = useFinanceStore((s) => s.investments);
-  const wallets = useFinanceStore((s) => s.wallets);
-  const transactions = useFinanceStore((s) => s.transactions);
-  // Read the configured currency so dashboard totals reflect the
-  // admin app-settings choice (e.g. IDR → USD). The store hydrates
-  // from `localStorage` on mount, so the first paint already has the
-  // right currency instead of flashing IDR first.
+  const analytics = useServerPagination<never, AnalyticsSummary>("/analytics/summary", { period: "6" });
+  const summary = analytics.summary;
   const currency = useAppConfigStore((s) => s.config.currency);
   const appName = useAppConfigStore((s) => s.config.appName);
   const tagline = useAppConfigStore((s) => s.config.tagline);
 
-  const totalBalance = useMemo(
-    () => totalWalletBalance(wallets),
-    [wallets],
-  );
-  const portfolioValue = useMemo(
-    () =>
-      investments.reduce((s, inv) => s + inv.quantity * inv.currentPrice, 0),
-    [investments],
-  );
-
+  const totalBalance = summary?.walletBalance ?? 0;
+  const portfolioValue = summary?.portfolioValue ?? 0;
   const netWorth = totalBalance + portfolioValue;
-
-  const monthlyData = useMemo(() => {
-    const now = new Date();
-    return Array.from({ length: 6 }, (_, index) => {
-      const date = new Date(now.getFullYear(), now.getMonth() - (5 - index), 1);
-      const month = date.toLocaleDateString("id-ID", { month: "short" });
-      const year = date.getFullYear();
-      const monthIndex = date.getMonth();
-      const scoped = transactions.filter((tx) => {
-        const txDate = new Date(tx.date);
-        return (
-          txDate.getFullYear() === year && txDate.getMonth() === monthIndex
-        );
-      });
-      return {
-        month,
-        income: scoped
-          .filter((tx) => tx.type === "income")
-          .reduce((sum, tx) => sum + tx.amount, 0),
-        expense: scoped
-          .filter((tx) => tx.type === "expense")
-          .reduce((sum, tx) => sum + tx.amount, 0),
-      };
-    });
-  }, [transactions]);
+  const monthlyData = summary?.monthlyData ?? [];
 
   const latestMonth = monthlyData[monthlyData.length - 1] ?? {
     month: "-",
@@ -103,19 +64,8 @@ export default function DashboardPage() {
       }
     : undefined;
 
-  const unpaidBills = useMemo(
-    () =>
-      bills
-        .filter((b) => b.status !== "paid")
-        .sort(
-          (a, b) =>
-            new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime(),
-        )
-        .slice(0, 4),
-    [bills],
-  );
-
-  const topGoals = useMemo(() => savingGoals.slice(0, 3), [savingGoals]);
+  const unpaidBills = summary?.bills ?? [];
+  const topGoals = summary?.goals ?? [];
 
   const spendingTrendData = monthlyData.map((m) => ({
     month: m.month,
@@ -133,6 +83,8 @@ export default function DashboardPage() {
   ];
   return (
     <PageWrapper title={appName} subtitle={tagline}>
+      <ServerListStatus {...analytics} />
+      {summary && <>
       {/* ── Key Metrics Grid ─────────────────────────────────────────── */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
@@ -145,7 +97,7 @@ export default function DashboardPage() {
         <StatCard
           title="Saldo Rekening"
           value={formatCurrency(totalBalance, false, currency)}
-          subtitle={`${wallets.filter((w) => !w.parentId).length} akun aktif`}
+          subtitle={`${summary.rootWalletCount} akun aktif`}
           icon={<Wallet />}
         />
         <StatCard
@@ -321,6 +273,7 @@ export default function DashboardPage() {
           </div>
         </CardBody>
       </Card>
+      </>}
     </PageWrapper>
   );
 }

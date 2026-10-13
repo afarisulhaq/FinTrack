@@ -18,6 +18,9 @@ import { useAuthStore } from "~/store/useAuthStore";
 import { StockCandidates } from "~/components/market/stock-candidates";
 import { api } from "~/lib/api";
 import { formatCurrency } from "~/lib/utils";
+import { Pagination } from "~/components/ui/pagination";
+import { useServerPagination } from "~/lib/use-server-pagination";
+import { ServerListStatus } from "~/components/ui/server-paginated-list";
 
 interface MarketQuote {
   symbol: string;
@@ -64,59 +67,68 @@ export default function MarketWatchPage() {
   const [watchlistError, setWatchlistError] = useState("");
   const [watchlistStorage, setWatchlistStorage] = useState("");
   const [loadedToken, setLoadedToken] = useState<string | null>(null);
-  const savingWatchlist = useRef(false);
+  const savingWatchlist = useRef<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [symbols, setSymbols] = useState<string[]>([]);
+  const [members, setMembers] = useState<string[]>([]);
+  const symbols = loadedToken === token ? members : [];
   const [quotes, setQuotes] = useState<Record<string, MarketQuote>>({});
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<SearchResult[]>([]);
-  const [searching, setSearching] = useState(false);
+  const [searchText, setSearchText] = useState("");
+  const quoteRequest = useRef(0);
+  const watchlistPager = useServerPagination<string, { symbols: string[] | null; storage: string }>(
+    "/market-watchlist/", {}, { pageSize: 6 },
+  );
+  const searchPager = useServerPagination<SearchResult>(
+    "/market-search", { q: searchText, assetClass: "stock" },
+    { pageSize: 6, enabled: query.trim().length >= 2 && searchText === query },
+  );
+  const results = searchText === query ? searchPager.items : [];
+  const searching = query.trim().length >= 2 && (searchText !== query || searchPager.loading);
 
   useEffect(() => {
-    let cancelled = false;
     setLoadedToken(null);
-    setSymbols([]);
+    setMembers([]);
     setWatchlistError("");
     setWatchlistStorage("");
-    if (!token) return;
-    async function load() {
-      try {
-        let list = await api.get<{ symbols: string[] | null; storage: string }>(
-          "/market-watchlist/",
-          token!,
-        );
-        if (cancelled) return;
-        if (list.symbols === null) {
-          list = await api.post("/market-watchlist/", token!, {
-            symbols: loadWatchlist(),
-          });
-          if (cancelled) return;
-          if (list.storage === "database")
-            window.localStorage.removeItem(STORAGE_KEY);
-        }
-        setSymbols(list.symbols ?? []);
-        setWatchlistStorage(list.storage);
-        setLoadedToken(token);
-      } catch {
-        if (!cancelled)
-          setWatchlistError(
-            "Watchlist gagal dimuat. Muat ulang halaman untuk mencoba lagi.",
-          );
-      }
-    }
-    void load();
-    return () => {
-      cancelled = true;
-    };
+    savingWatchlist.current = null;
+    setSaving(false);
   }, [token]);
 
+  const watchlistSummary = watchlistPager.summary;
+  const reloadWatchlist = watchlistPager.reload;
+  useEffect(() => {
+    const summary = watchlistSummary;
+    if (!token || !summary) return;
+    if (summary.symbols !== null) {
+      setMembers(summary.symbols);
+      setWatchlistStorage(summary.storage);
+      setLoadedToken(token);
+      return;
+    }
+    if (savingWatchlist.current === token) return;
+    savingWatchlist.current = token;
+    setSaving(true);
+    void api.post<{ symbols: string[]; storage: string }>("/market-watchlist/", token, { symbols: loadWatchlist() })
+      .then((list) => {
+        if (useAuthStore.getState().token !== token) return;
+        setMembers(list.symbols);
+        setWatchlistStorage(list.storage);
+        setLoadedToken(token);
+        if (list.storage === "database") window.localStorage.removeItem(STORAGE_KEY);
+        reloadWatchlist();
+      })
+      .catch(() => { if (useAuthStore.getState().token === token) setWatchlistError("Watchlist gagal dimuat. Coba muat ulang daftar."); })
+      .finally(() => { if (savingWatchlist.current === token) { savingWatchlist.current = null; setSaving(false); } });
+  }, [token, watchlistSummary, reloadWatchlist]);
+
   const fetchQuotes = useCallback(async () => {
-    if (!token || symbols.length === 0) return;
+    if (!token || watchlistPager.items.length === 0) { setLoading(false); return; }
+    const id = ++quoteRequest.current;
     setLoading(true);
     try {
       const entries = await Promise.all(
-        symbols.map(async (symbol) => {
+        watchlistPager.items.map(async (symbol) => {
           try {
             const quote = await api.get<MarketQuote>(
               `/market-quote/${encodeURIComponent(symbol)}?assetClass=stock`,
@@ -132,44 +144,28 @@ export default function MarketWatchPage() {
       for (const entry of entries) {
         if (entry) map[entry[0]] = entry[1];
       }
-      setQuotes(map);
+      if (id === quoteRequest.current) setQuotes(map);
     } finally {
-      setLoading(false);
+      if (id === quoteRequest.current) setLoading(false);
     }
-  }, [token, symbols]);
+  }, [token, watchlistPager.items]);
 
   useEffect(() => {
+    const requests = quoteRequest;
     void fetchQuotes();
+    return () => { requests.current++; };
   }, [fetchQuotes]);
 
-  // Debounced symbol search
   useEffect(() => {
-    if (query.trim().length < 2 || !token) {
-      setResults([]);
-      return;
-    }
-    const timer = setTimeout(async () => {
-      setSearching(true);
-      try {
-        const data = await api.get<SearchResult[]>(
-          `/market-search?q=${encodeURIComponent(query)}&assetClass=stock`,
-          token,
-        );
-        setResults(data.slice(0, 6));
-      } catch {
-        setResults([]);
-      } finally {
-        setSearching(false);
-      }
-    }, 400);
+    const timer = setTimeout(() => setSearchText(query), 400);
     return () => clearTimeout(timer);
-  }, [query, token]);
+  }, [query]);
 
   async function changeSymbol(symbol: string, action: "add" | "remove") {
-    if (!token || loadedToken !== token || savingWatchlist.current) return;
+    if (!token || loadedToken !== token || savingWatchlist.current === token) return;
     const clean = symbol.trim().toUpperCase().replace(/\.JK$/, "");
     if (!clean || (action === "add" && symbols.includes(clean))) return;
-    savingWatchlist.current = true;
+    savingWatchlist.current = token;
     setSaving(true);
     setWatchlistError("");
     try {
@@ -179,10 +175,10 @@ export default function MarketWatchPage() {
         { symbol: clean, action },
       );
       if (useAuthStore.getState().token !== token) return;
-      setSymbols(list.symbols);
+      setMembers(list.symbols);
+      watchlistPager.reload();
       if (action === "add") {
         setQuery("");
-        setResults([]);
       }
     } catch {
       if (useAuthStore.getState().token === token)
@@ -190,8 +186,10 @@ export default function MarketWatchPage() {
           "Perubahan watchlist gagal disimpan. Silakan coba lagi.",
         );
     } finally {
-      savingWatchlist.current = false;
-      setSaving(false);
+      if (savingWatchlist.current === token) {
+        savingWatchlist.current = null;
+        setSaving(false);
+      }
     }
   }
 
@@ -225,9 +223,7 @@ export default function MarketWatchPage() {
           setelah backend dimulai ulang.
         </p>
       )}
-      {!loadedToken && !watchlistError && (
-        <p className="text-text-secondary mb-4 text-sm">Memuat watchlist…</p>
-      )}
+      <ServerListStatus {...watchlistPager} />
       {saving && (
         <p role="status" className="text-text-secondary mb-4 text-sm">
           Menyimpan watchlist…
@@ -266,18 +262,18 @@ export default function MarketWatchPage() {
             }}
           />
           {(results.length > 0 || searching) && (
-            <div className="bg-bg-elevated border-border absolute z-20 mt-1 w-full overflow-hidden rounded-lg border shadow-lg">
+            <div className="bg-bg-elevated border-border absolute z-20 mt-1 w-full rounded-lg border p-2 shadow-lg">
               {searching && (
                 <div className="text-text-muted px-3 py-2 text-xs">
                   Mencari…
                 </div>
               )}
-              {results.map((r) => (
+              {searchPager.items.map((r) => (
                 <button
                   key={r.symbol}
                   disabled={saving || loadedToken !== token}
                   onClick={() => addSymbol(r.symbol)}
-                  className="hover:bg-bg-surface flex w-full items-center justify-between px-3 py-2 text-left"
+                  className="hover:bg-bg-surface focus-visible:ring-primary flex min-h-11 w-full items-center justify-between rounded-md px-3 py-2 text-left focus-visible:ring-2"
                 >
                   <div className="min-w-0">
                     <p className="text-text-primary truncate text-sm font-medium">
@@ -290,14 +286,20 @@ export default function MarketWatchPage() {
                   </span>
                 </button>
               ))}
+              <Pagination {...searchPager} label="hasil pencarian saham" />
             </div>
           )}
+          {searchPager.error && <p role="alert" className="text-danger mt-2 text-sm">{searchPager.error}</p>}
         </div>
       </Card>
 
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-text-primary text-lg font-semibold">Watchlist Saya</h2>
+        <p className="text-text-secondary text-sm">{symbols.length} saham dipantau</p>
+      </div>
       {/* Quote cards */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {symbols.map((symbol) => {
+        {watchlistPager.items.map((symbol) => {
           const q = quotes[symbol];
           const positive = (q?.changePercent ?? 0) >= 0;
           return (
@@ -305,16 +307,16 @@ export default function MarketWatchPage() {
               <button
                 disabled={saving || loadedToken !== token}
                 onClick={() => removeSymbol(symbol)}
-                className="text-text-muted hover:text-danger absolute top-3 right-3 transition-colors"
+                className="text-text-secondary hover:text-danger focus-visible:ring-primary absolute top-2 right-2 flex h-11 w-11 items-center justify-center rounded-lg transition-colors focus-visible:ring-2"
                 aria-label={`Hapus ${symbol}`}
               >
                 <Trash2 className="h-4 w-4" />
               </button>
 
-              <div className="mb-3">
+              <div className="mb-3 pr-10">
                 <p className="text-text-primary text-lg font-bold">{symbol}</p>
                 <p className="text-text-muted truncate text-xs">
-                  {q?.name ?? "Memuat…"}
+                  {q?.name ?? (loading ? "Memuat…" : "Harga belum tersedia")}
                 </p>
               </div>
 
@@ -379,8 +381,9 @@ export default function MarketWatchPage() {
           );
         })}
       </div>
+      <Pagination {...watchlistPager} label="saham pantauan" />
 
-      {symbols.length === 0 && (
+      {watchlistPager.total === 0 && watchlistPager.initialized && !watchlistPager.loading && !watchlistPager.error && (
         <Card className="text-center">
           <Eye className="text-text-muted mx-auto mb-2 h-8 w-8" />
           <p className="text-text-muted text-sm">

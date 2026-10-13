@@ -1,46 +1,25 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { PageWrapper } from "~/components/layout/page-wrapper";
 import { Button } from "~/components/ui/button";
 import { Modal } from "~/components/ui/modal";
 import { DynamicIcon } from "~/components/ui/dynamic-icon";
-import { useFinanceStore } from "~/store/useFinanceStore";
-import { ACTIVITY_LEVELS, calculateActivity } from "~/lib/gamification";
+import { useServerPagination } from "~/lib/use-server-pagination";
+import { ServerListStatus } from "~/components/ui/server-paginated-list";
+import type { ActivitySummary } from "~/lib/analytics";
+import { ACTIVITY_LEVELS } from "~/lib/gamification";
 
+import { PaginatedList } from "~/components/ui/paginated-list";
 const progressClass =
   "w-full overflow-hidden rounded-full [&::-webkit-progress-bar]:bg-bg-elevated [&::-webkit-progress-value]:bg-primary [&::-moz-progress-bar]:bg-primary";
 
 export default function GamificationPage() {
-  const transactions = useFinanceStore((s) => s.transactions);
-  const savingGoals = useFinanceStore((s) => s.savingGoals);
-  const bills = useFinanceStore((s) => s.bills);
-  const debts = useFinanceStore((s) => s.debts);
-  const timezone = useFinanceStore((s) => s.userProfile.timezone);
-  const lastSyncedAt = useFinanceStore((s) => s.lastSyncedAt);
-  const syncError = useFinanceStore((s) => s.syncError);
-  const refreshAll = useFinanceStore((s) => s.refreshAll);
+  const analytics = useServerPagination<never, ActivitySummary>("/analytics/activity");
+  const activity = analytics.summary;
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [retrying, setRetrying] = useState(false);
-  const [error, setError] = useState("");
-  const activity = useMemo(
-    () =>
-      calculateActivity(
-        { transactions, savingGoals, bills, debts },
-        new Date(lastSyncedAt ?? Date.now()),
-        timezone,
-      ),
-    [transactions, savingGoals, bills, debts, timezone, lastSyncedAt],
-  );
-  const selected = activity.badges.find((badge) => badge.id === selectedId);
-  const unlocked = activity.badges.filter((badge) => badge.isUnlocked).length;
-  async function retry() {
-    setRetrying(true);
-    setError("");
-    const ok = await refreshAll();
-    if (!ok) setError("Tidak bisa memuat catatan. Silakan coba lagi.");
-    setRetrying(false);
-  }
+  const selected = activity?.badges.find((badge) => badge.id === selectedId);
+  const unlocked = activity?.badges.filter((badge) => badge.isUnlocked).length ?? 0;
 
   return (
     <PageWrapper title="Gamifikasi">
@@ -49,27 +28,8 @@ export default function GamificationPage() {
         Ini mengukur aktivitas pencatatan, bukan kesehatan finansial atau
         peringkat antar pengguna.
       </p>
-      {(syncError || error) && (
-        <div
-          role="alert"
-          className="border-border bg-bg-surface rounded-xl border p-4"
-        >
-          <p>{error || syncError}</p>
-          <Button
-            className="mt-3 min-h-11"
-            variant="outline"
-            loading={retrying}
-            onClick={() => void retry()}
-          >
-            Coba lagi
-          </Button>
-        </div>
-      )}
-      {lastSyncedAt === null ? (
-        <p role="status" className="text-text-secondary">
-          {syncError || error ? "Catatan belum tersedia." : "Memuat catatan..."}
-        </p>
-      ) : (
+      <ServerListStatus {...analytics} />
+      {activity && (
         <>
           <section className="border-border bg-bg-surface rounded-xl border p-5 sm:p-6">
             <div className="flex flex-wrap items-start justify-between gap-4">
@@ -123,7 +83,7 @@ export default function GamificationPage() {
             </h2>
             <p className="text-text-secondary text-sm">
               Hari tanpa catatan tidak dianggap sebagai hari tanpa pengeluaran.
-              Kalender mengikuti zona waktu {timezone}.
+              Kalender mengikuti zona waktu {activity.timezone}.
             </p>
             <ol className="grid grid-cols-2 gap-2 sm:grid-cols-7">
               {activity.last7Days.map((day) => (
@@ -158,8 +118,9 @@ export default function GamificationPage() {
                 progres lencana.
               </p>
             )}
+            <PaginatedList rows={activity.badges} label="lencana" pageSize={6}>{(badges) => (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {activity.badges.map((badge) => (
+              {badges.map((badge) => (
                 <button
                   key={badge.id}
                   onClick={() => setSelectedId(badge.id)}
@@ -190,6 +151,7 @@ export default function GamificationPage() {
                 </button>
               ))}
             </div>
+            )}</PaginatedList>
           </section>
           <section className="border-border bg-bg-surface rounded-xl border p-5 sm:p-6">
             <h2 className="text-lg font-semibold">Peringkat Finansial Kamu</h2>

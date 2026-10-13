@@ -22,12 +22,16 @@ import { Modal } from "~/components/ui/modal";
 import { StatCard } from "~/components/ui/stat-card";
 import { AmountInput } from "~/components/ui/amount-input";
 import { Input } from "~/components/ui/input";
+import { Pagination } from "~/components/ui/pagination";
+import { useServerPagination } from "~/lib/use-server-pagination";
+import { ServerListStatus } from "~/components/ui/server-paginated-list";
 import { PortfolioPieChart } from "~/components/charts/portfolio-pie-chart";
 import { PortfolioPerformanceChart } from "~/components/charts/portfolio-performance-chart";
 import { useFinanceStore } from "~/store/useFinanceStore";
 import { useAuthStore } from "~/store/useAuthStore";
 import { api } from "~/lib/api";
 import { formatCurrency } from "~/lib/utils";
+import { invalidateServerLists } from "~/lib/page-records";
 import type { AssetClass, Investment } from "~/lib/types";
 
 type MarketSearchResult = {
@@ -80,7 +84,6 @@ const BROKER_OPTIONS = [
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function InvestmentsPage() {
-  const investments = useFinanceStore((s) => s.investments);
   const addInvestment = useFinanceStore((s) => s.addInvestment);
   const updateInvestment = useFinanceStore((s) => s.updateInvestment);
   const deleteInvestment = useFinanceStore((s) => s.deleteInvestment);
@@ -96,16 +99,10 @@ export default function InvestmentsPage() {
   const [editing, setEditing] = useState<Investment | null>(null);
   const [priceLoading, setPriceLoading] = useState(false);
   const [portfolioRefreshing, setPortfolioRefreshing] = useState(false);
-  const [symbolSearching, setSymbolSearching] = useState(false);
   const [symbolSearchOpen, setSymbolSearchOpen] = useState(false);
-  const [symbolSearchStatus, setSymbolSearchStatus] = useState<string | null>(
-    null,
-  );
+  const [debouncedSymbol, setDebouncedSymbol] = useState("");
   const [priceStatus, setPriceStatus] = useState<string | null>(null);
   const [portfolioStatus, setPortfolioStatus] = useState<string | null>(null);
-  const [symbolSuggestions, setSymbolSuggestions] = useState<
-    MarketSearchResult[]
-  >([]);
   const symbolFieldRef = useRef<HTMLDivElement>(null);
   const autoRefreshStarted = useRef(false);
   const [form, setForm] = useState({
@@ -129,105 +126,46 @@ export default function InvestmentsPage() {
   const [sellFee, setSellFee] = useState("");
   const [sellQuantity, setSellQuantity] = useState("");
 
-  // Broker filter
-  const brokers = useMemo(() => {
-    const set = new Set([
-      ...BROKER_OPTIONS,
-      ...investments.map((i) => i.broker).filter(Boolean),
-    ]);
-    return ["Semua", ...Array.from(set)];
-  }, [investments]);
-
-  const filtered = useMemo(() => {
-    const byBroker =
-      activeBroker === "Semua"
-        ? investments
-        : investments.filter((i) => i.broker === activeBroker);
-
-    // A position is "open" if it has any lots still held
-    // (quantity > 0). A position is "sold" if the user has sold
-    // every lot (quantity = 0). The sellPrice field is just the
-    // *last* sell event's price, so checking it for "is this sold?"
-    // is wrong: a partial sell leaves sellPrice set with quantity
-    // still > 0, and that row should stay in the "Aktif" tab.
-    if (showSold) {
-      return byBroker.filter((i) => i.quantity === 0);
-    } else {
-      return byBroker.filter((i) => i.quantity > 0);
+  const investmentPager = useServerPagination<
+    Investment,
+    {
+      brokers: string[];
+      totalValue: number;
+      totalPL: number;
+      totalCost: number;
+      totalRealizedPL: number;
+      pieData: { name: string; value: number; color: string }[];
+      activeCount: number;
+      soldCount: number;
     }
-  }, [investments, activeBroker, showSold]);
-
-  // Summary stats
-  const { totalValue, totalPL, totalCost, totalRealizedPL } = useMemo(() => {
-    const active = investments.filter((i) => i.quantity > 0);
-    let totalValue = 0;
-    let totalPL = 0;
-    let totalCost = 0;
-    let totalRealizedPL = 0;
-
-    for (const inv of active) {
-      const value = inv.quantity * inv.currentPrice;
-      const cost = inv.quantity * inv.avgBuyPrice + (inv.buyFee ?? 0);
-      totalValue += value;
-      totalPL += value - cost;
-      totalCost += cost;
-    }
-
-    // Realized P/L uses the cumulative-sold counter, not the
-    // (now possibly non-zero) remaining quantity. For a fully
-    // closed position these are equal; for a partial sell we
-    // only credit the lots the user actually sold.
-    for (const inv of investments) {
-      if (inv.sellPrice != null && (inv.soldQuantity > 0 || inv.quantity > 0)) {
-        const soldQty = inv.soldQuantity > 0 ? inv.soldQuantity : inv.quantity;
-        const cost = soldQty * inv.avgBuyPrice;
-        const proceeds = soldQty * inv.sellPrice - (inv.sellFee ?? 0);
-        totalRealizedPL += proceeds - cost;
-      }
-    }
-
-    return { totalValue, totalPL, totalCost, totalRealizedPL };
-  }, [investments]);
+  >("/investments", {
+    broker: activeBroker === "Semua" ? undefined : activeBroker,
+    sold: showSold,
+  }, { resource: "investments" });
+  const {
+    totalValue = 0,
+    totalPL = 0,
+    totalCost = 0,
+    totalRealizedPL = 0,
+    pieData = [],
+    activeCount = 0,
+    soldCount = 0,
+  } = investmentPager.summary ?? {};
+  const brokers = useMemo(
+    () => ["Semua", ...new Set([...BROKER_OPTIONS, ...(investmentPager.summary?.brokers ?? [])])],
+    [investmentPager.summary?.brokers],
+  );
+  const performancePager = useServerPagination<{ id: string; name: string; value: number; pl: number }>("/investments", { view: "performance" });
+  const symbolPager = useServerPagination<MarketSearchResult>("/market-search", { q: form.symbol.trim(), assetClass: form.assetClass }, {
+    pageSize: 6, enabled: showModal && symbolSearchOpen && form.symbol.trim().length >= 2 && debouncedSymbol === form.symbol,
+  });
+  const symbolSuggestions = symbolPager.items;
+  const symbolSearching = symbolPager.loading;
+  const symbolSearchStatus = symbolPager.error || (symbolPager.initialized && !symbolSearching && !symbolSuggestions.length ? "Tidak ada hasil simbol." : null);
 
   const totalPLPct =
     totalCost > 0 ? ((totalPL / totalCost) * 100).toFixed(2) : "0";
 
-  // Pie chart data (aggregate by asset class) — exclude sold assets
-  const pieData = useMemo(() => {
-    const active = investments.filter((i) => i.sellPrice == null);
-    const agg: Record<string, number> = {};
-    active.forEach((inv) => {
-      const label = ASSET_CLASS_LABELS[inv.assetClass] || inv.assetClass;
-      agg[label] = (agg[label] || 0) + inv.quantity * inv.currentPrice;
-    });
-    return Object.entries(agg).map(([name, value]) => ({
-      name,
-      value,
-      color:
-        ASSET_CLASS_COLORS[
-          Object.keys(ASSET_CLASS_LABELS).find(
-            (k) => ASSET_CLASS_LABELS[k] === name,
-          ) || ""
-        ] || "#FFD147",
-    }));
-  }, [investments]);
-
-  // Per-asset performance (unrealized return %) — exclude sold assets
-  const performanceData = useMemo(() => {
-    return investments
-      .filter((i) => i.sellPrice == null)
-      .map((inv) => {
-        const costBasis = inv.quantity * inv.avgBuyPrice + (inv.buyFee ?? 0);
-        const value = inv.quantity * inv.currentPrice;
-        const pl = value - costBasis;
-        const pct = costBasis > 0 ? (pl / costBasis) * 100 : 0;
-        return {
-          name: inv.symbol.replace(/\.JK$/, ""),
-          value: pct,
-          pl,
-        };
-      });
-  }, [investments]);
 
   const resetForm = () => {
     setEditing(null);
@@ -253,44 +191,9 @@ export default function InvestmentsPage() {
   };
 
   useEffect(() => {
-    const query = form.symbol.trim();
-    if (!showModal || !symbolSearchOpen || query.length < 2) {
-      setSymbolSuggestions([]);
-      setSymbolSearchStatus(null);
-      return;
-    }
-
-    if (!token) {
-      setSymbolSuggestions([]);
-      setSymbolSearchStatus(null);
-      return;
-    }
-
-    const timer = window.setTimeout(() => {
-      setSymbolSearching(true);
-      setSymbolSearchStatus(null);
-      api
-        .get<MarketSearchResult[]>(
-          `/market-search?q=${encodeURIComponent(query)}&assetClass=${form.assetClass}`,
-          token,
-        )
-        .then((results) => {
-          setSymbolSuggestions(results);
-          setSymbolSearchStatus(
-            results.length === 0 ? "Tidak ada hasil simbol." : null,
-          );
-        })
-        .catch((error) => {
-          setSymbolSuggestions([]);
-          setSymbolSearchStatus(
-            error instanceof Error ? error.message : "Gagal mencari simbol.",
-          );
-        })
-        .finally(() => setSymbolSearching(false));
-    }, 350);
-
+    const timer = window.setTimeout(() => setDebouncedSymbol(form.symbol), 350);
     return () => window.clearTimeout(timer);
-  }, [form.assetClass, form.symbol, showModal, symbolSearchOpen, token]);
+  }, [form.symbol]);
 
   async function fetchMarketPrice(
     symbolInput = form.symbol,
@@ -335,14 +238,15 @@ export default function InvestmentsPage() {
     }
   }
 
-  async function refreshInvestmentPrice(inv: Investment) {
+  async function refreshInvestmentPrice(inv: Investment, reload = true) {
     if (!token) return false;
     try {
       const result = await api.get<{ price: number }>(
         `/market-price/${encodeURIComponent(inv.symbol)}?assetClass=${inv.assetClass}`,
         token,
       );
-      updateInvestment(inv.id, { currentPrice: result.price });
+      await api.put(`/investments/${encodeURIComponent(inv.id)}`, token, { currentPrice: result.price });
+      if (reload) invalidateServerLists();
       return true;
     } catch (error) {
       console.warn("Refresh harga gagal", error);
@@ -350,28 +254,38 @@ export default function InvestmentsPage() {
     }
   }
 
-  async function refreshPortfolioPrices() {
-    if (!token || investments.length === 0) return;
+  async function refreshPortfolioPrices(scope: "visible" | "all" = "all") {
+    if (!token) return;
     setPortfolioRefreshing(true);
     setPortfolioStatus("Mengambil harga terbaru dari Yahoo Finance...");
-    const results = await Promise.all(
-      investments.map((inv) => refreshInvestmentPrice(inv)),
-    );
-    const success = results.filter(Boolean).length;
-    setPortfolioStatus(
-      `Harga diperbarui: ${success}/${investments.length} aset.`,
-    );
-    setPortfolioRefreshing(false);
+    try {
+      const openInvestments = scope === "visible"
+        ? investmentPager.items.filter((investment) => investment.quantity > 0)
+        : await api.all<Investment>("/investments", token, { sold: false });
+      const results = await Promise.all(
+        openInvestments.map((inv) => refreshInvestmentPrice(inv, false)),
+      );
+      const success = results.filter(Boolean).length;
+      invalidateServerLists();
+      setPortfolioStatus(
+        `Harga diperbarui: ${success}/${openInvestments.length} aset.`,
+      );
+    } catch (error) {
+      setPortfolioStatus(
+        error instanceof Error ? error.message : "Gagal memuat aset investasi.",
+      );
+    } finally {
+      setPortfolioRefreshing(false);
+    }
   }
 
   useEffect(() => {
-    if (autoRefreshStarted.current || investments.length === 0 || !token)
+    if (autoRefreshStarted.current || activeCount === 0 || !investmentPager.items.length || !token)
       return;
     autoRefreshStarted.current = true;
-    void refreshPortfolioPrices();
-    // Run once when portfolio data becomes available after opening this page.
+    void refreshPortfolioPrices("visible");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [investments.length, token]);
+  }, [activeCount, token, investmentPager.items]);
 
   // Fetch IHSG (Jakarta Composite Index) for the market header stat
   useEffect(() => {
@@ -427,7 +341,6 @@ export default function InvestmentsPage() {
       broker: detectedBroker ?? current.broker,
       currentPrice: "",
     }));
-    setSymbolSuggestions([]);
     void fetchMarketPrice(item.symbol, detectedAssetClass);
   }
 
@@ -626,8 +539,8 @@ export default function InvestmentsPage() {
         />
         <StatCard
           title="Jumlah Aset"
-          value={investments.length}
-          subtitle={`${investments.filter((i) => i.quantity > 0).length} aktif, ${investments.filter((i) => i.quantity === 0).length} terjual`}
+          value={activeCount + soldCount}
+          subtitle={`${activeCount} aktif, ${soldCount} terjual`}
           icon={<BarChart2 className="text-info" />}
         />
       </div>
@@ -672,7 +585,9 @@ export default function InvestmentsPage() {
             )}
           </CardHeader>
           <CardBody>
-            <PortfolioPerformanceChart data={performanceData} height={260} />
+            <ServerListStatus loading={performancePager.loading} error={performancePager.error} reload={performancePager.reload} />
+            <PortfolioPerformanceChart data={performancePager.items} height={260} />
+            <Pagination {...performancePager} label="performa aset" />
           </CardBody>
         </Card>
       </div>
@@ -727,6 +642,7 @@ export default function InvestmentsPage() {
             ))}
           </div>
         )}
+        <ServerListStatus {...investmentPager} />
         <Card padding="none">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -765,7 +681,7 @@ export default function InvestmentsPage() {
                 </tr>
               </thead>
               <tbody className="divide-border divide-y">
-                {filtered.map((inv) => {
+                {investmentPager.items.map((inv) => {
                   // For sold assets, use the cumulative soldQuantity (the
                   // lots the user actually sold). The held quantity is 0
                   // after a full sell, so using it would make all values Rp 0.
@@ -924,7 +840,7 @@ export default function InvestmentsPage() {
                     </tr>
                   );
                 })}
-                {filtered.length === 0 && (
+                {investmentPager.initialized && !investmentPager.loading && !investmentPager.error && investmentPager.total === 0 && (
                   <tr>
                     <td
                       colSpan={9}
@@ -940,6 +856,7 @@ export default function InvestmentsPage() {
             </table>
           </div>
         </Card>
+        <Pagination {...investmentPager} label="aset investasi" />
       </div>
 
       {/* ── Add Asset Modal ────────────────────────────────────────── */}
@@ -1005,6 +922,7 @@ export default function InvestmentsPage() {
                           </span>
                         </button>
                       ))}
+                    <Pagination {...symbolPager} label="hasil simbol" />
                   </div>
                 )}
             </div>

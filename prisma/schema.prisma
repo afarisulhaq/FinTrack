@@ -38,6 +38,7 @@ model User {
     marketWatchlist  MarketWatchlist?
     subscription     Subscription?
     subscriptionInvoices SubscriptionInvoice[]
+    @@index([createdAt(sort: Desc), id])
 }
 
 model Subscription {
@@ -102,6 +103,8 @@ model Wallet {
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
     businessTransactions BusinessTransaction[]
+    @@index([userId, createdAt, id])
+    @@index([userId, parentId, createdAt, id])
 }
 
 model Business {
@@ -114,6 +117,7 @@ model Business {
     updatedAt    DateTime @updatedAt
 
     @@index([userId])
+    @@index([userId, createdAt(sort: Desc), id(sort: Desc)])
 }
 
 model BusinessTransaction {
@@ -130,6 +134,7 @@ model BusinessTransaction {
     updatedAt   DateTime @updatedAt
 
     @@index([businessId, date])
+    @@index([businessId, date(sort: Desc), createdAt(sort: Desc), id(sort: Desc)])
 }
 
 model Transaction {
@@ -153,6 +158,7 @@ model Transaction {
     subCategory  SubCategory?  @relation(fields: [subCategoryId], references: [id], onDelete: SetNull)
     createdAt    DateTime @default(now())
     updatedAt    DateTime @updatedAt
+    @@index([userId, date(sort: Desc), id])
 }
 
 model Category {
@@ -219,6 +225,7 @@ model Budget {
     subCategory  SubCategory? @relation(fields: [subCategoryId], references: [id], onDelete: SetNull)
     createdAt    DateTime @default(now())
     updatedAt    DateTime @updatedAt
+    @@index([userId, category, id])
 }
 
 model Investment {
@@ -256,6 +263,7 @@ model Investment {
     updatedAt    DateTime @updatedAt
 
     @@index([userId, broker, symbol, assetClass])
+    @@index([userId, createdAt, id])
 }
 
 model Bill {
@@ -275,6 +283,7 @@ model Bill {
     categoryRef     Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
     createdAt       DateTime @default(now())
     updatedAt       DateTime @updatedAt
+    @@index([userId, dueDate, id])
 }
 
 model SavingGoal {
@@ -292,6 +301,7 @@ model SavingGoal {
     userId        String?
     createdAt     DateTime @default(now())
     updatedAt     DateTime @updatedAt
+    @@index([userId, deadline, id])
 }
 
 model Note {
@@ -303,6 +313,7 @@ model Note {
     userId    String?
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
+    @@index([userId, updatedAt(sort: Desc), id])
 }
 
 model RecurringTransaction {
@@ -323,6 +334,7 @@ model RecurringTransaction {
     subCategory  SubCategory? @relation(fields: [subCategoryId], references: [id], onDelete: SetNull)
     createdAt    DateTime @default(now())
     updatedAt    DateTime @updatedAt
+    @@index([userId, nextDate, id])
 }
 
 model BotConnection {
@@ -351,6 +363,7 @@ model Debt {
     userId      String?
     createdAt   DateTime @default(now())
     updatedAt   DateTime @updatedAt
+    @@index([userId, createdAt(sort: Desc), id])
 }
 
 model DebtContact {
@@ -381,6 +394,7 @@ model SplitBill {
     participants SplitBillParticipant[]
     createdAt   DateTime @default(now())
     updatedAt   DateTime @updatedAt
+    @@index([userId, date(sort: Desc), id])
 }
 
 model SplitBillParticipant {
@@ -397,6 +411,7 @@ model SplitBillParticipant {
     /// Anyone with this URL can view the bill detail and mark the participant as paid.
     payToken    String?  @unique
     splitBill   SplitBill @relation(fields: [splitBillId], references: [id], onDelete: Cascade)
+    @@index([splitBillId, name, id])
 }
 
 model Card {
@@ -415,6 +430,7 @@ model Card {
     userId           String?
     createdAt        DateTime @default(now())
     updatedAt        DateTime @updatedAt
+    @@index([userId, createdAt, id])
 }
 
 model WishlistItem {
@@ -430,6 +446,7 @@ model WishlistItem {
     userId      String?
     createdAt   DateTime @default(now())
     updatedAt   DateTime @updatedAt
+    @@index([userId, createdAt, id])
 }
 
 model Reimbursement {
@@ -448,6 +465,7 @@ model Reimbursement {
     userId        String?
     createdAt     DateTime @default(now())
     updatedAt     DateTime @updatedAt
+    @@index([userId, submittedDate(sort: Desc), id])
 }
 
 model TeamMember {
@@ -463,6 +481,7 @@ model TeamMember {
     userId         String?  // owner who invited
     createdAt      DateTime @default(now())
     updatedAt      DateTime @updatedAt
+    @@index([userId, name, id])
 }
 
 model NotificationSetting {
@@ -522,6 +541,7 @@ model BotPermission {
     contactId   String
     createdAt   DateTime @default(now())
     updatedAt   DateTime @updatedAt
+    @@index([userId, createdAt(sort: Desc), id])
 }
 
 model MarketWatchlist {

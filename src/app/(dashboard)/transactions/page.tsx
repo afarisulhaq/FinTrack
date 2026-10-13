@@ -22,7 +22,10 @@ import { StatCard } from "~/components/ui/stat-card";
 import { AmountInput } from "~/components/ui/amount-input";
 import { Input } from "~/components/ui/input";
 import { DatePicker } from "~/components/ui/date-picker";
-import { localDateValue, transactionMonth } from "~/lib/date";
+import { Pagination } from "~/components/ui/pagination";
+import { useServerPagination } from "~/lib/use-server-pagination";
+import { ServerListStatus } from "~/components/ui/server-paginated-list";
+import { localDateValue } from "~/lib/date";
 import { useFinanceStore } from "~/store/useFinanceStore";
 import { formatCurrency, formatDate, groupByDate } from "~/lib/utils";
 import type { Transaction, TransactionType, Wallet } from "~/lib/types";
@@ -176,20 +179,11 @@ function getDateHeader(key: string): string {
   return formatDate(key + "T12:00:00");
 }
 
-function getDayNet(txList: Transaction[]): number {
-  return txList.reduce((sum, tx) => {
-    if (tx.type === "income") return sum + tx.amount;
-    if (tx.type === "expense") return sum - tx.amount;
-    return sum;
-  }, 0);
-}
 
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default function TransactionsPage() {
   const wallets = useFinanceStore((s) => s.wallets);
-  const transactions = useFinanceStore((s) => s.transactions);
-  const budgets = useFinanceStore((s) => s.budgets);
   const categories = useFinanceStore((s) => s.categories);
   const addTransaction = useFinanceStore((s) => s.addTransaction);
   const updateTransaction = useFinanceStore((s) => s.updateTransaction);
@@ -245,17 +239,19 @@ export default function TransactionsPage() {
     });
   }, [allWallets, showModal, loadingWallets, editingTransaction]);
 
-  /** Current month income / expense / net */
-  const monthStats = useMemo(() => {
-    let income = 0;
-    let expense = 0;
-    for (const tx of transactions) {
-      if (monthFilter && transactionMonth(tx.date) !== monthFilter) continue;
-      if (tx.type === "income") income += tx.amount;
-      else if (tx.type === "expense") expense += tx.amount;
-    }
-    return { income, expense, net: income - expense };
-  }, [transactions, monthFilter]);
+  const pager = useServerPagination<Transaction, {
+    monthStats: { income: number; expense: number; net: number };
+    categories: string[];
+    budgetCategories: string[];
+    dayNet: Record<string, number>;
+  }>("/transactions", {
+    search,
+    month: monthFilter,
+    type: typeFilter === "Semua" ? undefined : typeFilter,
+    category: categoryFilter === "Semua Kategori" ? undefined : categoryFilter,
+    walletId: walletFilter === "Semua Dompet" ? undefined : walletFilter,
+  }, { resource: "transactions" });
+  const monthStats = pager.summary?.monthStats ?? { income: 0, expense: 0, net: 0 };
   const periodLabel = monthFilter
     ? new Date(`${monthFilter}-01T12:00:00`).toLocaleDateString("id-ID", {
         month: "long",
@@ -263,48 +259,11 @@ export default function TransactionsPage() {
       })
     : "Semua waktu";
 
-  /** Unique categories for filter dropdown */
-  const allCategories = useMemo(() => {
-    const cats = new Set(transactions.map((tx) => tx.category));
-    return Array.from(cats).sort();
-  }, [transactions]);
-
-  /** Filtered + sorted transactions */
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase();
-    return transactions
-      .filter((tx) => {
-        if (monthFilter && transactionMonth(tx.date) !== monthFilter)
-          return false;
-        if (typeFilter !== "Semua" && tx.type !== typeFilter) return false;
-        if (
-          categoryFilter !== "Semua Kategori" &&
-          tx.category !== categoryFilter
-        )
-          return false;
-        if (walletFilter !== "Semua Dompet" && tx.walletId !== walletFilter)
-          return false;
-        if (
-          q &&
-          !tx.description.toLowerCase().includes(q) &&
-          !tx.category.toLowerCase().includes(q) &&
-          !tx.walletName.toLowerCase().includes(q)
-        )
-          return false;
-        return true;
-      })
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [
-    transactions,
-    typeFilter,
-    categoryFilter,
-    walletFilter,
-    search,
-    monthFilter,
-  ]);
-
-  /** Group filtered transactions by date */
-  const grouped = useMemo(() => groupByDate(filtered), [filtered]);
+  const allCategories = pager.summary?.categories ?? [];
+  const visibleGrouped = useMemo(
+    () => groupByDate(pager.items),
+    [pager.items],
+  );
 
   // ── Form helpers ─────────────────────────────────────────────────────────────
 
@@ -506,7 +465,7 @@ export default function TransactionsPage() {
               className="w-full sm:w-56"
             />
             <p className="text-text-secondary pb-2 text-sm" aria-live="polite">
-              {filtered.length} transaksi
+              {pager.total} transaksi
             </p>
           </div>
           {/* Top row: search + dropdowns */}
@@ -553,9 +512,10 @@ export default function TransactionsPage() {
       </Card>
 
       {/* ── Transaction list ─────────────────────────────────────────────── */}
+      <ServerListStatus {...pager} />
       <div className="space-y-6">
-        {Array.from(grouped.entries()).map(([dateKey, txList]) => {
-          const net = getDayNet(txList);
+        {Array.from(visibleGrouped.entries()).map(([dateKey, txList]) => {
+          const net = pager.summary?.dayNet[dateKey] ?? 0;
           return (
             <div key={dateKey} className="space-y-2">
               {/* Date header */}
@@ -656,17 +616,18 @@ export default function TransactionsPage() {
           );
         })}
 
-        {filtered.length === 0 && (
+        {pager.total === 0 && !pager.loading && !pager.error && (
           <Card className="py-16 text-center">
             <Receipt className="text-text-muted mx-auto mb-3 h-10 w-10" />
             <p className="text-text-muted text-sm">
-              {transactions.length === 0
-                ? "Belum ada transaksi"
-                : "Tidak ada transaksi yang cocok"}
+              {search || typeFilter !== "Semua" || categoryFilter !== "Semua Kategori" || walletFilter !== "Semua Dompet"
+                ? "Tidak ada transaksi yang cocok"
+                : "Belum ada transaksi"}
             </p>
           </Card>
         )}
       </div>
+      <Pagination {...pager} label="transaksi" />
 
       {/* ── Add Transaction Modal ─────────────────────────────────────────── */}
       <Modal
@@ -833,8 +794,8 @@ export default function TransactionsPage() {
             )}
 
             {form.category &&
-              budgets.some(
-                (b) => b.category.toLowerCase() === form.category.toLowerCase(),
+              pager.summary?.budgetCategories.some(
+                (category) => category.toLowerCase() === form.category.toLowerCase(),
               ) && (
                 <p className="text-success text-[11px]">
                   ✓ Kategori ini terhubung ke anggaran “{form.category}”.

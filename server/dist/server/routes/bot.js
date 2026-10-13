@@ -1,11 +1,13 @@
 import { Elysia } from "elysia";
 import { requireAuth } from "../auth-middleware.js";
 import { extractToken, verifyToken } from "../auth.js";
-import { canUseDatabase, db as prisma } from "../prisma-client.js";
+import { canUseDatabase, isDatabaseConfigured, db as prisma } from "../prisma-client.js";
 import { fail, ok } from "../utils.js";
 import { mockOcrReceipt, parseFinanceText } from "../services/ai-parser.js";
 import { handleTelegramUpdate, sendTelegramMessage, telegramStatus, verifyTelegramToken, getTelegramContacts, } from "../services/telegram.js";
 import { resetWhatsAppSession, sendWhatsAppMessage, setWhatsAppConnectedUser, startWhatsAppBot, startWhatsAppBotWithPairing, stopWhatsAppBot, whatsappStatus, getWhatsAppContacts, } from "../services/whatsapp.js";
+import { AnalyticsError, getWalletBalanceLookup, getWeeklyReport } from "../services/analytics.js";
+import { databasePage, pageArray, readPage, PaginationError } from "../services/pagination.js";
 function getUserIdFromRequest(request) {
     const token = extractToken(request.headers.get("authorization") ?? undefined);
     const auth = token ? verifyToken(token) : null;
@@ -152,52 +154,35 @@ export const botRoutes = new Elysia({ prefix: "/api/bot" })
     const result = await sendWhatsAppMessage(data.phone, data.text);
     return ok(result);
 })
-    .post("/chat", async ({ request, body }) => {
+    .post("/chat", async ({ request, body, set }) => {
     const data = body;
     if (!data?.message)
         return ok({ reply: "Teks kosong" });
     const message = data.message.trim();
     const userId = getUserIdFromRequest(request);
     const lower = message.toLowerCase();
-    // Handle /saldo command
-    if (lower === "/saldo" && userId && (await canUseDatabase())) {
+    if ((lower === "/saldo" || lower === "/laporan") && userId) {
         try {
-            const wallets = await prisma.wallet.findMany({ where: { userId } });
-            if (wallets.length === 0)
-                return ok({ reply: "Belum ada dompet." });
-            const lines = wallets.map((w) => `👛 ${w.name}: Rp${Number(w.balance).toLocaleString("id-ID")}`);
-            return ok({ reply: `💰 *Saldo Dompet*\n\n${lines.join("\n")}` });
+            if (lower === "/saldo") {
+                const wallets = await getWalletBalanceLookup({ userId, authId: userId });
+                if (wallets.length === 0)
+                    return ok({ reply: "Belum ada dompet." });
+                const lines = wallets.map((wallet) => `${wallet.parentId ? "  " : ""}${wallet.name}: Rp${wallet.balance.toLocaleString("id-ID")}`);
+                const total = wallets.reduce((sum, wallet) => sum + wallet.balance, 0);
+                return ok({ reply: `Saldo Dompet\n\n${lines.join("\n")}\n\nTotal: Rp${total.toLocaleString("id-ID")}` });
+            }
+            const report = await getWeeklyReport(userId);
+            return ok({ reply: report.count === 0 ? "Belum ada transaksi minggu ini." : [
+                    `Laporan ${report.start} sampai ${report.end}`,
+                    `Total: Rp${report.total.toLocaleString("id-ID")}`,
+                    `Transaksi: ${report.count}`,
+                    report.top ? `Terbanyak: ${report.top.category} (Rp${report.top.amount.toLocaleString("id-ID")})` : "",
+                ].join("\n") });
         }
-        catch { /* fall through */ }
-    }
-    // Handle /laporan command
-    if (lower === "/laporan" && userId && (await canUseDatabase())) {
-        try {
-            const now = new Date();
-            const startOfWeek = new Date(now);
-            startOfWeek.setDate(now.getDate() - now.getDay());
-            startOfWeek.setHours(0, 0, 0, 0);
-            const expenses = await prisma.transaction.findMany({
-                where: { userId, type: "expense", date: { gte: startOfWeek } },
-            });
-            if (expenses.length === 0)
-                return ok({ reply: "📊 Belum ada transaksi minggu ini." });
-            const total = expenses.reduce((sum, tx) => sum + Number(tx.amount), 0);
-            const topCategory = expenses.reduce((acc, tx) => {
-                acc[tx.category] = (acc[tx.category] ?? 0) + Number(tx.amount);
-                return acc;
-            }, {});
-            const top = Object.entries(topCategory).sort((a, b) => b[1] - a[1])[0];
-            return ok({
-                reply: [
-                    `📊 *Laporan Minggu Ini*`,
-                    `Total: Rp${total.toLocaleString("id-ID")}`,
-                    `Transaksi: ${expenses.length}`,
-                    top ? `Terbanyak: ${top[0]} (Rp${top[1].toLocaleString("id-ID")})` : "",
-                ].join("\n"),
-            });
+        catch (error) {
+            set.status = error instanceof AnalyticsError ? error.status : 500;
+            return fail(error instanceof Error ? error.message : "Gagal memuat laporan");
         }
-        catch { /* fall through */ }
     }
     // Try to save transaction if amount is detected
     const parsed = parseFinanceText(message);
@@ -234,7 +219,7 @@ export const botRoutes = new Elysia({ prefix: "/api/bot" })
                         type: parsed.type,
                         amount: parsed.amount,
                         category: parsed.category,
-                        categoryIcon: "💰",
+                        categoryIcon: "Coins",
                         walletId: wallet.id,
                         walletName: wallet.name,
                         description: parsed.description,
@@ -384,21 +369,31 @@ export const botRoutes = new Elysia({ prefix: "/api/bot" })
 })
     .post("/ai/ocr", async () => ok(mockOcrReceipt()))
     // ─── Bot Permissions ─────────────────────────────────────
-    .get("/permissions", async ({ request }) => {
+    .get("/permissions", async ({ request, query, set }) => {
     const userId = getUserIdFromRequest(request);
-    if (!userId)
-        return ok([]);
-    if (!(await canUseDatabase()))
-        return ok([]);
-    try {
-        const permissions = await prisma.botPermission.findMany({
-            where: { userId },
-            orderBy: { createdAt: "desc" },
-        });
-        return ok(permissions);
+    if (!userId) {
+        set.status = 401;
+        return fail("Unauthorized");
     }
-    catch {
-        return ok([]);
+    try {
+        const input = readPage(query);
+        if (!(await canUseDatabase())) {
+            if (isDatabaseConfigured()) {
+                set.status = 503;
+                return fail("Database tidak tersedia");
+            }
+            return ok(pageArray([], input));
+        }
+        const channel = query.channel;
+        if (channel && !["whatsapp", "telegram"].includes(channel))
+            throw new PaginationError("Channel tidak valid");
+        const search = query.search?.trim();
+        const where = { userId, ...(channel ? { channel } : {}), ...(search ? { OR: [{ contactName: { contains: search, mode: "insensitive" } }, { contactId: { contains: search, mode: "insensitive" } }] } : {}) };
+        return ok(await databasePage(input, () => prisma.botPermission.count({ where }), (skip, take) => prisma.botPermission.findMany({ where, skip, take, orderBy: [{ createdAt: "desc" }, { id: "asc" }] })));
+    }
+    catch (error) {
+        set.status = error instanceof PaginationError ? 400 : 500;
+        return fail(error instanceof Error ? error.message : "Gagal memuat izin kontak");
     }
 })
     .post("/permissions", async ({ request, body, set }) => {
@@ -453,14 +448,35 @@ export const botRoutes = new Elysia({ prefix: "/api/bot" })
         return fail(err instanceof Error ? err.message : "Gagal menghapus permission");
     }
 })
-    .get("/contacts", async ({ request }) => {
+    .get("/contacts", async ({ request, query, set }) => {
     const userId = getUserIdFromRequest(request);
-    if (!userId)
-        return ok({ whatsapp: [], telegram: [] });
-    const waContacts = getWhatsAppContacts();
-    const tgContacts = getTelegramContacts();
-    return ok({
-        whatsapp: waContacts,
-        telegram: tgContacts,
-    });
+    if (!userId) {
+        set.status = 401;
+        return fail("Unauthorized");
+    }
+    try {
+        const input = readPage(query), channel = query.channel ?? "whatsapp";
+        if (!["whatsapp", "telegram"].includes(channel))
+            throw new PaginationError("Channel tidak valid");
+        const available = await canUseDatabase();
+        if (!available && isDatabaseConfigured()) {
+            set.status = 503;
+            return fail("Database tidak tersedia");
+        }
+        const authToken = extractToken(request.headers.get("authorization") ?? undefined);
+        const auth = authToken ? verifyToken(authToken) : null;
+        const setting = available ? await prisma.notificationSetting.findUnique({ where: { userId }, select: { channelTGChatId: true } }) : null;
+        const source = channel === "whatsapp"
+            ? whatsappStatus().connectedUserId === userId ? getWhatsAppContacts().map((row) => ({ ...row, contactId: row.phone })) : []
+            : getTelegramContacts().filter((row) => auth?.role === "admin" || row.chatId === setting?.channelTGChatId).map((row) => ({ ...row, contactId: row.chatId }));
+        const search = query.search?.trim().toLocaleLowerCase();
+        const filtered = source.filter((row) => !search || row.name.toLocaleLowerCase().includes(search) || row.contactId.toLocaleLowerCase().includes(search)).sort((a, b) => a.name.localeCompare(b.name) || a.contactId.localeCompare(b.contactId));
+        const page = pageArray(filtered, input);
+        const permissions = available ? await prisma.botPermission.findMany({ where: { userId, channel, contactId: { in: page.items.map((row) => row.contactId) } }, select: { contactId: true } }) : [];
+        return ok({ ...page, items: page.items.map((row) => ({ ...row, isAllowed: permissions.some((permission) => permission.contactId === row.contactId) })) });
+    }
+    catch (error) {
+        set.status = error instanceof PaginationError ? 400 : 500;
+        return fail(error instanceof Error ? error.message : "Gagal memuat kontak bot");
+    }
 });

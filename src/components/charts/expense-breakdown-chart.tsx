@@ -8,6 +8,7 @@ import {
   Tooltip,
 } from "recharts";
 import { DynamicIcon } from "~/components/ui/dynamic-icon";
+import { PaginatedList } from "~/components/ui/paginated-list";
 
 export interface ExpenseCategory {
   name: string;
@@ -142,6 +143,7 @@ function ExpenseBreakdownChart({ data, height = 260 }: ExpenseBreakdownChartProp
       </div>
 
       {/* Legend with amounts */}
+      <PaginatedList rows={data} label="rincian pengeluaran">{(items) => (
       <div
         style={{
           marginTop: 16,
@@ -150,7 +152,7 @@ function ExpenseBreakdownChart({ data, height = 260 }: ExpenseBreakdownChartProp
           gap: 8,
         }}
       >
-        {data.map((entry) => {
+        {items.map((entry) => {
           const pct = total > 0 ? ((entry.value / total) * 100).toFixed(1) : "0";
           return (
             <div
@@ -215,6 +217,7 @@ function ExpenseBreakdownChart({ data, height = 260 }: ExpenseBreakdownChartProp
           );
         })}
       </div>
+      )}</PaginatedList>
     </div>
   );
 }

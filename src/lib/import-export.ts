@@ -1,11 +1,8 @@
 /**
  * Helpers for the Data & Ekspor tab in /settings.
  *
- * Everything runs client-side: the data is already in the
- * `useFinanceStore` (synced with the backend), so we just convert
- * it to CSV/JSON/HTML-for-PDF and trigger a browser download.
- * Imports go the other way — parse the file, validate, then write
- * back into the store (which in turn POSTs to the backend).
+ * Callers fetch complete exports from the server and persist parsed imports
+ * separately. These helpers convert local CSV/JSON/HTML and trigger downloads.
  *
  * No external library is used for CSV (a tiny hand-rolled parser
  * handles the quoted-comma / escaped-quote cases the format

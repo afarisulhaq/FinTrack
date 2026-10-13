@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Check,
   ChevronDown,
@@ -29,19 +29,14 @@ import { ProgressBar } from "~/components/ui/progress-bar";
 import { StatCard } from "~/components/ui/stat-card";
 import { useFinanceStore } from "~/store/useFinanceStore";
 import { daysUntil, formatCurrency, formatDate } from "~/lib/utils";
-import type { Debt, DebtContact, DebtDirection } from "~/lib/types";
+import type { DebtContact, DebtDirection, DebtInstallment } from "~/lib/types";
+import type { ContactListRow, DebtContactGroup, DebtListRow, DebtSummary } from "~/lib/people-pages";
+import { Pagination } from "~/components/ui/pagination";
+import { ServerListStatus } from "~/components/ui/server-paginated-list";
+import { useServerPagination } from "~/lib/use-server-pagination";
 
 type ActiveTab = "owe" | "lent";
 
-interface DebtContactGroup {
-  key: string;
-  personName: string;
-  personContact?: string;
-  debts: Debt[];
-  amount: number;
-  paidAmount: number;
-  remaining: number;
-}
 
 const CONTACTS_STORAGE_KEY = "fintrack_debt_contacts";
 const DELETED_CONTACTS_STORAGE_KEY = "fintrack_debt_deleted_contacts";
@@ -58,14 +53,6 @@ function loadSavedContacts(): DebtContact[] {
   }
 }
 
-function saveContactsToStorage(contacts: DebtContact[]) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(CONTACTS_STORAGE_KEY, JSON.stringify(contacts));
-  } catch {
-    /* ignore */
-  }
-}
 
 function loadDeletedContacts(): Set<string> {
   if (typeof window === "undefined") return new Set();
@@ -90,14 +77,10 @@ function normalizeContactName(name: string) {
   return name.trim().replace(/\s+/g, " ").toLowerCase();
 }
 
-function contactKey(debt: Debt) {
-  return `${debt.direction}:${normalizeContactName(debt.personName)}`;
-}
 
 export default function DebtsPage() {
   const [debtWalletId, setDebtWalletId] = useState("");
   const [installmentWalletId, setInstallmentWalletId] = useState("");
-  const debts = useFinanceStore((s) => s.debts);
   const addDebt = useFinanceStore((s) => s.addDebt);
   const deleteDebt = useFinanceStore((s) => s.deleteDebt);
   const addDebtInstallment = useFinanceStore((s) => s.addDebtInstallment);
@@ -106,7 +89,6 @@ export default function DebtsPage() {
   const [editingInstallmentId, setEditingInstallmentId] = useState<
     string | null
   >(null);
-  const debtContacts = useFinanceStore((s) => s.debtContacts);
   const addDebtContact = useFinanceStore((s) => s.addDebtContact);
   const updateDebtContact = useFinanceStore((s) => s.updateDebtContact);
   const deleteDebtContact = useFinanceStore((s) => s.deleteDebtContact);
@@ -166,43 +148,12 @@ export default function DebtsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const allContacts = useMemo(() => {
-    const map = new Map<string, DebtContact>();
-
-    for (const c of debtContacts) {
-      const norm = normalizeContactName(c.name);
-      if (norm && !deletedContactNames.has(norm)) {
-        map.set(norm, c);
-      }
-    }
-
-    for (const d of debts) {
-      const norm = normalizeContactName(d.personName);
-      if (norm && !deletedContactNames.has(norm) && !map.has(norm)) {
-        map.set(norm, {
-          id: `debt-contact-${norm}`,
-          name: d.personName.trim().replace(/\s+/g, " "),
-          phone: d.personContact?.trim() || undefined,
-          createdAt: d.createdAt || new Date().toISOString(),
-        });
-      }
-    }
-
-    return Array.from(map.values()).sort((a, b) =>
-      a.name.localeCompare(b.name, "id"),
-    );
-  }, [debtContacts, debts, deletedContactNames]);
-
-  const filteredContactsList = useMemo(() => {
-    if (!contactSearchQuery.trim()) return allContacts;
-    const q = contactSearchQuery.toLowerCase();
-    return allContacts.filter(
-      (c) =>
-        c.name.toLowerCase().includes(q) ||
-        (c.phone && c.phone.toLowerCase().includes(q)) ||
-        (c.note && c.note.toLowerCase().includes(q)),
-    );
-  }, [allContacts, contactSearchQuery]);
+  const contactPager = useServerPagination<ContactListRow>("/debtContacts", {
+    search: contactSearchQuery,
+    excludeNames: JSON.stringify(Array.from(deletedContactNames)),
+  }, { resource: "debtContacts" });
+  const allContacts = contactPager.items;
+  const debtContacts = allContacts.filter((contact) => !contact.id.startsWith("debt-contact-"));
 
   function handleSaveContact(e: React.FormEvent) {
     e.preventDefault();
@@ -213,10 +164,7 @@ export default function DebtsPage() {
     const note = contactForm.note.trim() || undefined;
 
     if (editingContactId) {
-      const existingInStore = debtContacts.find(
-        (c) => c.id === editingContactId,
-      );
-      if (existingInStore) {
+      if (!editingContactId.startsWith("debt-contact-")) {
         updateDebtContact(editingContactId, {
           name: cleanName,
           phone,
@@ -282,7 +230,7 @@ export default function DebtsPage() {
     )
       return;
 
-    if (debtContacts.some((c) => c.id === id)) {
+    if (!id.startsWith("debt-contact-")) {
       deleteDebtContact(id);
     }
 
@@ -318,47 +266,20 @@ export default function DebtsPage() {
     note: "",
   });
 
-  const filteredDebts = useMemo(
-    () => debts.filter((d) => d.direction === activeTab),
-    [debts, activeTab],
+  const groupPager = useServerPagination<DebtContactGroup, DebtSummary>(
+    "/debts", { view: "groups", direction: activeTab },
   );
-
-  const groupedDebts = useMemo(() => {
-    const map = new Map<string, DebtContactGroup>();
-
-    for (const debt of filteredDebts) {
-      const key = contactKey(debt);
-      const group = map.get(key) ?? {
-        key,
-        personName: debt.personName,
-        personContact: debt.personContact,
-        debts: [],
-        amount: 0,
-        paidAmount: 0,
-        remaining: 0,
-      };
-
-      group.debts.push(debt);
-      group.amount += debt.amount;
-      group.paidAmount += debt.paidAmount;
-      if (!debt.isSettled) group.remaining += debt.amount - debt.paidAmount;
-      if (!group.personContact && debt.personContact)
-        group.personContact = debt.personContact;
-      map.set(key, group);
-    }
-
-    return Array.from(map.values()).sort((a, b) => b.remaining - a.remaining);
-  }, [filteredDebts]);
-
-  const { totalOwe, totalLent, nett } = useMemo(() => {
-    const totalOwe = debts
-      .filter((d) => d.direction === "owe" && !d.isSettled)
-      .reduce((s, d) => s + (d.amount - d.paidAmount), 0);
-    const totalLent = debts
-      .filter((d) => d.direction === "lent" && !d.isSettled)
-      .reduce((s, d) => s + (d.amount - d.paidAmount), 0);
-    return { totalOwe, totalLent, nett: totalLent - totalOwe };
-  }, [debts]);
+  const debtPager = useServerPagination<DebtListRow>(
+    expandedContactKey ? "/debts" : null,
+    { group: expandedContactKey },
+    { resource: "debts" },
+  );
+  const installmentPager = useServerPagination<DebtInstallment>(
+    expandedDebtId ? "/debts" : null,
+    { view: "installments", debtId: expandedDebtId },
+  );
+  const debts = debtPager.items;
+  const { totalOwe = 0, totalLent = 0, nett = 0 } = groupPager.summary ?? {};
 
   function handleDebtSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -438,7 +359,7 @@ export default function DebtsPage() {
       date: installmentForm.date
         ? new Date(installmentForm.date).toISOString()
         : new Date().toISOString(),
-      note: installmentForm.note || undefined,
+      note: installmentForm.note,
     };
     if (!installmentWalletId) return;
     if (editingInstallmentId)
@@ -538,7 +459,7 @@ export default function DebtsPage() {
             leftIcon={<Users className="h-4 w-4" />}
             onClick={() => setShowContactModal(true)}
           >
-            Kontak ({allContacts.length})
+            Kontak ({contactPager.total})
           </Button>
           <Button
             size="sm"
@@ -551,9 +472,10 @@ export default function DebtsPage() {
       </div>
 
       <div className="space-y-3">
-        {groupedDebts.map((group) => {
+        <ServerListStatus {...groupPager} />
+        {groupPager.items.map((group) => {
           const isExpanded = expandedContactKey === group.key;
-          const activeCount = group.debts.filter((d) => !d.isSettled).length;
+          const activeCount = group.activeCount;
           const pct =
             group.amount > 0
               ? Math.round((group.paidAmount / group.amount) * 100)
@@ -584,7 +506,7 @@ export default function DebtsPage() {
                             : "Lunas"}
                         </Badge>
                         <Badge variant="default" size="sm">
-                          {group.debts.length} transaksi
+                          {group.debtCount} transaksi
                         </Badge>
                       </div>
                       {group.personContact && (
@@ -648,8 +570,13 @@ export default function DebtsPage() {
                   </div>
 
                   {isExpanded && (
+                    <>
+                      <ServerListStatus {...debtPager} />
+                      {!debtPager.loading && !debtPager.error && debtPager.total === 0 && (
+                        <p className="text-text-muted mt-3 text-sm">Tidak ada transaksi untuk kontak ini.</p>
+                      )}
                     <div className="border-border mt-4 space-y-3 border-l-2 pl-4">
-                      {group.debts.map((debt) => {
+                      {debtPager.items.map((debt) => {
                         const remaining = debt.amount - debt.paidAmount;
                         const debtPct = Math.round(
                           (debt.paidAmount / debt.amount) * 100,
@@ -791,7 +718,7 @@ export default function DebtsPage() {
                               </div>
                             )}
 
-                            {debt.installments.length > 0 && (
+                            {debt.installmentCount > 0 && (
                               <button
                                 onClick={() =>
                                   setExpandedDebtId(
@@ -805,13 +732,18 @@ export default function DebtsPage() {
                                 ) : (
                                   <ChevronDown className="h-3.5 w-3.5" />
                                 )}
-                                {debt.installments.length} catatan cicilan
+                                {debt.installmentCount} catatan cicilan
                               </button>
                             )}
 
                             {debtExpanded && (
+                              <>
+                              <ServerListStatus {...installmentPager} />
+                              {!installmentPager.loading && !installmentPager.error && installmentPager.total === 0 && (
+                                <p className="text-text-muted mt-3 text-sm">Belum ada catatan cicilan.</p>
+                              )}
                               <div className="border-border mt-3 space-y-2 border-l-2 pl-4">
-                                {debt.installments.map((inst) => (
+                                {installmentPager.items.map((inst) => (
                                   <div
                                     key={inst.id}
                                     className="flex flex-wrap items-center justify-between gap-2 text-xs"
@@ -870,11 +802,15 @@ export default function DebtsPage() {
                                   </div>
                                 ))}
                               </div>
+                              <Pagination {...installmentPager} label="cicilan" />
+                              </>
                             )}
                           </div>
                         );
                       })}
                     </div>
+                      <Pagination {...debtPager} label="utang/piutang" />
+                    </>
                   )}
                 </div>
               </div>
@@ -882,7 +818,7 @@ export default function DebtsPage() {
           );
         })}
 
-        {groupedDebts.length === 0 && (
+        {!groupPager.loading && !groupPager.error && groupPager.total === 0 && (
           <Card className="py-12 text-center">
             <Layers className="text-text-muted mx-auto mb-3 h-10 w-10" />
             <p className="text-text-muted text-sm">
@@ -893,6 +829,7 @@ export default function DebtsPage() {
           </Card>
         )}
       </div>
+      <Pagination {...groupPager} label="kelompok kontak" />
 
       <Modal
         open={showDebtModal}
@@ -937,6 +874,12 @@ export default function DebtsPage() {
                 Kelola Kontak
               </button>
             </div>
+              <Input
+                placeholder="Cari kontak untuk dipilih..."
+                value={contactSearchQuery}
+                onChange={(event) => setContactSearchQuery(event.target.value)}
+              />
+              <ServerListStatus {...contactPager} />
             <select
               required
               value={selectedContactId}
@@ -957,6 +900,9 @@ export default function DebtsPage() {
               className="bg-bg-surface border-border text-text-primary focus:ring-primary/50 w-full rounded-lg border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
             >
               <option value="">Pilih kontak</option>
+              {selectedContactId && !allContacts.some((contact) => contact.id === selectedContactId) && (
+                <option value={selectedContactId}>{debtForm.personName}</option>
+              )}
               {allContacts.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name} {c.phone ? `(${c.phone})` : ""}{" "}
@@ -964,6 +910,7 @@ export default function DebtsPage() {
                 </option>
               ))}
             </select>
+            <Pagination {...contactPager} label="kontak pilihan" />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <Input
@@ -1178,7 +1125,7 @@ export default function DebtsPage() {
           <div className="space-y-3">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <h4 className="text-text-primary text-sm font-semibold">
-                Daftar Kontak ({filteredContactsList.length})
+                Daftar Kontak ({contactPager.total})
               </h4>
               <div className="relative w-full sm:w-64">
                 <Search className="text-text-muted absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2" />
@@ -1202,19 +1149,10 @@ export default function DebtsPage() {
             </div>
 
             <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
-              {filteredContactsList.map((contact) => {
-                const normName = normalizeContactName(contact.name);
-                const relatedDebts = debts.filter(
-                  (d) =>
-                    normalizeContactName(d.personName) === normName &&
-                    !d.isSettled,
-                );
-                const oweTotal = relatedDebts
-                  .filter((d) => d.direction === "owe")
-                  .reduce((s, d) => s + (d.amount - d.paidAmount), 0);
-                const lentTotal = relatedDebts
-                  .filter((d) => d.direction === "lent")
-                  .reduce((s, d) => s + (d.amount - d.paidAmount), 0);
+              <ServerListStatus {...contactPager} />
+              {contactPager.items.map((contact) => {
+                const oweTotal = contact.oweTotal;
+                const lentTotal = contact.lentTotal;
 
                 return (
                   <div
@@ -1331,7 +1269,7 @@ export default function DebtsPage() {
                 );
               })}
 
-              {filteredContactsList.length === 0 && (
+              {!contactPager.loading && !contactPager.error && contactPager.total === 0 && (
                 <div className="border-border bg-bg-elevated/30 rounded-xl border border-dashed py-8 text-center">
                   <Users className="text-text-muted mx-auto mb-2 h-8 w-8" />
                   <p className="text-text-muted text-xs">
@@ -1342,6 +1280,7 @@ export default function DebtsPage() {
                 </div>
               )}
             </div>
+            <Pagination {...contactPager} label="kontak" />
           </div>
 
           <div className="flex justify-end pt-2">

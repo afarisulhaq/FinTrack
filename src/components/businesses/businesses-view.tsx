@@ -7,13 +7,17 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { businessSummary, formatBusinessReturn } from "~/lib/business-summary";
+import { formatBusinessReturn } from "~/lib/business-summary";
 import { PageWrapper } from "~/components/layout/page-wrapper";
 import { Button } from "~/components/ui/button";
 import { DatePicker } from "~/components/ui/date-picker";
 import { Input } from "~/components/ui/input";
 import { Modal } from "~/components/ui/modal";
 import { confirm } from "~/components/ui/confirm-dialog";
+import { Pagination } from "~/components/ui/pagination";
+import { useServerPagination } from "~/lib/use-server-pagination";
+import { ServerListStatus } from "~/components/ui/server-paginated-list";
+import { invalidateServerLists } from "~/lib/page-records";
 import { api } from "~/lib/api";
 import { formatCurrency, formatDate } from "~/lib/utils";
 import { localDateValue, parseDateValue } from "~/lib/date";
@@ -34,7 +38,11 @@ interface Business {
   id: string;
   name: string;
   description: string;
-  transactions: Entry[];
+  summary: BusinessTotals;
+}
+interface BusinessTotals {
+  income: number; expense: number; difference: number;
+  returnPercent: number | null; transactionCount: number;
 }
 const selectClass =
   "h-11 w-full rounded-lg border border-border bg-bg-surface px-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary";
@@ -55,7 +63,7 @@ export function BusinessesView({ businessId }: { businessId?: string }) {
   const token = useAuthStore((s) => s.token);
   const wallets = useFinanceStore((s) => s.wallets);
   const hydrate = useFinanceStore((s) => s.hydrateFromBackend);
-  const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [selected, setSelected] = useState<Business | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -69,30 +77,32 @@ export function BusinessesView({ businessId }: { businessId?: string }) {
   const [editingEntry, setEditingEntry] = useState<string | null>(null);
   const [entryForm, setEntryForm] = useState(emptyEntry);
   const [formError, setFormError] = useState("");
-  const selected = businesses.find((b) => b.id === businessId);
   const choices = flattenWalletTree(wallets);
+  const businessPager = useServerPagination<Business>(businessId ? null : "/businesses/");
+  const entryPager = useServerPagination<Entry, BusinessTotals>(
+    businessId ? `/businesses/${businessId}/transactions` : null,
+  );
+  const businesses = businessPager.items;
+  const reloadBusinesses = businessPager.reload;
+  const reloadEntries = entryPager.reload;
 
   const load = useCallback(async () => {
-    if (!token) {
-      setLoading(false);
-      setError("Silakan login untuk mengakses bisnis");
-      return;
-    }
+    reloadBusinesses();
+    reloadEntries();
+    if (!businessId || !token) { setLoading(false); return; }
+    setLoading(true);
     try {
-      const data = await api.get<Business[]>("/businesses/", token);
-      setBusinesses(data);
+      setSelected(await api.get<Business>(`/businesses/${businessId}`, token));
       setError("");
     } catch (err) {
+      setSelected(null);
       setError(err instanceof Error ? err.message : "Gagal memuat bisnis");
-    } finally {
-      setLoading(false);
-    }
-  }, [token]);
-  useEffect(() => {
-    void load();
-  }, [load]);
+    } finally { setLoading(false); }
+  }, [token, businessId, reloadBusinesses, reloadEntries]);
+  useEffect(() => { void load(); }, [load]);
 
   async function refreshWallets() {
+    invalidateServerLists();
     try {
       const data = await api.bootstrap<Parameters<typeof hydrate>[0]>(token!);
       hydrate(data);
@@ -237,9 +247,8 @@ export function BusinessesView({ businessId }: { businessId?: string }) {
     setFormError("");
     setEntryModal(true);
   }
-  const { income, expense, returnPercent } = businessSummary(
-    selected?.transactions ?? [],
-  );
+  const { income = 0, expense = 0, returnPercent = null } =
+    entryPager.summary ?? selected?.summary ?? {};
 
   return (
     <PageWrapper
@@ -256,6 +265,7 @@ export function BusinessesView({ businessId }: { businessId?: string }) {
         ) : undefined
       }
     >
+      <ServerListStatus {...(businessId ? entryPager : businessPager)} />
       {businessId && (
         <Link
           href="/businesses"
@@ -283,7 +293,7 @@ export function BusinessesView({ businessId }: { businessId?: string }) {
           </Button>
         </div>
       )}
-      {loading ? (
+      {loading || (!businessId && businessPager.loading) ? (
         <p role="status" className="text-text-secondary">
           Memuat bisnis...
         </p>
@@ -294,7 +304,7 @@ export function BusinessesView({ businessId }: { businessId?: string }) {
             Kembali ke daftar untuk memilih bisnis yang tersedia.
           </p>
         </div>
-      ) : !businesses.length ? (
+      ) : !businessId && businessPager.initialized && !businesses.length ? (
         <div className="border-border bg-bg-surface rounded-xl border p-6">
           <h2 className="text-lg font-semibold">Belum ada bisnis</h2>
           <p className="text-text-secondary mt-2">
@@ -305,8 +315,8 @@ export function BusinessesView({ businessId }: { businessId?: string }) {
       ) : !businessId ? (
         <>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {businesses.map((business) => {
-              const summary = businessSummary(business.transactions);
+            {businessPager.items.map((business) => {
+              const summary = business.summary;
               return (
                 <Link
                   key={business.id}
@@ -356,7 +366,7 @@ export function BusinessesView({ businessId }: { businessId?: string }) {
                   </dl>
                   <div className="border-border mt-5 flex flex-wrap justify-between gap-2 border-t pt-3 text-sm">
                     <span className="text-text-secondary">
-                      {business.transactions.length} transaksi
+                      {business.summary.transactionCount} transaksi
                     </span>
                     <span className="font-medium underline underline-offset-4">
                       Lihat pencatatan
@@ -366,6 +376,7 @@ export function BusinessesView({ businessId }: { businessId?: string }) {
               );
             })}
           </div>
+          <Pagination {...businessPager} label="bisnis" />
         </>
       ) : (
         selected && (
@@ -394,9 +405,9 @@ export function BusinessesView({ businessId }: { businessId?: string }) {
                   <Button
                     variant="outline"
                     className="min-h-11"
-                    disabled={saving || !!selected.transactions.length}
+                    disabled={saving || !!(entryPager.summary ?? selected.summary).transactionCount}
                     title={
-                      selected.transactions.length
+                      (entryPager.summary ?? selected.summary).transactionCount
                         ? "Hapus semua transaksi terlebih dahulu"
                         : undefined
                     }
@@ -443,14 +454,15 @@ export function BusinessesView({ businessId }: { businessId?: string }) {
                   Catat transaksi
                 </Button>
               </div>
-              {!selected.transactions.length ? (
+              {entryPager.initialized && !entryPager.total ? (
                 <p className="border-border bg-bg-surface text-text-secondary rounded-xl border p-6">
                   Belum ada transaksi. Catat pembelian atau pemasukan pertama
                   bisnis ini.
                 </p>
               ) : (
+                <>
                 <ul className="divide-border border-border bg-bg-surface divide-y rounded-xl border">
-                  {selected.transactions.map((entry) => (
+                  {entryPager.items.map((entry) => (
                     <li
                       key={entry.id}
                       className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
@@ -494,6 +506,8 @@ export function BusinessesView({ businessId }: { businessId?: string }) {
                     </li>
                   ))}
                 </ul>
+                <Pagination {...entryPager} label="transaksi bisnis" />
+                </>
               )}
             </section>
           </>

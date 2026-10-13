@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Plus,
   Users,
@@ -31,6 +31,10 @@ import { useAppConfigStore } from "~/store/useAppConfigStore";
 import { formatCurrency } from "~/lib/utils";
 import { buildPayUrl, buildShareText, normalizePhone } from "~/lib/share-utils";
 import type { SplitBill, SplitBillParticipant, SplitMethod } from "~/lib/types";
+import type { SplitBillListRow, SplitSummary } from "~/lib/people-pages";
+import { Pagination } from "~/components/ui/pagination";
+import { ServerListStatus } from "~/components/ui/server-paginated-list";
+import { useServerPagination } from "~/lib/use-server-pagination";
 
 interface DraftParticipant {
   name: string;
@@ -42,47 +46,25 @@ function genLocalId() {
 }
 
 export default function SplitBillsPage() {
-  const splitBills = useFinanceStore((s) => s.splitBills);
   const addSplitBill = useFinanceStore((s) => s.addSplitBill);
   const toggleParticipantPaid = useFinanceStore((s) => s.toggleParticipantPaid);
   const deleteSplitBill = useFinanceStore((s) => s.deleteSplitBill);
-  const refreshSplitBills = useFinanceStore((s) => s.refreshSplitBills);
   const qrisStatic = useAppConfigStore((s) => s.config.qrisStatic) ?? "";
 
   const [showCreate, setShowCreate] = useState(false);
-  const [selected, setSelected] = useState<SplitBill | null>(null);
+  const [selected, setSelected] = useState<SplitBillListRow | null>(null);
   const [qrisFor, setQrisFor] = useState<{
-    bill: SplitBill;
+    bill: SplitBillListRow;
     participant: SplitBillParticipant;
   } | null>(null);
 
-  useEffect(() => {
-    void refreshSplitBills();
-  }, [refreshSplitBills]);
-
-  const active = splitBills.filter((b) => b.status === "active");
-  const settled = splitBills.filter((b) => b.status === "settled");
-
-  // Totals span ALL bills (active + settled) so that auto-settling a fully
-  // paid bill doesn't make "Sudah Diterima" suddenly read as 0 just because
-  // the bill moved sections. The cards describe the user's true cash
-  // situation, not the bill list's grouping.
-  const totalCollected = splitBills.reduce(
-    (s, b) =>
-      s +
-      b.participants
-        .filter((p) => p.paid)
-        .reduce((sum, p) => sum + p.amount, 0),
-    0,
+  const activePager = useServerPagination<SplitBillListRow, SplitSummary>(
+    "/splitBills", { status: "active" }, { resource: "splitBills" },
   );
-  const totalOutstanding = active.reduce(
-    (s, b) =>
-      s +
-      b.participants
-        .filter((p) => !p.paid)
-        .reduce((sum, p) => sum + p.amount, 0),
-    0,
+  const settledPager = useServerPagination<SplitBillListRow, SplitSummary>(
+    "/splitBills", { status: "settled" }, { resource: "splitBills" },
   );
+  const { totalCollected = 0, totalOutstanding = 0, activeCount = 0 } = activePager.summary ?? {};
 
   return (
     <PageWrapper
@@ -102,7 +84,7 @@ export default function SplitBillsPage() {
         <Card>
           <p className="text-text-muted text-xs">Tagihan Aktif</p>
           <p className="text-text-primary mt-1 text-2xl font-bold">
-            {active.length}
+            {activeCount}
           </p>
         </Card>
         <Card>
@@ -119,7 +101,9 @@ export default function SplitBillsPage() {
         </Card>
       </div>
 
-      {splitBills.length === 0 ? (
+      <ServerListStatus {...activePager} />
+      <ServerListStatus {...settledPager} />
+      {!activePager.loading && !settledPager.loading && !activePager.error && !settledPager.error && activePager.total + settledPager.total === 0 ? (
         <Card className="text-center">
           <Receipt className="text-text-muted mx-auto mb-2 h-8 w-8" />
           <p className="text-text-muted text-sm">
@@ -128,13 +112,13 @@ export default function SplitBillsPage() {
         </Card>
       ) : (
         <div className="space-y-4">
-          {active.length > 0 && (
+          {activePager.total > 0 && (
             <div>
               <h3 className="text-text-muted mb-2 text-xs font-semibold tracking-wider uppercase">
                 Aktif
               </h3>
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-                {active.map((bill) => (
+                {activePager.items.map((bill) => (
                   <BillCard
                     key={bill.id}
                     bill={bill}
@@ -142,15 +126,16 @@ export default function SplitBillsPage() {
                   />
                 ))}
               </div>
+              <Pagination {...activePager} label="split bill aktif" />
             </div>
           )}
-          {settled.length > 0 && (
+          {settledPager.total > 0 && (
             <div>
               <h3 className="text-text-muted mb-2 text-xs font-semibold tracking-wider uppercase">
                 Selesai
               </h3>
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-                {settled.map((bill) => (
+                {settledPager.items.map((bill) => (
                   <BillCard
                     key={bill.id}
                     bill={bill}
@@ -158,6 +143,7 @@ export default function SplitBillsPage() {
                   />
                 ))}
               </div>
+              <Pagination {...settledPager} label="split bill selesai" />
             </div>
           )}
         </div>
@@ -185,23 +171,8 @@ export default function SplitBillsPage() {
               paid,
               walletId,
             );
-            setSelected((current) =>
-              current
-                ? {
-                    ...current,
-                    participants: current.participants.map((p) =>
-                      p.id === participantId
-                        ? {
-                            ...p,
-                            paid,
-                            walletId: paid ? walletId : undefined,
-                            paidAt: paid ? new Date().toISOString() : undefined,
-                          }
-                        : p,
-                    ),
-                  }
-                : null,
-            );
+            activePager.reload();
+            settledPager.reload();
           }}
           onDelete={async () => {
             await deleteSplitBill(selected.id);
@@ -235,12 +206,10 @@ export default function SplitBillsPage() {
 
 // ── Bill Card ─────────────────────────────────────────────────────────────────
 
-function BillCard({ bill, onClick }: { bill: SplitBill; onClick: () => void }) {
-  const paidCount = bill.participants.filter((p) => p.paid).length;
-  const totalCount = bill.participants.length;
-  const collected = bill.participants
-    .filter((p) => p.paid)
-    .reduce((s, p) => s + p.amount, 0);
+function BillCard({ bill, onClick }: { bill: SplitBillListRow; onClick: () => void }) {
+  const paidCount = bill.paidCount;
+  const totalCount = bill.participantCount;
+  const collected = bill.collected;
   const settled = bill.status === "settled";
 
   return (
@@ -553,7 +522,7 @@ function SplitBillDetailModal({
   onDelete,
   onShowQris,
 }: {
-  bill: SplitBill;
+  bill: SplitBillListRow;
   qrisStatic: string;
   onClose: () => void;
   onTogglePaid: (
@@ -564,20 +533,26 @@ function SplitBillDetailModal({
   onDelete: () => Promise<void>;
   onShowQris: (participant: SplitBillParticipant) => void;
 }) {
-  const paidCount = bill.participants.filter((p) => p.paid).length;
-  const total = bill.participants.length;
-  const collected = bill.participants
-    .filter((p) => p.paid)
-    .reduce((s, p) => s + p.amount, 0);
-  const progress = total > 0 ? (paidCount / total) * 100 : 0;
+  const participantPager = useServerPagination<SplitBillParticipant, SplitBillListRow>(
+    "/splitBills", { view: "participants", billId: bill.id },
+  );
+  const metadata = participantPager.summary ?? bill;
+  const paidCount = metadata.paidCount;
+  const total = metadata.participantCount;
+  const collected = metadata.collected;
 
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [receiptParticipantId, setReceiptParticipantId] = useState<
     string | null
   >(null);
+  const [receiptParticipantName, setReceiptParticipantName] = useState("");
   const [receiptWalletId, setReceiptWalletId] = useState("");
   const [paymentError, setPaymentError] = useState("");
+  async function togglePaid(participantId: string, paid: boolean, walletId?: string) {
+    await onTogglePaid(participantId, paid, walletId);
+    participantPager.reload();
+  }
 
   return (
     <Modal
@@ -610,7 +585,11 @@ function SplitBillDetailModal({
             Peserta ({paidCount}/{total} lunas)
           </p>
           <div className="space-y-2">
-            {bill.participants.map((p) => (
+            <ServerListStatus {...participantPager} />
+            {!participantPager.loading && !participantPager.error && participantPager.total === 0 && (
+              <p className="text-text-muted text-sm">Belum ada peserta di patungan ini.</p>
+            )}
+            {participantPager.items.map((p) => (
               <div
                 key={p.id}
                 className={
@@ -626,7 +605,7 @@ function SplitBillDetailModal({
                     setPaymentError("");
                     if (p.paid) {
                       try {
-                        await onTogglePaid(p.id, false);
+                        await togglePaid(p.id, false);
                       } catch {
                         setPaymentError(
                           "Pembatalan pembayaran gagal. Coba lagi.",
@@ -635,6 +614,7 @@ function SplitBillDetailModal({
                     } else {
                       setReceiptWalletId("");
                       setReceiptParticipantId(p.id);
+                      setReceiptParticipantName(p.name);
                     }
                   }}
                   className={
@@ -671,6 +651,7 @@ function SplitBillDetailModal({
                     onClick={() => {
                       setReceiptWalletId("");
                       setReceiptParticipantId(p.id);
+                      setReceiptParticipantName(p.name);
                     }}
                   >
                     Catat ke Dompet
@@ -696,6 +677,7 @@ function SplitBillDetailModal({
               </div>
             ))}
           </div>
+          <Pagination {...participantPager} label="peserta" />
           {!qrisStatic && (
             <p className="text-text-muted mt-2 text-xs">
               💡 Atur QRIS statis kamu di{" "}
@@ -709,11 +691,7 @@ function SplitBillDetailModal({
           <div className="border-border space-y-3 rounded-lg border p-3">
             <p className="text-text-primary text-sm">
               Terima pembayaran dari{" "}
-              {
-                bill.participants.find(
-                  (participant) => participant.id === receiptParticipantId,
-                )?.name
-              }
+              {receiptParticipantName}
             </p>
             <WalletSelect
               value={receiptWalletId}
@@ -725,7 +703,7 @@ function SplitBillDetailModal({
                 disabled={!receiptWalletId}
                 onClick={async () => {
                   try {
-                    await onTogglePaid(
+                    await togglePaid(
                       receiptParticipantId,
                       true,
                       receiptWalletId,
@@ -808,7 +786,7 @@ function SplitBillDetailModal({
       </div>
 
       {showShare && (
-        <ShareSplitBillModal bill={bill} onClose={() => setShowShare(false)} />
+        <ShareSplitBillModal bill={metadata} onClose={() => setShowShare(false)} />
       )}
     </Modal>
   );
@@ -823,12 +801,14 @@ function ShareSplitBillModal({
   bill,
   onClose,
 }: {
-  bill: SplitBill;
+  bill: SplitBillListRow;
   onClose: () => void;
 }) {
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  const unpaid = bill.participants.filter((p) => !p.paid && p.payToken);
+  const reminderPager = useServerPagination<SplitBillParticipant>(
+    "/splitBills", { view: "participants", billId: bill.id, reminders: true },
+  );
 
   function shareOne(p: SplitBillParticipant) {
     if (!p.payToken) return;
@@ -867,7 +847,8 @@ function ShareSplitBillModal({
       size="md"
     >
       <div className="space-y-3">
-        {unpaid.length === 0 ? (
+        <ServerListStatus {...reminderPager} />
+        {!reminderPager.loading && !reminderPager.error && reminderPager.total === 0 ? (
           <div className="border-success/30 bg-success/5 flex items-center gap-2 rounded-lg border p-3 text-sm">
             <CheckCircle2 className="text-success h-4 w-4" />
             <span className="text-text-primary">
@@ -875,7 +856,7 @@ function ShareSplitBillModal({
             </span>
           </div>
         ) : (
-          unpaid.map((p) => {
+          reminderPager.items.map((p) => {
             const url = p.payToken ? buildPayUrl(bill.id, p.payToken) : "";
             return (
               <div
@@ -929,6 +910,7 @@ function ShareSplitBillModal({
             );
           })
         )}
+        <Pagination {...reminderPager} label="pengingat peserta" />
 
         <p className="text-text-muted text-[11px]">
           💡 Klik “Tagih” di daftar peserta untuk lihat QR + opsi kirim

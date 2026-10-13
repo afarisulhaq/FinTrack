@@ -358,7 +358,7 @@ async function handleWASaldo(userId) {
     if (wallets.length === 0)
         return "Belum ada dompet. Buat dulu di halaman Wallets.";
     const lines = wallets.map((w) => `👛 ${w.name}: Rp${Number(w.balance).toLocaleString("id-ID")}`);
-    return [`💰 *Saldo Dompet*`, ...lines].join("\n");
+    return [`Coins *Saldo Dompet*`, ...lines].join("\n");
 }
 /**
  * Handle laporan command for WhatsApp.
@@ -459,7 +459,7 @@ async function handleIncomingMessage(jid, text) {
                 type: parsed.type,
                 amount: parsed.amount,
                 category: parsed.category,
-                categoryIcon: "💰",
+                categoryIcon: "Coins",
                 walletId: wallet.id,
                 walletName: wallet.name,
                 description: parsed.description,
@@ -490,7 +490,7 @@ async function handleIncomingMessage(jid, text) {
             `💸 Pengeluaran: ${formattedAmount}`,
             `📂 Kategori: ${parsed.category}`,
             `👛 Dompet: ${wallet.name}`,
-            `💰 Saldo: ${newBalance}`,
+            `Coins Saldo: ${newBalance}`,
             `📝 ${parsed.description}`,
             ``,
             `Balas: /saldo atau /laporan`,

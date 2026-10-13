@@ -11,6 +11,7 @@ import {
 } from "~/lib/wallets";
 import { toast } from "~/components/ui/toast";
 import { useAppConfigStore, type AppConfig } from "./useAppConfigStore";
+import { invalidateServerLists, subscribePageRecords } from "~/lib/page-records";
 import type {
   Wallet,
   Transaction,
@@ -36,6 +37,7 @@ import type {
   CategoryKind,
   SubCategory,
 } from "~/lib/types";
+import type { DebtSnapshot, SplitBillSnapshot } from "~/lib/people-pages";
 
 const emptyGamification: GamificationState = {
   totalXP: 0,
@@ -123,6 +125,7 @@ async function persistResource<T = unknown>(
     return await executePersistResource<T>(path, method, body);
   } finally {
     finish();
+    invalidateServerLists();
   }
 }
 
@@ -229,45 +232,13 @@ async function withPersist<T = unknown>(
 
 // ── Store Interface ───────────────────────────────────────────────────────────
 
-function mergeById<T extends { id: string }>(
-  local: T[],
-  remote: T[] | undefined,
-  mergeItem: (local: T, remote: T) => T = (l, r) => ({ ...l, ...r }),
-): T[] {
-  if (!remote) return local;
-  const remoteById = new Map(remote.map((r) => [r.id, r]));
-  const seen = new Set<string>();
-  const merged = local
-    .filter((item) => remoteById.has(item.id))
-    .map((item) => {
-      seen.add(item.id);
-      const r = remoteById.get(item.id);
-      return r ? mergeItem(item, r) : item;
-    });
-  for (const r of remote) {
-    if (!seen.has(r.id)) merged.push(r);
-  }
-  return merged;
-}
 
 interface BootstrapData {
   wallets?: Wallet[];
-  transactions?: Transaction[];
-  budgets?: Budget[];
-  investments?: Investment[];
-  bills?: Bill[];
-  savingGoals?: SavingGoal[];
-  debts?: Debt[];
-  debtContacts?: DebtContact[];
-  cards?: Card[];
-  wishlist?: WishlistItem[];
-  reimbursements?: Reimbursement[];
-  notes?: Note[];
-  recurringTransactions?: RecurringTransaction[];
-  splitBills?: SplitBill[];
   categories?: Category[];
   subCategories?: SubCategory[];
   notificationSettings?: NotificationSettings;
+  userProfile?: UserProfile;
   appConfig?: Partial<AppConfig>;
 }
 
@@ -279,14 +250,14 @@ interface FinanceStore {
   investments: Investment[];
   bills: Bill[];
   savingGoals: SavingGoal[];
-  debts: Debt[];
+  debts: DebtSnapshot[];
   debtContacts: DebtContact[];
   cards: Card[];
   wishlist: WishlistItem[];
   reimbursements: Reimbursement[];
   notes: Note[];
   recurringTransactions: RecurringTransaction[];
-  splitBills: SplitBill[];
+  splitBills: SplitBillSnapshot[];
   categories: Category[];
   subCategories: SubCategory[];
   gamification: GamificationState;
@@ -401,14 +372,14 @@ interface FinanceStore {
       amount: number;
       date: string;
       note?: string;
-      walletId?: string;
+      walletId: string;
     },
   ) => void;
   settleDebt: (id: string) => void;
   updateDebtInstallment: (
     debtId: string,
     installmentId: string,
-    updates: { amount: number; date: string; note?: string; walletId?: string },
+    updates: { amount: number; date: string; note?: string; walletId: string },
   ) => void;
   deleteDebtInstallment: (debtId: string, installmentId: string) => void;
 
@@ -476,6 +447,7 @@ interface FinanceStore {
    */
   lastSyncedAt: number | null;
   syncError: string | null;
+  dataToken: string | null;
 
   // ── Backend Hydration ──────────────────────────────────────────────────────
   hydrateFromBackend: (data: BootstrapData) => void;
@@ -507,6 +479,7 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
   notificationSettings: emptyNotificationSettings,
   lastSyncedAt: null,
   syncError: null,
+  dataToken: null,
 
   hydrateFromBackend: (data) => {
     if (!financeSync.isCurrent(financeSync.snapshot())) return;
@@ -515,51 +488,25 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
         .getState()
         .hydrateFromBackend(data.appConfig as Partial<AppConfig>);
     }
-    return set((state) => {
-      return {
-        wallets: data.wallets
-          ? normalizeWalletTree(
-              mergeById(
-                flattenWalletTree(state.wallets),
-                flattenWalletTree(data.wallets),
-              ),
-            )
-          : state.wallets,
-        transactions: mergeById(state.transactions, data.transactions),
-        budgets: mergeById(state.budgets, data.budgets),
-        investments: mergeById(
-          state.investments,
-          data.investments?.map((inv) => ({
-            ...inv,
-            symbol: inv.symbol.replace(/\.JK$/, ""),
-          })),
-        ),
-        bills: mergeById(state.bills, data.bills),
-        savingGoals: mergeById(state.savingGoals, data.savingGoals),
-        debts: mergeById(state.debts, data.debts),
-        debtContacts: mergeById(state.debtContacts, data.debtContacts),
-        cards: mergeById(state.cards, data.cards),
-        wishlist: mergeById(state.wishlist, data.wishlist),
-        reimbursements: mergeById(state.reimbursements, data.reimbursements),
-        notes: mergeById(state.notes, data.notes),
-        recurringTransactions: mergeById(
-          state.recurringTransactions,
-          data.recurringTransactions,
-        ),
-        splitBills: mergeById(state.splitBills, data.splitBills),
-        categories: mergeById(state.categories, data.categories, (a, b) =>
-          // Always take the server’s fresh `subCategories` since
-          // sub-categories are managed as a separate sub-resource.
-          ({ ...a, ...b, subCategories: b.subCategories ?? a.subCategories }),
-        ),
-        subCategories: mergeById(state.subCategories, data.subCategories),
-        notificationSettings: data.notificationSettings
-          ? { ...state.notificationSettings, ...data.notificationSettings }
-          : state.notificationSettings,
-        lastSyncedAt: Date.now(),
-        syncError: null,
-      };
-    });
+    const token = getBackendToken();
+    set((state) => ({
+      ...(state.dataToken !== token ? {
+        transactions: [], budgets: [], investments: [], bills: [], savingGoals: [],
+        debts: [], debtContacts: [], cards: [], wishlist: [], reimbursements: [],
+        notes: [], recurringTransactions: [], splitBills: [], teamMembers: [],
+      } : {}),
+      wallets: data.wallets ? normalizeWalletTree(data.wallets) : state.wallets,
+      categories: data.categories ?? state.categories,
+      subCategories: data.subCategories ?? state.subCategories,
+      userProfile: data.userProfile ?? state.userProfile,
+      notificationSettings: data.notificationSettings
+        ? { ...state.notificationSettings, ...data.notificationSettings }
+        : state.notificationSettings,
+      dataToken: token,
+      lastSyncedAt: Date.now(),
+      syncError: null,
+    }));
+    invalidateServerLists();
   },
 
   // ── Wallet Actions ─────────────────────────────────────────────────────────
@@ -760,27 +707,18 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
     const token = getBackendToken();
     if (!token) return;
     try {
-      const wallets = await readCurrent(token, () =>
-        api.get<Wallet[]>("/wallets", token),
+      const lookup = await readCurrent(token, () =>
+        api.get<{ wallets: Wallet[] }>("/lookups", token),
       );
-      if (wallets) set({ wallets: normalizeWalletTree(wallets) });
+      if (lookup) set({ wallets: normalizeWalletTree(lookup.wallets) });
     } catch (error) {
       console.warn("Failed to refresh wallets", error);
     }
   },
 
-  /** Pull the latest budget spent amounts from the server. */
   refreshBudgets: async () => {
-    const token = getBackendToken();
-    if (!token) return;
-    try {
-      const budgets = await readCurrent(token, () =>
-        api.get<Budget[]>("/budgets", token),
-      );
-      if (budgets) set({ budgets });
-    } catch (error) {
-      console.warn("Failed to refresh budgets", error);
-    }
+    await financeSync.waitForWrites();
+    invalidateServerLists();
   },
 
   // ── Budget Actions ─────────────────────────────────────────────────────────
@@ -1005,42 +943,12 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
   },
 
   toggleParticipantPaid: async (billId, participantId, paid, walletId) => {
-    const previous = get().splitBills.find((b) => b.id === billId);
-    set((state) => ({
-      splitBills: state.splitBills.map((b) => {
-        if (b.id !== billId) return b;
-        const updatedParticipants = b.participants.map((p) =>
-          p.id === participantId
-            ? {
-                ...p,
-                paid,
-                walletId: paid ? walletId : undefined,
-                paidAt: paid ? new Date().toISOString() : undefined,
-              }
-            : p,
-        );
-        // Auto-settle when all paid
-        const allPaid = updatedParticipants.every((p) => p.paid);
-        return {
-          ...b,
-          participants: updatedParticipants,
-          status: allPaid ? ("settled" as const) : ("active" as const),
-        };
-      }),
-    }));
     const result = await persistResource(
       `/split-bills/${billId}/participants/${participantId}`,
       "PUT",
       { paid, walletId },
     );
     if (!result.ok) {
-      if (previous) {
-        set((state) => ({
-          splitBills: state.splitBills.map((b) =>
-            b.id === billId ? previous : b,
-          ),
-        }));
-      }
       toast.error("Gagal mengubah status peserta", result.error);
       throw new Error(result.error);
     }
@@ -1065,16 +973,8 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
   },
 
   refreshSplitBills: async () => {
-    const token = getBackendToken();
-    if (!token || token === "dev-fallback-token") return;
-    try {
-      const bills = await readCurrent(token, () =>
-        api.get<SplitBill[]>("/split-bills", token),
-      );
-      if (bills) set({ splitBills: bills });
-    } catch (error) {
-      console.warn("Failed to refresh split bills", error);
-    }
+    await financeSync.waitForWrites();
+    invalidateServerLists();
   },
 
   // ── Bill Actions ───────────────────────────────────────────────────────────
@@ -1250,21 +1150,9 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
     });
   },
 
-  /**
-   * Pull the latest saving goals from the server. Called after every
-   * savings write so the UI always reflects the DB's `currentAmount`.
-   */
   refreshSavingGoals: async () => {
-    const token = getBackendToken();
-    if (!token) return;
-    try {
-      const savingGoals = await readCurrent(token, () =>
-        api.get<SavingGoal[]>("/savingGoals", token),
-      );
-      if (savingGoals) set({ savingGoals });
-    } catch (error) {
-      console.warn("Failed to refresh saving goals", error);
-    }
+    await financeSync.waitForWrites();
+    invalidateServerLists();
   },
 
   // ── Debt Actions ───────────────────────────────────────────────────────────
@@ -1311,93 +1199,22 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
   },
 
   addDebtInstallment: (debtId, installment) => {
-    const previous = get().debts.find((d) => d.id === debtId);
-    if (!previous) return;
-    const newInstallment = { ...installment, id: genId() };
-    const newPaidAmount = previous.paidAmount + installment.amount;
-    const isSettled = newPaidAmount >= previous.amount;
-    const updates = {
-      paidAmount: newPaidAmount,
-      installments: [...previous.installments, newInstallment],
-      isSettled,
-    };
-    set((state) => ({
-      debts: state.debts.map((d) =>
-        d.id === debtId ? { ...d, ...updates } : d,
-      ),
-    }));
-    void withPersist(`/debts/${debtId}`, "PUT", updates, {
-      onError: () => {
-        set((state) => ({
-          debts: state.debts.map((d) => (d.id === debtId ? previous : d)),
-        }));
-      },
+    void withPersist(`/debts/${debtId}/installments`, "POST", installment, {
+      onSuccess: () => { void get().refreshWallets(); },
       errorTitle: "Gagal menambah cicilan",
     });
   },
 
   updateDebtInstallment: (debtId, installmentId, changes) => {
-    const previous = get().debts.find((debt) => debt.id === debtId);
-    const old = previous?.installments.find(
-      (item) => item.id === installmentId,
-    );
-    if (
-      !previous ||
-      !old ||
-      !Number.isFinite(changes.amount) ||
-      changes.amount <= 0
-    )
-      return;
-    const paidAmount = previous.paidAmount - old.amount + changes.amount;
-    const updates = {
-      paidAmount,
-      isSettled: paidAmount >= previous.amount,
-      installments: previous.installments.map((item) =>
-        item.id === installmentId ? { ...item, ...changes } : item,
-      ),
-    };
-    set((state) => ({
-      debts: state.debts.map((debt) =>
-        debt.id === debtId ? { ...debt, ...updates } : debt,
-      ),
-    }));
-    void withPersist(`/debts/${debtId}`, "PUT", updates, {
-      onError: () =>
-        set((state) => ({
-          debts: state.debts.map((debt) =>
-            debt.id === debtId ? previous : debt,
-          ),
-        })),
+    void withPersist(`/debts/${debtId}/installments/${installmentId}`, "PUT", changes, {
+      onSuccess: () => { void get().refreshWallets(); },
       errorTitle: "Gagal memperbarui cicilan",
     });
   },
 
   deleteDebtInstallment: (debtId, installmentId) => {
-    const previous = get().debts.find((debt) => debt.id === debtId);
-    const old = previous?.installments.find(
-      (item) => item.id === installmentId,
-    );
-    if (!previous || !old) return;
-    const paidAmount = Math.max(0, previous.paidAmount - old.amount);
-    const updates = {
-      paidAmount,
-      isSettled: paidAmount >= previous.amount,
-      installments: previous.installments.filter(
-        (item) => item.id !== installmentId,
-      ),
-    };
-    set((state) => ({
-      debts: state.debts.map((debt) =>
-        debt.id === debtId ? { ...debt, ...updates } : debt,
-      ),
-    }));
-    void withPersist(`/debts/${debtId}`, "PUT", updates, {
-      onError: () =>
-        set((state) => ({
-          debts: state.debts.map((debt) =>
-            debt.id === debtId ? previous : debt,
-          ),
-        })),
+    void withPersist(`/debts/${debtId}/installments/${installmentId}`, "DELETE", undefined, {
+      onSuccess: () => { void get().refreshWallets(); },
       errorTitle: "Gagal menghapus cicilan",
     });
   },
@@ -1956,13 +1773,10 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
     const token = getBackendToken();
     if (!token) return;
     try {
-      const data = await readCurrent(token, () =>
-        Promise.all([
-          api.get<Category[]>("/categories", token),
-          api.get<SubCategory[]>("/subCategories", token),
-        ]),
+      const lookup = await readCurrent(token, () =>
+        api.get<{ categories: Category[]; subCategories: SubCategory[] }>("/lookups", token),
       );
-      if (data) set({ categories: data[0], subCategories: data[1] });
+      if (lookup) set({ categories: lookup.categories, subCategories: lookup.subCategories });
     } catch (error) {
       console.warn("Failed to refresh categories", error);
     }
@@ -2262,3 +2076,24 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
     });
   },
 }));
+
+subscribePageRecords((resource, rows, token) => {
+  if (token !== getBackendToken()) return;
+  // Typed page hooks register domain rows; the shared registry retains only the common id type.
+  switch (resource) {
+    case "transactions": { const records = rows as Transaction[]; useFinanceStore.setState({ transactions: records }); break; }
+    case "budgets": { const records = rows as Budget[]; useFinanceStore.setState({ budgets: records }); break; }
+    case "investments": { const records = rows as Investment[]; useFinanceStore.setState({ investments: records }); break; }
+    case "bills": { const records = rows as Bill[]; useFinanceStore.setState({ bills: records }); break; }
+    case "savingGoals": { const records = rows as SavingGoal[]; useFinanceStore.setState({ savingGoals: records }); break; }
+    case "debts": { const records = rows as DebtSnapshot[]; useFinanceStore.setState({ debts: records }); break; }
+    case "debtContacts": { const records = rows as DebtContact[]; useFinanceStore.setState({ debtContacts: records }); break; }
+    case "cards": { const records = rows as Card[]; useFinanceStore.setState({ cards: records }); break; }
+    case "wishlist": { const records = rows as WishlistItem[]; useFinanceStore.setState({ wishlist: records }); break; }
+    case "reimbursements": { const records = rows as Reimbursement[]; useFinanceStore.setState({ reimbursements: records }); break; }
+    case "notes": { const records = rows as Note[]; useFinanceStore.setState({ notes: records }); break; }
+    case "recurringTransactions": { const records = rows as RecurringTransaction[]; useFinanceStore.setState({ recurringTransactions: records }); break; }
+    case "splitBills": { const records = rows as SplitBillSnapshot[]; useFinanceStore.setState({ splitBills: records }); break; }
+    case "teamMembers": { const records = rows as TeamMember[]; useFinanceStore.setState({ teamMembers: records }); break; }
+  }
+});

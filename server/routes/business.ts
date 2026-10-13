@@ -3,6 +3,18 @@ import { Prisma } from "@prisma/client";
 import { db, canUseDatabase } from "../prisma-client.js";
 import { extractToken, verifyToken, type AuthPayload } from "../auth.js";
 import { ok, fail } from "../utils.js";
+import { databasePage, readPage } from "../services/pagination.js";
+
+async function businessTotals(businessId: string) {
+  const groups = await db.businessTransaction.groupBy({
+    by: ["type"], where: { businessId }, _sum: { amount: true }, _count: true,
+  });
+  const income = Number(groups.find((row) => row.type === "income")?._sum.amount ?? 0);
+  const expense = Number(groups.find((row) => row.type === "expense")?._sum.amount ?? 0);
+  return { income, expense, difference: income - expense,
+    returnPercent: expense > 0 ? ((income - expense) / expense) * 100 : null,
+    transactionCount: groups.reduce((total, row) => total + row._count, 0) };
+}
 
 const businessBody = t.Object({
   name: t.String({ minLength: 1, maxLength: 120 }),
@@ -126,29 +138,41 @@ export const businessRoutes = new Elysia({ prefix: "/api/businesses" })
         : "Gagal memproses data bisnis. Silakan coba lagi.",
     );
   })
-  .get("/", async ({ request }) => {
-    const rows = await db.business.findMany({
-      where: { userId: authUser(request).sub },
-      orderBy: { createdAt: "desc" },
-      include: {
-        transactions: {
-          orderBy: [{ date: "desc" }, { createdAt: "desc" }],
-          include: { wallet: { select: { name: true } } },
-        },
-      },
-    });
-    return ok(
-      rows.map((row) => ({
-        ...row,
-        transactions: row.transactions.map((entry) => ({
-          ...entry,
-          amount: Number(entry.amount),
-          walletName: entry.wallet?.name ?? null,
-          wallet: undefined,
-        })),
-      })),
-    );
+  .get("/", async ({ request, query }) => {
+    const where = { userId: authUser(request).sub };
+    const page = await databasePage(readPage(query),
+      () => db.business.count({ where }),
+      (skip, take) => db.business.findMany({
+        where, skip, take, orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      }));
+    return ok({ ...page, items: await Promise.all(page.items.map(async (row) => ({
+      ...row, summary: await businessTotals(row.id),
+    }))) });
   })
+  .get("/:businessId", async ({ request, params, set }) => {
+    const row = await db.business.findFirst({
+      where: { id: params.businessId, userId: authUser(request).sub },
+    });
+    if (!row) { set.status = 404; return fail("Bisnis tidak ditemukan"); }
+    return ok({ ...row, summary: await businessTotals(row.id) });
+  }, { params })
+  .get("/:businessId/transactions", async ({ request, params, query, set }) => {
+    const business = await db.business.findFirst({
+      where: { id: params.businessId, userId: authUser(request).sub }, select: { id: true },
+    });
+    if (!business) { set.status = 404; return fail("Bisnis tidak ditemukan"); }
+    const where = { businessId: business.id };
+    const page = await databasePage(readPage(query),
+      () => db.businessTransaction.count({ where }),
+      (skip, take) => db.businessTransaction.findMany({
+        where, skip, take, orderBy: [{ date: "desc" }, { createdAt: "desc" }, { id: "desc" }],
+        include: { wallet: { select: { name: true } } },
+      }));
+    return ok({ ...page, summary: await businessTotals(business.id),
+      items: page.items.map(({ wallet, ...entry }) => ({
+        ...entry, amount: Number(entry.amount), walletName: wallet?.name ?? null,
+      })) });
+  }, { params })
   .post(
     "/",
     async ({ request, body, set }) => {
@@ -164,7 +188,7 @@ export const businessRoutes = new Elysia({ prefix: "/api/businesses" })
         },
       });
       set.status = 201;
-      return ok({ ...saved, transactions: [] });
+      return ok({ ...saved, summary: { income: 0, expense: 0, difference: 0, returnPercent: null, transactionCount: 0 } });
     },
     { body: businessBody },
   )

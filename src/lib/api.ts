@@ -1,4 +1,6 @@
 import type { AuthUser } from "~/store/useAuthStore";
+import type { PageQuery } from "./pagination";
+import { parsePage } from "./page-schema";
 
 export interface ApiResponse<T> {
   success: boolean;
@@ -74,6 +76,24 @@ export const api = {
   },
   get<T>(path: string, token: string) {
     return request<T>(path, { headers: { Authorization: `Bearer ${token}` } });
+  },
+  async all<T>(path: string, token: string, query: PageQuery = {}): Promise<T[]> {
+    const rows: T[] = [];
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(query)) {
+      if (value !== undefined && value !== null && value !== "") params.set(key, String(value));
+    }
+    params.set("pageSize", "48");
+    for (let page = 1; ; page++) {
+      params.set("page", String(page));
+      const address = `${path}?${params}`;
+      const value = await request<unknown>(address, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const result = parsePage<T, Record<string, unknown>>(value, address);
+      rows.push(...result.items);
+      if (page >= result.totalPages) return rows;
+    }
   },
   post<T>(path: string, token: string, body: unknown) {
     return request<T>(path, {

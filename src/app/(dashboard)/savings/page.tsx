@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import {
   PiggyBank,
   Plus,
@@ -23,6 +23,10 @@ import { StatCard } from "~/components/ui/stat-card";
 import { Input } from "~/components/ui/input";
 import { DatePicker } from "~/components/ui/date-picker";
 import { ProgressBar } from "~/components/ui/progress-bar";
+import { Pagination } from "~/components/ui/pagination";
+import { useServerPagination } from "~/lib/use-server-pagination";
+import { ServerListStatus } from "~/components/ui/server-paginated-list";
+import type { SavingGoal } from "~/lib/types";
 import { useFinanceStore } from "~/store/useFinanceStore";
 import { formatCurrency, formatDate, daysUntil, percentage } from "~/lib/utils";
 
@@ -57,7 +61,6 @@ export default function SavingsPage() {
   const wallets = useFinanceStore((state) => state.wallets);
   const [fundsSourceId, setFundsSourceId] = useState("");
   const [fundsDestinationId, setFundsDestinationId] = useState("");
-  const savingGoals = useFinanceStore((s) => s.savingGoals);
   const addSavingGoal = useFinanceStore((s) => s.addSavingGoal);
   const deleteSavingGoal = useFinanceStore((s) => s.deleteSavingGoal);
   const contributeToGoal = useFinanceStore((s) => s.contributeToGoal);
@@ -75,19 +78,11 @@ export default function SavingsPage() {
     color: "#FFD147",
   });
   const [fundsForm, setFundsForm] = useState({ amount: "", note: "" });
-
-  const { totalTarget, totalCollected, avgProgress } = useMemo(() => {
-    const totalTarget = savingGoals.reduce((s, g) => s + g.targetAmount, 0);
-    const totalCollected = savingGoals.reduce((s, g) => s + g.currentAmount, 0);
-    const avgProgress =
-      savingGoals.length > 0
-        ? savingGoals.reduce(
-            (s, g) => s + percentage(g.currentAmount, g.targetAmount),
-            0,
-          ) / savingGoals.length
-        : 0;
-    return { totalTarget, totalCollected, avgProgress };
-  }, [savingGoals]);
+  const goalPager = useServerPagination<
+    SavingGoal,
+    { totalTarget: number; totalCollected: number; avgProgress: number }
+  >("/savingGoals", {}, { resource: "savingGoals" });
+  const { totalTarget = 0, totalCollected = 0, avgProgress = 0 } = goalPager.summary ?? {};
 
   function handleGoalSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -176,14 +171,15 @@ export default function SavingsPage() {
           value={
             <span className="tabular-nums">{`${Math.round(avgProgress)}%`}</span>
           }
-          subtitle={`${savingGoals.length} goal aktif`}
+          subtitle={`${goalPager.total} goal aktif`}
           icon={<Zap className="text-warning" />}
         />
       </div>
 
       {/* ── Goal Cards Grid ─────────────────────────────────────────── */}
+      <ServerListStatus {...goalPager} />
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {savingGoals.map((goal) => {
+        {goalPager.items.map((goal) => {
           const pct = percentage(goal.currentAmount, goal.targetAmount);
           const days = goal.deadline ? daysUntil(goal.deadline) : null;
           const remaining = goal.targetAmount - goal.currentAmount;
@@ -300,7 +296,7 @@ export default function SavingsPage() {
         })}
 
         {/* Empty State */}
-        {savingGoals.length === 0 && (
+        {goalPager.initialized && !goalPager.loading && !goalPager.error && goalPager.total === 0 && (
           <div className="col-span-full">
             <Card className="py-12 text-center">
               <PiggyBank className="text-text-muted mx-auto mb-3 h-10 w-10" />
@@ -311,6 +307,7 @@ export default function SavingsPage() {
           </div>
         )}
       </div>
+      <Pagination {...goalPager} label="target tabungan" />
 
       {/* ── Add Goal Modal ───────────────────────────────────────────── */}
       <Modal
@@ -426,7 +423,7 @@ export default function SavingsPage() {
       <Modal
         open={!!showFundsModal}
         onClose={() => setShowFundsModal(null)}
-        title={`Tambah Dana - ${savingGoals.find((g) => g.id === showFundsModal)?.name || ""}`}
+        title={`Tambah Dana - ${goalPager.items.find((g) => g.id === showFundsModal)?.name || ""}`}
       >
         <form onSubmit={handleFundsSubmit} className="space-y-4">
           <WalletSelect
@@ -467,7 +464,7 @@ export default function SavingsPage() {
           {showFundsModal &&
             fundsForm.amount &&
             (() => {
-              const goal = savingGoals.find((g) => g.id === showFundsModal);
+              const goal = goalPager.items.find((g) => g.id === showFundsModal);
               if (!goal) return null;
               const newAmount =
                 goal.currentAmount + parseFloat(fundsForm.amount || "0");

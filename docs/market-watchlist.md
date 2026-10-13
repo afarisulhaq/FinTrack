@@ -15,6 +15,11 @@ npx prisma generate
 
 Tanpa `DATABASE_URL`, backend memakai daftar sementara per akun dan halaman menampilkan bahwa data tidak bertahan setelah restart backend. Mode ini belum merupakan penyimpanan database permanen.
 
+Watchlist ditampilkan dalam halaman berisi enam saham secara default, dengan
+pilihan 12, 24, atau 48. Pagination watchlist terpisah dari kandidat dan hasil
+pencarian simbol. Semua simbol tetap disimpan; perpindahan halaman hanya
+mengubah kartu yang terlihat, bukan isi watchlist.
+
 Validasi:
 
 ```sh
@@ -23,4 +28,4 @@ npm run typecheck
 npx tsc -p server/tsconfig.json --noEmit
 ```
 
-Tes integrasi memeriksa autentikasi, isolasi akun, impor sekali, daftar kosong, penambahan paralel, validasi simbol, dan respons saat PostgreSQL tidak tersedia. Penyimpanan PostgreSQL aktual serta migrasi melalui browser belum diuji.
+Tes integrasi memeriksa autentikasi, isolasi akun, impor sekali, daftar kosong, penambahan paralel, validasi simbol, dan respons saat PostgreSQL tidak tersedia. Smoke browser pagination memeriksa penambahan dari kandidat dan kartu watchlist dengan backend sementara, lalu pemuatan watchlist pada PostgreSQL terpisah untuk verifikasi. Migrasi SQL pada database produksi belum diuji.

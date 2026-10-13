@@ -46,7 +46,7 @@ else
 fi
 
 echo "[entrypoint] starting Elysia backend on :${PORT:-4000}..."
-node server/dist/index.js &
+node server/dist/server/index.js &
 BACKEND_PID=$!
 
 # Give the backend a moment to bind the port before the frontend

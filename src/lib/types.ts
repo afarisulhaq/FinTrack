@@ -168,13 +168,13 @@ export interface SavingGoal {
 
 export type DebtDirection = "owe" | "lent";
 
-export interface DebtInstallment {
+export type DebtInstallment = {
   walletId?: string;
   id: string;
   amount: number;
   date: string;
   note?: string;
-}
+};
 
 export interface Debt {
   walletId?: string;

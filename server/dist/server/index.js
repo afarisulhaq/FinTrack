@@ -10,10 +10,18 @@ import { cors as corsFn } from "@elysiajs/cors";
 import { Elysia } from "elysia";
 import { authRoutes } from "./routes/auth.js";
 import { financeRoutes, resourceRoutes } from "./routes/finance.js";
+import { businessRoutes } from "./routes/business.js";
+import { subscriptionRoutes } from "./routes/subscriptions.js";
 import { botRoutes } from "./routes/bot.js";
+import { stockScreeningRoutes } from "./routes/stock-screening.js";
+import { marketWatchlistRoutes } from "./routes/market-watchlist.js";
 import { publicMarketRoutes } from "./routes/public-market.js";
 import { publicSplitBillRoutes } from "./routes/public-split-bills.js";
+import { pushRoutes } from "./routes/push.js";
+import { analyticsRoutes } from "./routes/analytics.js";
+import { pagedPeopleRoutes } from "./routes/paged-people.js";
 import { prewarmCommonSymbols } from "./services/market-price.js";
+import { startReminderScheduler } from "./services/reminder-scheduler.js";
 import { startWhatsAppBot } from "./services/whatsapp.js";
 import { ok } from "./utils.js";
 const port = Number(process.env.PORT ?? 4000);
@@ -38,10 +46,17 @@ const app = new Elysia({ adapter: node() })
 }))
     .use(authRoutes)
     .use(financeRoutes)
+    .use(businessRoutes)
+    .use(subscriptionRoutes)
+    .use(analyticsRoutes)
+    .use(pagedPeopleRoutes)
     .use(resourceRoutes)
     .use(botRoutes)
     .use(publicMarketRoutes)
+    .use(marketWatchlistRoutes)
+    .use(stockScreeningRoutes)
     .use(publicSplitBillRoutes)
+    .use(pushRoutes)
     .onError(({ code, set }) => {
     if (code === "NOT_FOUND") {
         set.status = 404;
@@ -53,6 +68,8 @@ const app = new Elysia({ adapter: node() })
     hostname: "0.0.0.0",
 });
 console.log(`FinTrack backend (Elysia) running on http://0.0.0.0:${port}`);
+// Start reminder scheduler (checks every 60s, sends push for bills, budgets, etc.)
+startReminderScheduler();
 // Background warmup of the Yahoo Finance cache. Runs in the
 // background so server startup isn't blocked. If the VPS IP is
 // blocked by Yahoo, this silently fails and the persistent cache

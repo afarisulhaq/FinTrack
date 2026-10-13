@@ -7,6 +7,10 @@ import { Button } from "~/components/ui/button";
 import { api } from "~/lib/api";
 import type { BillingOverview, SubscriptionInvoice } from "~/lib/subscriptions";
 import { useAuthStore } from "~/store/useAuthStore";
+import { Pagination } from "~/components/ui/pagination";
+import { useServerPagination } from "~/lib/use-server-pagination";
+import { ServerListStatus } from "~/components/ui/server-paginated-list";
+import { invalidateServerLists } from "~/lib/page-records";
 
 const money = (amount: number) =>
   new Intl.NumberFormat("id-ID", {
@@ -37,6 +41,9 @@ export default function SubscriptionPage() {
   const [now, setNow] = useState(Date.now());
   const [checkAfter, setCheckAfter] = useState(0);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [invoice, setInvoice] = useState<SubscriptionInvoice | null>(null);
+  const [invoiceLoading, setInvoiceLoading] = useState(false);
+  const invoicePager = useServerPagination<SubscriptionInvoice>("/subscriptions/invoices");
   const load = useCallback(async () => {
     if (!token) return;
     setLoading(true);
@@ -58,14 +65,22 @@ export default function SubscriptionPage() {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, []);
-  const invoice =
-    overview?.invoices.find((row) => row.id === selectedId) ??
-    overview?.invoices[0];
-  const hasOpenInvoice = overview?.invoices.some(
-    (row) =>
-      ["pending", "creating"].includes(row.status) &&
-      now < Date.parse(row.expiresAt),
-  );
+  const activeInvoiceId = selectedId ?? overview?.latestInvoiceId;
+  useEffect(() => {
+    if (!token || !activeInvoiceId) { setInvoice(null); return; }
+    let cancelled = false;
+    setInvoice(null);
+    setInvoiceLoading(true);
+    void api.get<SubscriptionInvoice>(`/subscriptions/invoices/${activeInvoiceId}`, token)
+      .then((row) => { if (!cancelled) setInvoice(row); })
+      .catch((cause: unknown) => {
+        if (!cancelled) setError(cause instanceof Error ? cause.message : "Gagal memuat invoice");
+      })
+      .finally(() => { if (!cancelled) setInvoiceLoading(false); });
+    return () => { cancelled = true; };
+  }, [token, activeInvoiceId]);
+  const hasOpenInvoice = Boolean(overview?.openInvoice &&
+    now < Date.parse(overview.openInvoice.expiresAt));
   const expired = invoice ? now >= Date.parse(invoice.expiresAt) : false;
   const pending = invoice?.status === "pending" && !expired;
   const creating = invoice?.status === "creating" && !expired;
@@ -95,23 +110,11 @@ export default function SubscriptionPage() {
         token,
         {},
       );
-      setOverview((old) =>
-        old
-          ? {
-              ...old,
-              invoices: [
-                saved,
-                ...old.invoices.filter((row) => row.id !== saved.id),
-              ]
-                .sort(
-                  (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt),
-                )
-                .slice(0, 10),
-            }
-          : old,
-      );
+      setInvoice(saved);
+      invoicePager.reload();
+      invalidateServerLists();
       setSelectedId(saved.id);
-      if (saved.status === "paid") await load();
+      await load();
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : "Gagal memproses pembayaran",
@@ -124,6 +127,8 @@ export default function SubscriptionPage() {
   return (
     <PageWrapper title="Langganan" subtitle="Status paket dan pembayaran QRIS">
       <div className="mx-auto max-w-4xl space-y-6">
+        <ServerListStatus {...invoicePager} />
+        {invoiceLoading && <p role="status" className="text-text-secondary text-sm">Memuat invoice...</p>}
         {error && (
           <div
             role="alert"
@@ -296,14 +301,15 @@ export default function SubscriptionPage() {
               <h2 className="text-text-primary text-lg font-semibold">
                 Riwayat invoice
               </h2>
-              {!overview.invoices.length ? (
+              {invoicePager.initialized && !invoicePager.total ? (
                 <p className="text-text-secondary mt-3 text-sm">
                   Belum ada invoice. Invoice akan muncul setelah kamu membuat
                   pembayaran langganan.
                 </p>
               ) : (
+                <>
                 <ul className="divide-border mt-3 divide-y">
-                  {overview.invoices.map((row) => (
+                  {invoicePager.items.map((row) => (
                     <li
                       key={row.id}
                       className="flex flex-wrap items-start justify-between gap-3 py-3 text-sm"
@@ -338,6 +344,8 @@ export default function SubscriptionPage() {
                     </li>
                   ))}
                 </ul>
+                <Pagination {...invoicePager} label="invoice" />
+                </>
               )}
             </section>
           </>

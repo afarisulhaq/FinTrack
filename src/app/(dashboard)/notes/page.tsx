@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { FileText, Plus, Search, Edit, Trash2, Tag, X } from "lucide-react";
 import { motion } from "framer-motion";
 import { PageWrapper } from "~/components/layout/page-wrapper";
@@ -9,8 +9,12 @@ import { Card } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
 import { Modal } from "~/components/ui/modal";
 import { Input } from "~/components/ui/input";
+import { Pagination } from "~/components/ui/pagination";
+import { useServerPagination } from "~/lib/use-server-pagination";
+import { ServerListStatus } from "~/components/ui/server-paginated-list";
 import { useFinanceStore } from "~/store/useFinanceStore";
 import { formatDate } from "~/lib/utils";
+import type { Note } from "~/lib/types";
 
 const NOTE_COLORS = [
   "#FFD147", "#22c55e", "#f59e0b", "#38bdf8", "#ec4899", "#FFB347",
@@ -28,7 +32,6 @@ const NOTE_BG: Record<string, string> = {
 const DEFAULT_NOTE_COLOR = "#FFD147";
 
 export default function NotesPage() {
-  const notes = useFinanceStore((s) => s.notes);
   const addNote = useFinanceStore((s) => s.addNote);
   const updateNote = useFinanceStore((s) => s.updateNote);
   const deleteNote = useFinanceStore((s) => s.deleteNote);
@@ -40,16 +43,7 @@ export default function NotesPage() {
     title: "", content: "", tags: "", color: DEFAULT_NOTE_COLOR,
   });
 
-  const filteredNotes = useMemo(() => {
-    if (!search) return notes;
-    const q = search.toLowerCase();
-    return notes.filter(
-      (n) =>
-        n.title.toLowerCase().includes(q) ||
-        n.content.toLowerCase().includes(q) ||
-        (n.tags || []).some((t) => t.toLowerCase().includes(q))
-    );
-  }, [notes, search]);
+  const pager = useServerPagination<Note>("/notes", { search }, { resource: "notes" });
 
   function openAddModal() {
     setEditingNote(null);
@@ -58,7 +52,7 @@ export default function NotesPage() {
   }
 
   function openEditModal(noteId: string) {
-    const note = notes.find((n) => n.id === noteId);
+    const note = pager.items.find((n) => n.id === noteId);
     if (!note) return;
     setEditingNote(noteId);
     setForm({
@@ -114,9 +108,10 @@ export default function NotesPage() {
       />
 
       {/* ── Notes Masonry Grid ───────────────────────────────────────── */}
-      {filteredNotes.length > 0 ? (
+      <ServerListStatus {...pager} />
+      {pager.total > 0 ? (
         <div className="columns-1 sm:columns-2 lg:columns-3 gap-4 space-y-4">
-          {filteredNotes.map((note) => {
+          {pager.items.map((note) => {
             const color = note.color || DEFAULT_NOTE_COLOR;
             const bg = NOTE_BG[color] || "rgba(255,209,71,0.08)";
             const tags = note.tags || [];
@@ -186,7 +181,7 @@ export default function NotesPage() {
             );
           })}
         </div>
-      ) : (
+      ) : !pager.loading && !pager.error ? (
         <Card className="py-16 text-center">
           <FileText className="h-10 w-10 text-text-muted mx-auto mb-3" />
           <p className="text-text-muted">
@@ -199,7 +194,8 @@ export default function NotesPage() {
             </Button>
           )}
         </Card>
-      )}
+      ) : null}
+      <Pagination {...pager} label="catatan" />
 
       {/* ── Add / Edit Note Modal ────────────────────────────────────── */}
       <Modal

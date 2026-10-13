@@ -24,6 +24,12 @@ import { api } from "~/lib/api";
 import { useAuthStore } from "~/store/useAuthStore";
 import { useAppConfigStore } from "~/store/useAppConfigStore";
 
+import { PaginatedList } from "~/components/ui/paginated-list";
+import { Pagination } from "~/components/ui/pagination";
+import { usePagination } from "~/lib/use-pagination";
+import { useServerPagination } from "~/lib/use-server-pagination";
+import { ServerListStatus } from "~/components/ui/server-paginated-list";
+import { invalidateServerLists } from "~/lib/page-records";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type MessageFrom = "user" | "bot";
@@ -97,6 +103,8 @@ interface BotContact {
   phone?: string;
   name: string;
   chatId?: string;
+  contactId: string;
+  isAllowed: boolean;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -311,15 +319,18 @@ export default function AiBotPage() {
   const [sendingChat, setSendingChat] = useState(false);
   const [botStatus, setBotStatus] = useState<string | null>(null);
   const [pollWhatsAppStatus, setPollWhatsAppStatus] = useState(false);
-  const [permissions, setPermissions] = useState<BotPermissionItem[]>([]);
   const [showAddPermission, setShowAddPermission] = useState(false);
   const [permissionTab, setPermissionTab] = useState<"whatsapp" | "telegram">(
     "whatsapp",
   );
   const [searchQuery, setSearchQuery] = useState("");
-  const [waContacts, setWaContacts] = useState<BotContact[]>([]);
-  const [tgContacts, setTgContacts] = useState<BotContact[]>([]);
   const token = useAuthStore((state) => state.token);
+  const permissionPager = useServerPagination<BotPermissionItem>("/bot/permissions");
+  const permissions = permissionPager.items;
+  const contactPager = useServerPagination<BotContact>(showAddPermission ? "/bot/contacts" : null, {
+    channel: permissionTab,
+    search: searchQuery,
+  });
 
   // Sync phoneInput when waPhone is loaded from backend
   useEffect(() => {
@@ -415,31 +426,6 @@ export default function AiBotPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pollWhatsAppStatus, waConnected, token]);
 
-  // Fetch permissions and available contacts
-  useEffect(() => {
-    if (!token || token === "dev-fallback-token") return;
-    void (async () => {
-      try {
-        const perms = await api.get<BotPermissionItem[]>(
-          "/bot/permissions",
-          token,
-        );
-        setPermissions(perms);
-      } catch {
-        /* ignore */
-      }
-      try {
-        const contacts = await api.get<{
-          whatsapp: BotContact[];
-          telegram: BotContact[];
-        }>("/bot/contacts", token);
-        setWaContacts(contacts.whatsapp ?? []);
-        setTgContacts(contacts.telegram ?? []);
-      } catch {
-        /* ignore */
-      }
-    })();
-  }, [token]);
 
   async function handleAnalyzeOcr() {
     setOcrAnalyzing(true);
@@ -480,82 +466,16 @@ export default function AiBotPage() {
         time,
       },
     ]);
-    // Handle special bot commands
-    const lowerMsg = message.toLowerCase();
-    if (lowerMsg === "/saldo" && token && token !== "dev-fallback-token") {
-      try {
-        // Fetch wallets from bootstrap
-        const bootstrap = await api.get<{
-          wallets: Array<{ name: string; balance: number }>;
-        }>("/bootstrap", token);
-        const replies = (bootstrap.wallets ?? []).map(
-          (w) => `👛 ${w.name}: Rp${w.balance.toLocaleString("id-ID")}`,
-        );
-        const reply =
-          replies.length > 0
-            ? `💰 *Saldo Dompet*\n\n${replies.join("\n")}`
-            : "Belum ada dompet.";
-        setLiveMessages((items) => [
-          ...items,
-          {
-            id: `bot-${Date.now()}`,
-            from: "bot",
-            content: reply,
-            type: "text",
-            time,
-          },
-        ]);
-        return;
-      } catch {
-        // Fall through to normal chat
-      }
-    }
-
-    if (lowerMsg === "/laporan" && token && token !== "dev-fallback-token") {
-      try {
-        const bootstrap = await api.get<{
-          transactions: Array<{
-            type: string;
-            amount: number;
-            category: string;
-            date: string;
-          }>;
-        }>("/bootstrap", token);
-        const now = new Date();
-        const startOfWeek = new Date(now);
-        startOfWeek.setDate(now.getDate() - now.getDay());
-        const weekTx = (bootstrap.transactions ?? []).filter(
-          (tx) => new Date(tx.date) >= startOfWeek && tx.type === "expense",
-        );
-        const total = weekTx.reduce((sum, tx) => sum + tx.amount, 0);
-        const reply =
-          weekTx.length > 0
-            ? `📊 *Laporan Minggu Ini*\nTotal: Rp${total.toLocaleString("id-ID")}\nTransaksi: ${weekTx.length}\n\nTerbanyak: ${weekTx.sort((a, b) => b.amount - a.amount)[0]?.category ?? "-"}`
-            : "📊 Belum ada transaksi minggu ini.";
-        setLiveMessages((items) => [
-          ...items,
-          {
-            id: `bot-${Date.now()}`,
-            from: "bot",
-            content: reply,
-            type: "text",
-            time,
-          },
-        ]);
-        return;
-      } catch {
-        // Fall through to normal chat
-      }
-    }
 
     try {
       const result =
         token && token !== "dev-fallback-token"
-          ? await api.post<{ reply: string }>("/bot/chat", token, { message })
+          ? await api.post<{ reply: string; saved?: boolean }>("/bot/chat", token, { message })
           : {
               reply:
                 "✅ Demo lokal: pesan diterima. Jalankan backend agar parser AI aktif.",
             };
+      if ("saved" in result && result.saved) invalidateServerLists();
       setLiveMessages((items) => [
         ...items,
         {
@@ -747,7 +667,7 @@ export default function AiBotPage() {
       return;
     }
     try {
-      const result = await api.post<BotPermissionItem>(
+      await api.post<BotPermissionItem>(
         "/bot/permissions",
         token,
         {
@@ -756,7 +676,7 @@ export default function AiBotPage() {
           channel,
         },
       );
-      setPermissions((prev) => [result, ...prev]);
+      invalidateServerLists();
       setShowAddPermission(false);
       setSearchQuery("");
       setBotStatus(
@@ -773,7 +693,7 @@ export default function AiBotPage() {
     if (!token || token === "dev-fallback-token") return;
     try {
       await api.delete(`/bot/permissions/${permissionId}`, token);
-      setPermissions((prev) => prev.filter((p) => p.id !== permissionId));
+      invalidateServerLists();
       setBotStatus("✅ Kontak dihapus dari izin akses.");
     } catch (error) {
       setBotStatus(
@@ -788,6 +708,10 @@ export default function AiBotPage() {
     setOcrDone(false);
     setOcrResult(null);
   }
+
+  const chatPager = usePagination([...liveMessages].reverse(), {
+    resetKey: liveMessages.at(-1)?.id ?? "",
+  });
 
   return (
     <PageWrapper
@@ -1216,9 +1140,9 @@ export default function AiBotPage() {
                   </p>
                 </div>
               </div>
-              {permissions.length > 0 ? (
+              {permissionPager.total > 0 ? (
                 <Badge variant="success" size="sm">
-                  {permissions.length}
+                  {permissionPager.total}
                 </Badge>
               ) : (
                 <Badge variant="default" size="sm">
@@ -1232,8 +1156,9 @@ export default function AiBotPage() {
                 Hanya kontak yang diizinkan yang bisa menggunakan bot
                 WhatsApp/Telegram. Kontak lain akan diabaikan secara otomatis.
               </p>
+              <ServerListStatus {...permissionPager} />
 
-              {permissions.length === 0 ? (
+              {!permissionPager.loading && !permissionPager.error && permissionPager.total === 0 ? (
                 <div className="bg-bg-elevated rounded-lg px-4 py-6 text-center">
                   <p className="text-text-muted text-sm">
                     Belum ada kontak yang diizinkan.
@@ -1271,6 +1196,7 @@ export default function AiBotPage() {
                   ))}
                 </div>
               )}
+              <Pagination {...permissionPager} label="izin kontak" />
 
               <Button
                 variant="outline"
@@ -1318,10 +1244,11 @@ export default function AiBotPage() {
               className="flex-1 space-y-3 overflow-y-auto p-4"
               style={{ background: "var(--bg-base)" }}
             >
-              {liveMessages.map((msg, i) => (
+              {[...chatPager.items].reverse().map((msg, i) => (
                 <ChatBubble key={msg.id} msg={msg} index={i} />
               ))}
               <div ref={chatEndRef} />
+              <Pagination {...chatPager} label="pesan (terbaru dahulu)" />
             </div>
 
             <div className="border-border bg-bg-elevated flex shrink-0 items-center gap-2 border-t px-3 py-2.5">
@@ -1435,8 +1362,9 @@ export default function AiBotPage() {
                   </span>
                 </div>
 
+                <PaginatedList rows={displayedOcrItems} label="item struk">{(items) => (
                 <div className="space-y-2">
-                  {displayedOcrItems.map((item) => (
+                  {items.map((item) => (
                     <div
                       key={item.name}
                       className="flex justify-between text-sm"
@@ -1447,6 +1375,9 @@ export default function AiBotPage() {
                       </span>
                     </div>
                   ))}
+                </div>
+                )}</PaginatedList>
+                <div>
                   <div className="border-border flex justify-between border-t pt-2 text-sm font-semibold">
                     <span className="text-text-primary">Total</span>
                     <span className="text-success">{displayedOcrTotal}</span>
@@ -1495,7 +1426,7 @@ export default function AiBotPage() {
               }`}
               onClick={() => setPermissionTab("whatsapp")}
             >
-              💬 WhatsApp ({waContacts.length})
+              WhatsApp
             </button>
             <button
               className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
@@ -1505,7 +1436,7 @@ export default function AiBotPage() {
               }`}
               onClick={() => setPermissionTab("telegram")}
             >
-              ✈️ Telegram ({tgContacts.length})
+              Telegram
             </button>
           </div>
 
@@ -1517,29 +1448,19 @@ export default function AiBotPage() {
             onChange={(e) => setSearchQuery(e.target.value)}
             className="bg-bg-surface border-border text-text-primary placeholder:text-text-muted focus:ring-primary/50 h-10 w-full rounded-lg border px-3 text-sm focus:ring-2 focus:outline-none"
           />
+          <ServerListStatus {...contactPager} />
 
           {/* Contact list */}
           <div className="max-h-64 space-y-1 overflow-y-auto">
-            {(permissionTab === "whatsapp" ? waContacts : tgContacts)
-              .filter((c) => {
-                if (!searchQuery) return true;
-                const q = searchQuery.toLowerCase();
+            {contactPager.items.map((contact) => {
+                const contactId = contact.contactId;
+                const alreadyAdded = contact.isAllowed;
                 return (
-                  c.name.toLowerCase().includes(q) ||
-                  (c.phone || c.chatId || "").includes(q)
-                );
-              })
-              .map((contact) => {
-                const contactId =
-                  contact.phone || contact.chatId || contact.jid || "";
-                const alreadyAdded = permissions.some(
-                  (p) =>
-                    p.contactId === contactId && p.channel === permissionTab,
-                );
-                return (
-                  <div
+                  <button
                     key={contactId}
-                    className={`flex items-center justify-between gap-2 rounded-lg px-3 py-2.5 transition-colors ${
+                    type="button"
+                    disabled={alreadyAdded}
+                    className={`focus-visible:outline-primary flex min-h-11 w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 ${
                       alreadyAdded
                         ? "bg-success/5 opacity-50"
                         : "bg-bg-elevated hover:bg-bg-surface cursor-pointer"
@@ -1571,19 +1492,10 @@ export default function AiBotPage() {
                         Tambah
                       </span>
                     )}
-                  </div>
+                  </button>
                 );
               })}
-            {(permissionTab === "whatsapp" ? waContacts : tgContacts).filter(
-              (c) => {
-                if (!searchQuery) return true;
-                const q = searchQuery.toLowerCase();
-                return (
-                  c.name.toLowerCase().includes(q) ||
-                  (c.phone || c.chatId || "").includes(q)
-                );
-              },
-            ).length === 0 && (
+            {!contactPager.loading && !contactPager.error && contactPager.total === 0 && (
               <div className="py-6 text-center">
                 <p className="text-text-muted text-sm">
                   {searchQuery
@@ -1593,6 +1505,7 @@ export default function AiBotPage() {
               </div>
             )}
           </div>
+          <Pagination {...contactPager} label="kontak bot" />
         </div>
       </Modal>
     </PageWrapper>

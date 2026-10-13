@@ -3,7 +3,7 @@
 import { WalletPicker } from "~/components/ui/wallet-select";
 
 import { flattenWalletTree, walletOptionLabel } from "~/lib/wallets";
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { Receipt, Plus, Trash2, Check, Building, Wallet } from "lucide-react";
 import { PageWrapper } from "~/components/layout/page-wrapper";
 import { Button } from "~/components/ui/button";
@@ -13,9 +13,12 @@ import { Modal } from "~/components/ui/modal";
 import { StatCard } from "~/components/ui/stat-card";
 import { Input } from "~/components/ui/input";
 import { DatePicker } from "~/components/ui/date-picker";
+import { Pagination } from "~/components/ui/pagination";
+import { useServerPagination } from "~/lib/use-server-pagination";
+import { ServerListStatus } from "~/components/ui/server-paginated-list";
 import { useFinanceStore } from "~/store/useFinanceStore";
 import { formatCurrency, formatDate } from "~/lib/utils";
-import type { ReimbursementStatus } from "~/lib/types";
+import type { Reimbursement, ReimbursementStatus } from "~/lib/types";
 
 type StatusFilter = "Semua" | ReimbursementStatus;
 
@@ -24,7 +27,6 @@ type StatusFilter = "Semua" | ReimbursementStatus;
 export default function ReimbursementPage() {
   const wallets = useFinanceStore((s) => s.wallets);
   const walletChoices = flattenWalletTree(wallets);
-  const reimbursements = useFinanceStore((s) => s.reimbursements);
   const addReimbursement = useFinanceStore((s) => s.addReimbursement);
   const deleteReimbursement = useFinanceStore((s) => s.deleteReimbursement);
   const settleReimbursement = useFinanceStore((s) => s.settleReimbursement);
@@ -36,15 +38,16 @@ export default function ReimbursementPage() {
     project: "", company: "", submittedDate: "", notes: "", receiptUrl: "",
   });
 
-  const filtered = useMemo(
-    () => statusFilter === "Semua" ? reimbursements : reimbursements.filter((r) => r.status === statusFilter),
-    [reimbursements, statusFilter]
-  );
-
-  const { totalActive, totalSettled } = useMemo(() => ({
-    totalActive: reimbursements.filter((r) => r.status === "active").reduce((s, r) => s + r.amount, 0),
-    totalSettled: reimbursements.filter((r) => r.status === "settled").reduce((s, r) => s + r.amount, 0),
-  }), [reimbursements]);
+  const pager = useServerPagination<Reimbursement, {
+    totalActive: number;
+    totalSettled: number;
+    counts: Record<string, number>;
+  }>("/reimbursements", {
+    status: statusFilter === "Semua" ? undefined : statusFilter,
+  }, { resource: "reimbursements" });
+  const { totalActive, totalSettled } = pager.summary ?? {
+    totalActive: 0, totalSettled: 0,
+  };
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -99,7 +102,7 @@ export default function ReimbursementPage() {
         <StatCard
           title="Grand Total"
           value={<span className="tabular-nums">{formatCurrency(totalActive + totalSettled)}</span>}
-          subtitle={`${reimbursements.length} pengajuan`}
+          subtitle={`${pager.total} pengajuan`}
           icon={<Receipt className="text-primary" />}
         />
       </div>
@@ -117,7 +120,7 @@ export default function ReimbursementPage() {
             {t.label}
             {t.key !== "Semua" && (
               <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full bg-bg-base">
-                {reimbursements.filter((r) => r.status === t.key).length}
+                {pager.summary?.counts[t.key] ?? 0}
               </span>
             )}
           </button>
@@ -125,8 +128,9 @@ export default function ReimbursementPage() {
       </div>
 
       {/* ── Cards List ──────────────────────────────────────────────── */}
+      <ServerListStatus {...pager} />
       <div className="space-y-3">
-        {filtered.map((r) => (
+        {pager.items.map((r) => (
           <Card key={r.id} className="group">
             <div className="flex items-start gap-4">
               {/* Icon */}
@@ -187,13 +191,14 @@ export default function ReimbursementPage() {
           </Card>
         ))}
 
-        {filtered.length === 0 && (
+        {pager.total === 0 && !pager.loading && !pager.error && (
           <Card className="py-12 text-center">
             <Receipt className="h-10 w-10 text-text-muted mx-auto mb-3" />
             <p className="text-sm text-text-muted">Tidak ada reimbursement ditemukan</p>
           </Card>
         )}
       </div>
+      <Pagination {...pager} label="reimbursement" />
 
       {/* ── Add Reimbursement Modal ──────────────────────────────────── */}
       <Modal open={showModal} onClose={() => setShowModal(false)} title="Tambah Reimbursement" size="md">

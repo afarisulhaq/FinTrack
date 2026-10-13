@@ -1,5 +1,6 @@
 import type { SubscriptionInvoice } from "@prisma/client";
 import { db } from "../prisma-client.js";
+import { databasePage, type PageInput } from "./pagination.js";
 import {
   BillingError,
   billingConfig,
@@ -29,12 +30,14 @@ export function publicInvoice(row: SubscriptionInvoice) {
 
 export async function billingOverview(userId: string) {
   const config = billingConfig();
-  const [subscription, invoices] = await Promise.all([
+  const [subscription, latestInvoice, openInvoice] = await Promise.all([
     db.subscription.findUnique({ where: { userId } }),
-    db.subscriptionInvoice.findMany({
-      where: { userId },
-      orderBy: { createdAt: "desc" },
-      take: 10,
+    db.subscriptionInvoice.findFirst({
+      where: { userId }, orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    }),
+    db.subscriptionInvoice.findFirst({
+      where: { userId, status: { in: ["creating", "pending"] }, expiresAt: { gt: new Date() } },
+      select: { id: true, expiresAt: true },
     }),
   ]);
   return {
@@ -45,8 +48,25 @@ export async function billingOverview(userId: string) {
     subscription: subscription
       ? { ...subscription, active: subscription.expiresAt > new Date() }
       : null,
-    invoices: invoices.map(publicInvoice),
+    latestInvoiceId: latestInvoice?.id ?? null,
+    openInvoice,
   };
+}
+
+export async function listInvoices(userId: string, input: PageInput) {
+  const where = { userId };
+  const page = await databasePage(input,
+    () => db.subscriptionInvoice.count({ where }),
+    (skip, take) => db.subscriptionInvoice.findMany({
+      where, skip, take, orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    }));
+  return { ...page, items: page.items.map((row) => ({ ...publicInvoice(row), qrisCode: null })) };
+}
+
+export async function invoiceById(userId: string, id: string) {
+  const row = await db.subscriptionInvoice.findFirst({ where: { userId, id } });
+  if (!row) throw new BillingError("Invoice tidak ditemukan", 404);
+  return publicInvoice(row);
 }
 
 export async function createInvoice(userId: string) {

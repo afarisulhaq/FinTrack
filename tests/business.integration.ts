@@ -331,9 +331,25 @@ try {
     100000,
   );
   assert.equal(
-    (await request("GET", "/", undefined, foreignToken)).json.data.length,
+    (await request("GET", "/", undefined, foreignToken)).json.data.total,
     0,
   );
+  const list = (await request("GET", "/?pageSize=1")).json.data;
+  assert.equal(list.items.length, 1);
+  assert.equal(list.items[0].transactions, undefined);
+  assert.equal(list.items[0].summary.transactionCount, 3);
+  const detail = await request("GET", `/${businessId}`);
+  assert.equal(detail.json.data.summary.income, 120000);
+  assert.equal(detail.json.data.summary.expense, 200000);
+  const firstPage = (await request("GET", `${path}?pageSize=1`)).json.data;
+  const secondPage = (await request("GET", `${path}?pageSize=1&page=2`)).json.data;
+  assert.equal(firstPage.total, 3);
+  assert.equal(firstPage.items.length, 1);
+  assert.notEqual(firstPage.items[0].id, secondPage.items[0].id);
+  assert.equal(firstPage.summary.expense, 200000);
+  assert.equal((await request("GET", `${path}?pageSize=49`)).status, 400);
+  assert.equal((await request("GET", path, undefined, foreignToken)).status, 404);
+  assert.equal((await request("DELETE", `/${businessId}`)).status, 409);
   for (const id of [
     entry.json.data.id,
     income.json.data.id,

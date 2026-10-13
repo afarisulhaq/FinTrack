@@ -26,6 +26,7 @@ import { StatCard } from "~/components/ui/stat-card";
 import { Badge } from "~/components/ui/badge";
 import { useAuthStore } from "~/store/useAuthStore";
 import { api } from "~/lib/api";
+import type { PageResult } from "~/lib/pagination";
 
 interface AdminUser {
   id: string;
@@ -35,17 +36,16 @@ interface AdminUser {
   status: "active" | "inactive" | "pending";
   createdAt: string;
 }
+interface AdminSummary {
+  totalUsers: number; activeUsers: number; newThisMonth: number;
+  last7: { day: string; users: number }[];
+}
 
 interface BotStatus {
   ok: boolean;
   status: string;
 }
 
-const DAY_LABELS = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
-
-function startOfDay(d: Date) {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
-}
 
 function formatDateID(iso: string): string {
   const d = new Date(iso);
@@ -61,17 +61,13 @@ function formatNumber(n: number): string {
   return new Intl.NumberFormat("id-ID").format(n);
 }
 
-function daysAgo(n: number) {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  return d;
-}
 
 export default function AdminDashboardPage() {
   const token = useAuthStore((s) => s.token);
   const user = useAuthStore((s) => s.user);
 
   const [users, setUsers] = useState<AdminUser[]>([]);
+  const [summary, setSummary] = useState<AdminSummary | null>(null);
   const [txCount, setTxCount] = useState<number | null>(null);
   const [apiOnline, setApiOnline] = useState<boolean | null>(null);
   const [whatsapp, setWhatsapp] = useState<BotStatus | null>(null);
@@ -92,8 +88,8 @@ export default function AdminDashboardPage() {
         // down. The dashboard degrades to a partial view if a
         // single endpoint is down.
         const [usersResult, txResult, botResult] = await Promise.allSettled([
-          api.get<AdminUser[]>("/users", token),
-          api.get<unknown[]>("/transactions", token),
+          api.get<PageResult<AdminUser, AdminSummary>>("/users?page=1&pageSize=5&view=dashboard", token),
+          api.get<PageResult<unknown>>("/transactions?page=1&pageSize=1", token),
           api.get<{
             whatsapp: { status: string };
             telegram: { status: string };
@@ -103,14 +99,15 @@ export default function AdminDashboardPage() {
         if (cancelled) return;
 
         if (usersResult.status === "fulfilled") {
-          setUsers(usersResult.value);
+          setUsers(usersResult.value.items);
+          setSummary(usersResult.value.summary ?? null);
           setApiOnline(true);
         } else {
           setApiOnline(false);
         }
 
         if (txResult.status === "fulfilled") {
-          setTxCount(txResult.value.length);
+          setTxCount(txResult.value.total);
         } else {
           setTxCount(null);
         }
@@ -139,37 +136,14 @@ export default function AdminDashboardPage() {
     };
   }, [token]);
 
-  // ── Derived stats ──────────────────────────────────────────────────
-  const totalUsers = users.length;
-  const activeUsers = users.filter((u) => u.status === "active").length;
-  const now = startOfDay(new Date());
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const newThisMonth = users.filter((u) => {
-    const d = new Date(u.createdAt);
-    return d >= monthStart;
-  }).length;
+  const totalUsers = summary?.totalUsers ?? 0;
+  const activeUsers = summary?.activeUsers ?? 0;
+  const newThisMonth = summary?.newThisMonth ?? 0;
   const activePercent =
     totalUsers > 0 ? Math.round((activeUsers / totalUsers) * 100) : 0;
 
-  // Registrasi per hari, 7 hari terakhir (termasuk hari ini).
-  const last7 = Array.from({ length: 7 }, (_, i) => {
-    const day = startOfDay(daysAgo(6 - i));
-    const dayEnd = new Date(day);
-    dayEnd.setDate(day.getDate() + 1);
-    const count = users.filter((u) => {
-      const d = new Date(u.createdAt);
-      return d >= day && d < dayEnd;
-    }).length;
-    return {
-      day: DAY_LABELS[day.getDay()],
-      users: count,
-    };
-  });
-
-  const recentUsers = users
-    .slice()
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    .slice(0, 5);
+  const last7 = summary?.last7 ?? [];
+  const recentUsers = users;
 
   return (
     <div className="space-y-6">

@@ -24,6 +24,9 @@ import { Modal } from "~/components/ui/modal";
 import { StatCard } from "~/components/ui/stat-card";
 import { Input } from "~/components/ui/input";
 import { DatePicker } from "~/components/ui/date-picker";
+import { Pagination } from "~/components/ui/pagination";
+import { ServerListStatus, ServerPaginatedList } from "~/components/ui/server-paginated-list";
+import { useServerPagination } from "~/lib/use-server-pagination";
 import { useFinanceStore } from "~/store/useFinanceStore";
 import { formatCurrency, formatDate, cn } from "~/lib/utils";
 import type {
@@ -98,13 +101,6 @@ const PERIOD_LABELS: Record<RecurringPeriod, string> = {
   yearly: "Tahunan",
 };
 
-function toMonthly(amount: number, period: RecurringPeriod): number {
-  if (period === "daily") return amount * 30;
-  if (period === "weekly") return amount * 4.33;
-  if (period === "monthly") return amount;
-  if (period === "yearly") return amount / 12;
-  return amount;
-}
 
 // ─── Wallet flattener ─────────────────────────────────────────────────────────
 
@@ -184,7 +180,6 @@ const FILTER_TABS: FilterTab[] = [
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default function RecurringPage() {
-  const recurringTransactions = useFinanceStore((s) => s.recurringTransactions);
   const wallets = useFinanceStore((s) => s.wallets);
   const addRecurringTransaction = useFinanceStore(
     (s) => s.addRecurringTransaction,
@@ -218,71 +213,15 @@ export default function RecurringPage() {
     setForm((prev) => ({ ...prev, [k]: v }));
   }
 
-  // ── Computed stats ─────────────────────────────────────────────────────────
-  const stats = useMemo(() => {
-    let monthlyExpense = 0;
-    let monthlyIncome = 0;
-    let activeCount = 0;
-
-    for (const rt of recurringTransactions) {
-      if (rt.isActive) {
-        activeCount++;
-        const m = toMonthly(rt.amount, rt.period);
-        if (rt.type === "expense") monthlyExpense += m;
-        else if (rt.type === "income") monthlyIncome += m;
-      }
-    }
-
-    return { monthlyExpense, monthlyIncome, activeCount };
-  }, [recurringTransactions]);
-
-  // ── Filtered list ──────────────────────────────────────────────────────────
-  const filtered = useMemo(() => {
-    return recurringTransactions.filter((rt) => {
-      if (activeFilter === "Aktif") return rt.isActive;
-      if (activeFilter === "Nonaktif") return !rt.isActive;
-      if (activeFilter === "Pengeluaran") return rt.type === "expense";
-      if (activeFilter === "Pemasukan") return rt.type === "income";
-      return true;
-    });
-  }, [recurringTransactions, activeFilter]);
-
-  // ── Calendar data (group by week in current month) ─────────────────────────
-  const calendarData = useMemo(() => {
-    interface CalItem {
-      id: string;
-      name: string;
-      amount: number;
-      type: TransactionType;
-      day: number;
-    }
-
-    const active = recurringTransactions.filter((rt) => rt.isActive);
-    const items: CalItem[] = active.map((rt) => ({
-      id: rt.id,
-      name: rt.name,
-      amount: rt.amount,
-      type: rt.type,
-      day: new Date(rt.nextDate).getDate(),
-    }));
-
-    items.sort((a, b) => a.day - b.day);
-
-    const byWeek: Record<number, CalItem[]> = { 1: [], 2: [], 3: [], 4: [] };
-    for (const item of items) {
-      const week = Math.min(Math.ceil(item.day / 7), 4) as 1 | 2 | 3 | 4;
-      byWeek[week].push(item);
-    }
-
-    const monthlyNetExpense = active
-      .filter((rt) => rt.type === "expense")
-      .reduce((s, rt) => s + toMonthly(rt.amount, rt.period), 0);
-    const monthlyNetIncome = active
-      .filter((rt) => rt.type === "income")
-      .reduce((s, rt) => s + toMonthly(rt.amount, rt.period), 0);
-
-    return { byWeek, monthlyNetExpense, monthlyNetIncome };
-  }, [recurringTransactions]);
+  const pager = useServerPagination<RecurringTransaction, {
+    monthlyExpense: number;
+    monthlyIncome: number;
+    activeCount: number;
+    weekCounts: number[];
+  }>("/recurringTransactions", { filter: activeFilter }, { resource: "recurringTransactions" });
+  const stats = pager.summary ?? {
+    monthlyExpense: 0, monthlyIncome: 0, activeCount: 0, weekCounts: [],
+  };
 
   // ── Modal handlers ─────────────────────────────────────────────────────────
   function openAddModal() {
@@ -395,7 +334,7 @@ export default function RecurringPage() {
         />
         <StatCard
           title="Aktif / Total"
-          value={`${stats.activeCount} / ${recurringTransactions.length}`}
+          value={`${stats.activeCount} / ${pager.total}`}
           subtitle="Transaksi berulang"
           icon={<Activity className="text-primary h-5 w-5" />}
         />
@@ -420,8 +359,9 @@ export default function RecurringPage() {
       </div>
 
       {/* ══ Section 3: Recurring List ════════════════════════════════════════ */}
+      <ServerListStatus {...pager} />
       <div className="space-y-3">
-        {filtered.length === 0 ? (
+        {pager.total === 0 && !pager.loading && !pager.error ? (
           <Card>
             <div className="flex flex-col items-center gap-2 py-10 text-center">
               <RefreshCw className="text-text-muted h-10 w-10 opacity-40" />
@@ -439,7 +379,7 @@ export default function RecurringPage() {
             </div>
           </Card>
         ) : (
-          filtered.map((rt) => {
+          pager.items.map((rt) => {
             const catColor = getCategoryColor(rt.category);
             const walletName = walletMap.get(rt.walletId) ?? rt.walletId;
             const isConfirmDelete = confirmDeleteId === rt.id;
@@ -563,6 +503,7 @@ export default function RecurringPage() {
           })
         )}
       </div>
+      <Pagination {...pager} label="transaksi berulang" />
 
       {/* ══ Section 4: Calendar Preview ══════════════════════════════════════ */}
       <Card>
@@ -575,19 +516,16 @@ export default function RecurringPage() {
           </div>
         </CardHeader>
         <CardBody>
-          {([1, 2, 3, 4] as const).every(
-            (w) => calendarData.byWeek[w].length === 0,
-          ) ? (
+          {!pager.loading && !pager.error && pager.summary && stats.weekCounts.every((count) => count === 0) ? (
             <p className="text-text-muted py-6 text-center text-sm">
               Tidak ada transaksi berulang aktif bulan ini
             </p>
           ) : (
             <div className="space-y-4">
               {([1, 2, 3, 4] as const).map((week) => {
-                const items = calendarData.byWeek[week];
-                if (items.length === 0) return null;
+                if ((stats.weekCounts[week - 1] ?? 0) === 0) return null;
                 const startDay = (week - 1) * 7 + 1;
-                const endDay = week * 7;
+                const endDay = week === 4 ? 31 : week * 7;
 
                 return (
                   <div key={week}>
@@ -599,8 +537,15 @@ export default function RecurringPage() {
                         (Tgl {startDay}–{endDay})
                       </span>
                     </div>
+                    <ServerPaginatedList<RecurringTransaction & { day: number }>
+                      path="/recurringTransactions"
+                      query={{ view: "calendar", week }}
+                      resource="recurringTransactions"
+                      label={`jadwal minggu ${week}`}
+                    >
+                      {(visibleItems) => (
                     <div className="space-y-1.5 pl-2">
-                      {items.map((item) => (
+                      {visibleItems.map((item) => (
                         <div
                           key={item.id}
                           className="bg-bg-elevated flex items-center justify-between gap-3 rounded-lg px-3 py-1.5"
@@ -637,6 +582,8 @@ export default function RecurringPage() {
                         </div>
                       ))}
                     </div>
+                      )}
+                    </ServerPaginatedList>
                   </div>
                 );
               })}
@@ -650,13 +597,13 @@ export default function RecurringPage() {
                   <div className="text-right">
                     <div className="text-text-muted text-xs">Pengeluaran</div>
                     <div className="text-danger text-sm font-bold">
-                      -{formatCurrency(calendarData.monthlyNetExpense, true)}
+                      -{formatCurrency(stats.monthlyExpense, true)}
                     </div>
                   </div>
                   <div className="text-right">
                     <div className="text-text-muted text-xs">Pemasukan</div>
                     <div className="text-success text-sm font-bold">
-                      +{formatCurrency(calendarData.monthlyNetIncome, true)}
+                      +{formatCurrency(stats.monthlyIncome, true)}
                     </div>
                   </div>
                 </div>

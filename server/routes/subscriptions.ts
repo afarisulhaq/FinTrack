@@ -3,10 +3,13 @@ import { extractToken, verifyToken } from "../auth.js";
 import { canUseDatabase, db } from "../prisma-client.js";
 import { fail, ok } from "../utils.js";
 import { BillingError } from "../services/subscription-gateway.js";
+import { readPage, PaginationError } from "../services/pagination.js";
 import {
   billingOverview,
   createInvoice,
   verifyInvoice,
+  listInvoices,
+  invoiceById,
 } from "../services/subscriptions.js";
 
 function userId(request: Request) {
@@ -38,14 +41,19 @@ export const subscriptionRoutes = new Elysia({ prefix: "/api/subscriptions" })
     }
   })
   .onError(({ error, set }) => {
-    set.status = error instanceof BillingError ? error.status : 503;
+    set.status = error instanceof BillingError || error instanceof PaginationError ? error.status : 503;
     return fail(
-      error instanceof BillingError
+      error instanceof BillingError || error instanceof PaginationError
         ? error.message
         : "Layanan langganan belum tersedia. Coba lagi nanti.",
     );
   })
   .get("/", async ({ request }) => ok(await billingOverview(userId(request))))
+  .get("/invoices", async ({ request, query }) =>
+    ok(await listInvoices(userId(request), readPage(query))))
+  .get("/invoices/:id", async ({ request, params }) =>
+    ok(await invoiceById(userId(request), params.id)),
+    { params: t.Object({ id: t.String({ minLength: 1, maxLength: 100 }) }) })
   .post(
     "/invoices",
     async ({ request }) => ok(await createInvoice(userId(request))),

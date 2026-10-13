@@ -24,7 +24,7 @@ All-in-one personal & multi-user wealth and expense management platform. Built a
 │   ├── services/        # AI parser, Telegram, WhatsApp
 │   ├── types.ts         # Shared types
 │   ├── utils.ts         # ok/fail/id helpers
-│   └── tsconfig.json    # Server-only TS config (outputs to server/dist)
+│   └── tsconfig.json    # Backend + shared libraries compiled to server/dist
 ├── src/                 # Next.js frontend (T3-App layout)
 │   ├── app/             # Routes — (auth), (dashboard), admin
 │   ├── components/      # UI, charts, layout, auth
@@ -74,15 +74,72 @@ A single-container image is provided. See [Deployment](#deployment-1) below for 
 | `npm run dev:web`     | Next.js frontend only                     |
 | `npm run dev:server`  | Elysia backend (watch mode)                |
 | `npm run build`       | Build frontend                             |
-| `npm run build:server`| Compile Elysia to `server/dist`            |
+| `npm run build:server`| Compile backend and shared libraries to `server/dist` |
 | `npm run start`       | Start Next.js production server            |
-| `npm run start:server`| Run compiled Elysia server                 |
+| `npm run start:server`| Run `server/dist/server/index.js`          |
 | `npm run db:generate` | Generate Prisma client                     |
 | `npm run db:migrate`  | Run Prisma migrations                      |
 | `npm run db:push`     | Push schema to DB (no migration history)   |
 | `npm run db:studio`   | Open Prisma Studio                         |
 | `npm run typecheck`   | TypeScript type check                      |
 | `npm run lint`        | ESLint                                     |
+
+## List pagination
+
+Data lists use shared pagination controls with 6, 12, 24, or 48 records per page.
+Most lists start at 12; market candidates and watchlist cards start at 6.
+Controls show the visible range and provide first, previous, next, and last
+page navigation. Search/filter changes reset the page; deleting the final
+record on a page returns to the last available page.
+
+Persisted lists use server-side pagination. Finance queries count matching rows,
+apply database `skip`/`take` or SQL `LIMIT`/`OFFSET`, and use a stable ID tie-breaker.
+The response contains `items`, `page`, `pageSize`, `total`, `totalPages`, and an
+optional `summary`. Invalid page numbers or sizes above 48 return HTTP 400.
+The server clamps a page that no longer exists after deletion.
+
+Search and filters run on the server. Global or period-wide balances, totals,
+charts, and daily transaction subtotals come from server aggregates rather than
+the visible records. The browser retains summary totals while another page loads,
+aborts obsolete requests, and refreshes mounted lists after writes.
+Transaction month filters use UTC boundaries, matching the ISO date keys in the
+transaction list.
+Calendar week buckets and admin signup charts use the server time zone for
+consistent filtering and date labels.
+
+Coverage includes finance lists, nested wallet pockets/category subcategories,
+debt groups and installments, split-bill participants/reminders, business
+transactions, admin users, invoice history, team members, bot permissions/contacts,
+investment performance, market candidates, and watchlists. Watchlist metadata
+includes membership IDs; quote requests cover only visible symbols. Historical
+screening uses the server cache and returns only the requested candidate page.
+
+`/bootstrap` and `/lookups` contain wallet/category form options and account
+settings, not transaction, debt, invoice, or other history arrays. `/export`
+returns full records only for an explicit export. Imports fetch paged record IDs
+for duplicate detection; resets delete bounded batches. Explicit portfolio-wide
+price refresh reads all positions, while automatic refresh covers visible assets.
+
+Unsaved chat, OCR/import previews, static sessions/activity logs, finite badges,
+and aggregate chart legends retain local pagination. They are not persisted
+record lists.
+
+Apply the pagination indexes to an existing PostgreSQL deployment:
+
+```bash
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/patches/20261013-server-pagination.sql
+```
+
+Run this patch outside a transaction because it uses `CREATE INDEX CONCURRENTLY`.
+Fresh databases receive the same indexes through the Prisma schema.
+
+Database regression coverage uses an isolated `fintrack_test` database on port
+55432:
+
+```bash
+DATABASE_URL=postgresql://fintrack_test@127.0.0.1:55432/fintrack_test \
+  npx tsx tests/server-pagination.integration.ts
+```
 
 ## API Endpoints
 
@@ -92,11 +149,23 @@ All endpoints are mounted under `/api` on port 4000 (or whatever `PORT` is set t
 - `POST /api/auth/login` — Login
 - `POST /api/auth/register` — Register
 - `GET  /api/auth/me` — Current user (Bearer token)
-- `GET  /api/bootstrap` — Full data bundle (auth required)
-- `GET  /api/users` — List users (auth required)
+- `GET  /api/bootstrap` and `/api/lookups`: Form lookups/account settings (auth required)
+- `GET  /api/export`: Complete export bundle (auth required)
+- `GET  /api/record-ids/:resource`: Paged IDs for import duplicate checks (auth required)
+- `GET  /api/users` and `/api/admin/users`: Paged users and aggregate counts (admin only)
+- `GET  /api/analytics/summary` and `/api/analytics/activity`: Server aggregates (auth required)
+- `GET  /api/stock-screening`: Paged candidates, or `view=unavailable` (auth required)
+- `GET  /api/market-watchlist`: Paged watchlist symbols (auth required)
+- `GET  /api/market-search`: Paged market search (auth required)
+- `GET  /api/subscriptions/invoices`: Paged invoice history (auth required)
+- `GET  /api/subscriptions/invoices/:id`: Selected invoice/QR details (auth required)
+- `GET  /api/debts?view=installments&debtId=...`: Paged installments (auth required)
+- `POST /api/debts/:id/installments`: Add an installment (auth required)
+- `PUT` or `DELETE /api/debts/:id/installments/:installmentId`: Edit/delete one installment (auth required)
+- `GET  /api/splitBills?view=participants&billId=...`: Paged participants (auth required)
 - `GET  /api/app-config` — App settings
 - `PUT  /api/app-config` — Update app settings (admin only)
-- `GET  /api/:resource` — List wallets/transactions/budgets/... (auth required)
+- `GET  /api/:resource`: Paged wallets/transactions/budgets/... (auth required)
 - `POST /api/:resource` — Create item (auth required)
 - `PUT  /api/:resource/:id` — Update item (auth required)
 - `DELETE /api/:resource/:id` — Delete item (auth required)

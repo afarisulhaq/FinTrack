@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import {
   Bell,
   Plus,
@@ -22,9 +22,12 @@ import { confirm } from "~/components/ui/confirm-dialog";
 import { StatCard } from "~/components/ui/stat-card";
 import { Input } from "~/components/ui/input";
 import { DatePicker } from "~/components/ui/date-picker";
+import { Pagination } from "~/components/ui/pagination";
+import { useServerPagination } from "~/lib/use-server-pagination";
+import { ServerListStatus } from "~/components/ui/server-paginated-list";
 import { useFinanceStore } from "~/store/useFinanceStore";
 import { formatCurrency, formatDate, daysUntil } from "~/lib/utils";
-import type { BillStatus } from "~/lib/types";
+import type { Bill, BillStatus } from "~/lib/types";
 
 type StatusFilter = "Semua" | "unpaid" | "paid" | "overdue";
 
@@ -37,7 +40,6 @@ const STATUS_LABELS: Record<BillStatus, string> = {
 export default function BillsPage() {
   const [paymentBillId, setPaymentBillId] = useState<string | null>(null);
   const [paymentWalletId, setPaymentWalletId] = useState("");
-  const bills = useFinanceStore((s) => s.bills);
   const addBill = useFinanceStore((s) => s.addBill);
   const updateBillStatus = useFinanceStore((s) => s.updateBillStatus);
   const deleteBill = useFinanceStore((s) => s.deleteBill);
@@ -55,48 +57,19 @@ export default function BillsPage() {
     recurringPeriod: "monthly" as "monthly" | "yearly",
   });
 
-  const filtered = useMemo(
-    () =>
-      statusFilter === "Semua"
-        ? bills
-        : bills.filter((b) => b.status === statusFilter),
-    [bills, statusFilter],
-  );
-
-  const { unpaidTotal, monthTotal, weekTotal } = useMemo(() => {
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const endOfWeek = new Date(now);
-    endOfWeek.setDate(endOfWeek.getDate() + 7);
-
-    return bills.reduce(
-      (acc, b) => {
-        const due = new Date(b.dueDate);
-        return {
-          unpaidTotal: acc.unpaidTotal + (b.status !== "paid" ? b.amount : 0),
-          monthTotal: acc.monthTotal + (due >= startOfMonth ? b.amount : 0),
-          weekTotal:
-            acc.weekTotal +
-            (b.status !== "paid" && due <= endOfWeek && due >= now
-              ? b.amount
-              : 0),
-        };
-      },
-      { unpaidTotal: 0, monthTotal: 0, weekTotal: 0 },
-    );
-  }, [bills]);
-
-  // Upcoming bills sorted by date
-  const upcoming = useMemo(
-    () =>
-      bills
-        .filter((b) => b.status !== "paid")
-        .sort(
-          (a, b) =>
-            new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime(),
-        )
-        .slice(0, 8),
-    [bills],
+  const pager = useServerPagination<Bill, {
+    unpaidTotal: number;
+    monthTotal: number;
+    weekTotal: number;
+    counts: Record<string, number>;
+  }>("/bills", {
+    status: statusFilter === "Semua" ? undefined : statusFilter,
+  }, { resource: "bills" });
+  const { unpaidTotal, monthTotal, weekTotal } = pager.summary ?? {
+    unpaidTotal: 0, monthTotal: 0, weekTotal: 0,
+  };
+  const upcomingPager = useServerPagination<Bill>(
+    "/bills", { view: "upcoming" }, { resource: "bills" },
   );
 
   function getDueLabel(dueDate: string, status: BillStatus) {
@@ -219,15 +192,16 @@ export default function BillsPage() {
                 {t.label}
                 {t.key !== "Semua" && (
                   <span className="bg-bg-base ml-1.5 rounded-full px-1.5 py-0.5 text-[10px]">
-                    {bills.filter((b) => b.status === t.key).length}
+                    {pager.summary?.counts[t.key] ?? 0}
                   </span>
                 )}
               </button>
             ))}
           </div>
 
+          <ServerListStatus {...pager} />
           <div className="space-y-3">
-            {filtered.map((bill) => {
+            {pager.items.map((bill) => {
               const { text: dueText, color: dueColor } = getDueLabel(
                 bill.dueDate,
                 bill.status,
@@ -330,7 +304,7 @@ export default function BillsPage() {
               );
             })}
 
-            {filtered.length === 0 && (
+            {pager.total === 0 && !pager.loading && !pager.error && (
               <Card className="py-12 text-center">
                 <Bell className="text-text-muted mx-auto mb-3 h-8 w-8" />
                 <p className="text-text-muted text-sm">
@@ -339,6 +313,7 @@ export default function BillsPage() {
               </Card>
             )}
           </div>
+          <Pagination {...pager} label="tagihan" />
         </div>
 
         {/* Upcoming Timeline */}
@@ -353,10 +328,11 @@ export default function BillsPage() {
               </Badge>
             </CardHeader>
             <CardBody>
+              <ServerListStatus {...upcomingPager} />
               <div className="relative">
                 <div className="bg-border absolute top-0 bottom-0 left-4 w-px" />
                 <div className="space-y-4">
-                  {upcoming.map((bill, idx) => {
+                  {upcomingPager.items.map((bill) => {
                     const days = daysUntil(bill.dueDate);
                     const isOverdue = days < 0;
                     const isUrgent = days >= 0 && days <= 3;
@@ -404,7 +380,7 @@ export default function BillsPage() {
                       </div>
                     );
                   })}
-                  {upcoming.length === 0 && (
+                  {upcomingPager.total === 0 && !upcomingPager.loading && !upcomingPager.error && (
                     <p className="text-text-muted flex items-center gap-1.5 pl-8 text-sm">
                       <PartyPopper className="h-4 w-4" />
                       Semua tagihan sudah dibayar
@@ -412,6 +388,7 @@ export default function BillsPage() {
                   )}
                 </div>
               </div>
+              <Pagination {...upcomingPager} label="jadwal tagihan" />
             </CardBody>
           </Card>
         </div>
@@ -558,9 +535,9 @@ export default function BillsPage() {
           }}
         >
           <p className="text-text-secondary text-sm">
-            {bills.find((bill) => bill.id === paymentBillId)?.name} ·{" "}
+            {pager.items.find((bill) => bill.id === paymentBillId)?.name} ·{" "}
             {formatCurrency(
-              bills.find((bill) => bill.id === paymentBillId)?.amount ?? 0,
+              pager.items.find((bill) => bill.id === paymentBillId)?.amount ?? 0,
             )}
             . Saldo dompet akan berkurang sebesar tagihan.
           </p>

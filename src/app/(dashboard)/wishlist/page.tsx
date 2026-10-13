@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import {
   Star,
   Plus,
@@ -21,7 +21,10 @@ import { AmountInput } from "~/components/ui/amount-input";
 import { Input } from "~/components/ui/input";
 import { useFinanceStore } from "~/store/useFinanceStore";
 import { formatCurrency } from "~/lib/utils";
-import type { WishlistPriority } from "~/lib/types";
+import type { WishlistItem, WishlistPriority } from "~/lib/types";
+import { Pagination } from "~/components/ui/pagination";
+import { useServerPagination } from "~/lib/use-server-pagination";
+import { ServerListStatus } from "~/components/ui/server-paginated-list";
 
 type PriorityFilter = "Semua" | WishlistPriority;
 
@@ -63,7 +66,6 @@ const ICONS_LIST = [
 ];
 
 export default function WishlistPage() {
-  const wishlist = useFinanceStore((s) => s.wishlist);
   const addWishlistItem = useFinanceStore((s) => s.addWishlistItem);
   const deleteWishlistItem = useFinanceStore((s) => s.deleteWishlistItem);
   const toggleWishlistPurchased = useFinanceStore(
@@ -85,31 +87,18 @@ export default function WishlistPage() {
     notes: "",
   });
 
-  const activeItems = useMemo(
-    () => wishlist.filter((w) => !w.isPurchased),
-    [wishlist],
-  );
-  const purchasedItems = useMemo(
-    () => wishlist.filter((w) => w.isPurchased),
-    [wishlist],
-  );
-
-  const filteredActive = useMemo(
-    () =>
-      priorityFilter === "Semua"
-        ? activeItems
-        : activeItems.filter((w) => w.priority === priorityFilter),
-    [activeItems, priorityFilter],
-  );
-
-  const { totalItems, totalValue, purchasedCount } = useMemo(
-    () => ({
-      totalItems: activeItems.length,
-      totalValue: activeItems.reduce((s, w) => s + w.price, 0),
-      purchasedCount: purchasedItems.length,
-    }),
-    [activeItems, purchasedItems],
-  );
+  const activePager = useServerPagination<
+    WishlistItem,
+    { totalItems: number; totalValue: number; purchasedCount: number; purchasedValue: number }
+  >("/wishlist", {
+    purchased: false,
+    priority: priorityFilter === "Semua" ? undefined : priorityFilter,
+  }, { resource: "wishlist" });
+  const purchasedPager = useServerPagination<
+    WishlistItem,
+    { totalItems: number; totalValue: number; purchasedCount: number; purchasedValue: number }
+  >("/wishlist", { purchased: true }, { resource: "wishlist", enabled: showPurchased });
+  const { totalItems = 0, totalValue = 0, purchasedCount = 0, purchasedValue = 0 } = activePager.summary ?? {};
 
   function daysToAfford(price: number): string {
     if (dailyIncome <= 0) return "∞";
@@ -233,8 +222,9 @@ export default function WishlistPage() {
       </div>
 
       {/* ── Wishlist Cards ──────────────────────────────────────────── */}
+      <ServerListStatus {...activePager} />
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {filteredActive.map((item) => {
+        {activePager.items.map((item) => {
           const cfg = PRIORITY_CONFIG[item.priority];
           const days = daysToAfford(item.price);
           return (
@@ -316,7 +306,7 @@ export default function WishlistPage() {
           );
         })}
 
-        {filteredActive.length === 0 && (
+        {activePager.initialized && !activePager.loading && !activePager.error && activePager.total === 0 && (
           <div className="col-span-full">
             <Card className="py-12 text-center">
               <Star className="text-text-muted mx-auto mb-3 h-10 w-10" />
@@ -325,9 +315,10 @@ export default function WishlistPage() {
           </div>
         )}
       </div>
+      <Pagination {...activePager} label="item wishlist" />
 
       {/* ── Purchased Section ───────────────────────────────────────── */}
-      {purchasedItems.length > 0 && (
+      {purchasedCount > 0 && (
         <div>
           <button
             onClick={() => setShowPurchased((v) => !v)}
@@ -338,15 +329,17 @@ export default function WishlistPage() {
             ) : (
               <ChevronDown className="h-4 w-4" />
             )}
-            Sudah Dibeli ({purchasedItems.length} item) -{" "}
+            Sudah Dibeli ({purchasedCount} item) -{" "}
             <span className="tabular-nums">
-              {formatCurrency(purchasedItems.reduce((s, w) => s + w.price, 0))}
+              {formatCurrency(purchasedValue)}
             </span>
           </button>
 
           {showPurchased && (
+            <>
+            <ServerListStatus {...purchasedPager} />
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {purchasedItems.map((item) => (
+              {purchasedPager.items.map((item) => (
                 <Card key={item.id} className="group opacity-50">
                   <div className="flex items-center gap-3">
                     <div className="bg-bg-elevated flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl">
@@ -373,6 +366,13 @@ export default function WishlistPage() {
                 </Card>
               ))}
             </div>
+            {purchasedPager.initialized && !purchasedPager.loading && !purchasedPager.error && purchasedPager.total === 0 && (
+              <p className="text-text-muted py-3 text-sm">Belum ada item yang dibeli.</p>
+            )}
+            </>
+          )}
+          {showPurchased && (
+            <Pagination {...purchasedPager} label="item sudah dibeli" />
           )}
         </div>
       )}

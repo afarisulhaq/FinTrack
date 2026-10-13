@@ -22,6 +22,21 @@ Endpoint `/api/stock-screening` membutuhkan autentikasi. Maksimal tiga permintaa
 
 Daftar kandidat belum dipersonalisasi berdasarkan profil risiko dan belum mencakup seluruh saham BEI. Data broker summary tidak disediakan oleh proxy ini.
 
+## Tampilan dan navigasi
+
+Kandidat ditampilkan dalam kartu dua kolom di layar lebar dan satu kolom di
+ponsel. Harga penutupan menjadi fokus; support, resistance, volume relatif,
+dan RSI memakai angka tabular supaya mudah dibandingkan. Label sinyal memakai
+aksen amber untuk membedakan hasil penyaringan, sedangkan risiko tetap
+ditampilkan sebagai teks. Warna dan tipografi mengikuti `DESIGN.md`
+(ENERGY 2 / RHYTHM 2 / MOTION 1).
+
+Pencarian kode/nama dan pilihan menyertakan saham tanpa sinyal diterapkan
+sebelum pagination. Kandidat mulai dengan enam saham per halaman; ukuran
+halaman dapat diubah menjadi 12, 24, atau 48. Daftar saham yang belum dapat
+dianalisis memiliki pagination terpisah. Pembaruan analisis, rincian indikator,
+metode, dan tindakan menambah pantauan tetap tersedia.
+
 ## Validasi
 
 ```sh
@@ -32,6 +47,6 @@ npm run build
 npx tsc -p server/tsconfig.json --noEmit
 ```
 
-Tes API memakai respons Yahoo tiruan; perhitungan memakai seri OHLCV terkontrol. Proxy Cloudflare produksi dan tampilan browser belum diuji langsung. Konfigurasi lokal saat implementasi belum memiliki `YAHOO_PROXY_URL`.
+Tes API memakai respons Yahoo tiruan; perhitungan memakai seri OHLCV terkontrol. Smoke browser untuk perubahan tampilan/pagination memeriksa 20 hasil analisis, perpindahan halaman, ukuran halaman, pencarian, kondisi kosong, penambahan ke watchlist, rincian/metode, serta pemulihan setelah jaringan diputus. Tata letak diperiksa pada desktop dan lebar 360 px dalam tema terang/gelap. Pemeriksaan ini tidak menguji akurasi atau ketersediaan proxy Cloudflare produksi.
 
 Referensi dasar indikator: [OBV](https://www.fidelity.com/learning-center/trading-investing/technical-analysis/technical-indicator-guide/OBV) dan [Accumulation/Distribution](https://www.fidelity.com/learning-center/trading-investing/technical-analysis/technical-indicator-guide/accumulation-distribution). Ambang penyaringan merupakan aturan aplikasi, tidak diklaim sebagai hasil backtest.

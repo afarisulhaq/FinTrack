@@ -2,6 +2,7 @@ import { Elysia, t } from "elysia";
 import { extractToken, verifyToken } from "../auth.js";
 import { db, isDatabaseConfigured } from "../prisma-client.js";
 import { ok, fail } from "../utils.js";
+import { PaginationError, readPage, pageArray } from "../services/pagination.js";
 
 const temporaryLists = new Map<string, string[]>();
 const symbolsSchema = t.Array(
@@ -29,12 +30,14 @@ export const marketWatchlistRoutes = new Elysia({
       return fail("Unauthorized");
     }
   })
-  .onError(({ code, set }) => {
+  .onError(({ code, error, set }) => {
+    if (error instanceof PaginationError) { set.status = error.status; return fail(error.message); }
     if (code === "VALIDATION") return;
     set.status = 503;
     return fail("Watchlist gagal disimpan atau dimuat. Coba lagi.");
   })
-  .get("/", async ({ account }) => {
+  .get("/", async ({ account, query }) => {
+    const input = readPage(query);
     const userId = account!.sub;
     const storage = isDatabaseConfigured() ? "database" : "memory";
     const symbols =
@@ -42,7 +45,7 @@ export const marketWatchlistRoutes = new Elysia({
         ? ((await db.marketWatchlist.findUnique({ where: { userId } }))
             ?.symbols ?? null)
         : (temporaryLists.get(userId) ?? null);
-    return ok({ symbols, storage });
+    return ok(pageArray(symbols ?? [], input, { symbols, storage }));
   })
   .post(
     "/",

@@ -12,7 +12,7 @@
     "build:web": "next build",
     "check": "next lint && tsc --noEmit",
     "start": "next start",
-    "start:server": "node server/dist/index.js",
+    "start:server": "node server/dist/server/index.js",
     "preview": "next build && next start",
     "lint": "next lint",
     "lint:fix": "next lint --fix",

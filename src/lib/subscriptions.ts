@@ -16,5 +16,6 @@ export interface BillingOverview {
   available: boolean;
   plan: { name: string; price: number; durationDays: number } | null;
   subscription: { plan: string; active: boolean; expiresAt: string } | null;
-  invoices: SubscriptionInvoice[];
+  latestInvoiceId: string | null;
+  openInvoice: { id: string; expiresAt: string } | null;
 }

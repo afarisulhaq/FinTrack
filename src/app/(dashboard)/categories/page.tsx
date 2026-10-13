@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import {
   Plus,
   Pencil,
@@ -22,6 +22,9 @@ import { Input } from "~/components/ui/input";
 import { useFinanceStore } from "~/store/useFinanceStore";
 import { cn } from "~/lib/utils";
 import type { Category, CategoryKind, SubCategory } from "~/lib/types";
+import { Pagination } from "~/components/ui/pagination";
+import { ServerListStatus, ServerPaginatedList } from "~/components/ui/server-paginated-list";
+import { useServerPagination } from "~/lib/use-server-pagination";
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
@@ -114,7 +117,6 @@ const EMPTY_SUB_FORM = (categoryId: string): SubCategoryForm => ({
 
 export default function CategoriesPage() {
   const categories = useFinanceStore((s) => s.categories);
-  const subCategories = useFinanceStore((s) => s.subCategories);
   const addCategory = useFinanceStore((s) => s.addCategory);
   const updateCategory = useFinanceStore((s) => s.updateCategory);
   const deleteCategory = useFinanceStore((s) => s.deleteCategory);
@@ -143,32 +145,11 @@ export default function CategoriesPage() {
     | null
   >(null);
 
-  // Group by tab.
-  const tabCategories = useMemo(
-    () =>
-      categories
-        .filter((c) => c.type === tab)
-        .sort(
-          (a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name),
-        ),
-    [categories, tab],
-  );
-
-  // Stats
-  const stats = useMemo(() => {
-    const expense = categories.filter((c) => c.type === "expense");
-    const income = categories.filter((c) => c.type === "income");
-    return {
-      expenseCount: expense.length,
-      incomeCount: income.length,
-      expenseSubs: subCategories.filter((s) =>
-        expense.some((c) => c.id === s.categoryId),
-      ).length,
-      incomeSubs: subCategories.filter((s) =>
-        income.some((c) => c.id === s.categoryId),
-      ).length,
-    };
-  }, [categories, subCategories]);
+  const categoryPager = useServerPagination<
+    Category & { subCategoryCount: number },
+    { expense: number; income: number; transfer: number; expenseSubs: number; incomeSubs: number }
+  >("/categories", { type: tab }, { resource: "categories" });
+  const { expense = 0, income = 0, expenseSubs = 0, incomeSubs = 0 } = categoryPager.summary ?? {};
 
   // ── Modal helpers ─────────────────────────────────────────────────────────
 
@@ -356,7 +337,7 @@ export default function CategoriesPage() {
     await refreshCategories();
   }
 
-  const canSeed = categories.filter((c) => c.type === tab).length === 0;
+  const canSeed = categoryPager.initialized && categoryPager.total === 0;
 
   return (
     <PageWrapper
@@ -375,25 +356,25 @@ export default function CategoriesPage() {
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <StatTile
           label="Kategori Pengeluaran"
-          value={stats.expenseCount}
+          value={expense}
           icon="TrendingDown"
           color="#f97316"
         />
         <StatTile
           label="Sub Pengeluaran"
-          value={stats.expenseSubs}
+          value={expenseSubs}
           icon="Tags"
           color="#3b82f6"
         />
         <StatTile
           label="Kategori Pemasukan"
-          value={stats.incomeCount}
+          value={income}
           icon="TrendingUp"
           color="#22c55e"
         />
         <StatTile
           label="Sub Pemasukan"
-          value={stats.incomeSubs}
+          value={incomeSubs}
           icon="Tag"
           color="#a855f7"
         />
@@ -402,7 +383,7 @@ export default function CategoriesPage() {
       {/* ── Tabs ─────────────────────────────────────────────────────── */}
       <div className="bg-bg-elevated flex w-fit gap-1 rounded-xl p-1">
         {TABS.map((t) => {
-          const count = categories.filter((c) => c.type === t.key).length;
+          const count = categoryPager.summary?.[t.key] ?? 0;
           return (
             <button
               key={t.key}
@@ -425,7 +406,8 @@ export default function CategoriesPage() {
       </div>
 
       {/* ── Empty state with seed button ────────────────────────────── */}
-      {tabCategories.length === 0 && (
+      <ServerListStatus {...categoryPager} />
+      {categoryPager.initialized && !categoryPager.loading && !categoryPager.error && categoryPager.total === 0 && (
         <Card className="py-14 text-center">
           <FolderTree className="text-text-muted mx-auto mb-3 h-12 w-12" />
           <p className="text-text-primary text-sm font-semibold">
@@ -459,10 +441,9 @@ export default function CategoriesPage() {
       )}
 
       {/* ── Master category list ────────────────────────────────────── */}
-      {tabCategories.length > 0 && (
+      {categoryPager.total > 0 && (
         <div className="space-y-2">
-          {tabCategories.map((c) => {
-            const subs = c.subCategories ?? [];
+          {categoryPager.items.map((c) => {
             const isOpen = expanded[c.id] ?? true;
             return (
               <Card key={c.id} padding="sm" className="overflow-hidden">
@@ -500,7 +481,7 @@ export default function CategoriesPage() {
                         </Badge>
                       )}
                       <Badge variant="default" size="sm">
-                        {subs.length} sub
+                        {c.subCategoryCount} sub
                       </Badge>
                     </div>
                     <p className="text-text-muted font-mono text-[11px]">
@@ -543,20 +524,15 @@ export default function CategoriesPage() {
                 {/* Sub-categories */}
                 {isOpen && (
                   <div className="pr-2 pb-2 pl-14">
-                    {subs.length === 0 ? (
+                    {c.subCategoryCount === 0 ? (
                       <p className="text-text-muted py-2 text-[11px] italic">
                         Belum ada sub-kategori. Klik “Sub” untuk menambah.
                       </p>
                     ) : (
+                      <ServerPaginatedList<SubCategory> path="/subCategories" query={{ categoryId: c.id }} resource="subCategories" label="sub-kategori">
+                        {(items) => (
                       <div className="space-y-1.5">
-                        {subs
-                          .slice()
-                          .sort(
-                            (a, b) =>
-                              a.sortOrder - b.sortOrder ||
-                              a.name.localeCompare(b.name),
-                          )
-                          .map((s) => (
+                        {items.map((s) => (
                             <div
                               key={s.id}
                               className="group bg-bg-elevated/40 hover:bg-bg-elevated flex items-center gap-3 rounded-lg px-3 py-2 transition-colors"
@@ -608,6 +584,8 @@ export default function CategoriesPage() {
                             </div>
                           ))}
                       </div>
+                        )}
+                      </ServerPaginatedList>
                     )}
                   </div>
                 )}
@@ -616,6 +594,7 @@ export default function CategoriesPage() {
           })}
         </div>
       )}
+      <Pagination {...categoryPager} label="kategori" />
 
       {/* ── Confirm Delete Dialog ─────────────────────────────────────── */}
       <Modal

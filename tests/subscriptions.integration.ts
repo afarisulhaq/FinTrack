@@ -137,6 +137,30 @@ try {
   const reference = await db.subscriptionInvoice.findUniqueOrThrow({
     where: { id: one.id },
   });
+  await db.subscriptionInvoice.createMany({
+    data: Array.from({ length: 14 }, (_, index) => ({
+      userId: a.id, plan: reference.plan, planName: reference.planName,
+      baseAmount: reference.baseAmount, amount: 40000 + index,
+      durationDays: reference.durationDays, gatewayAccount: reference.gatewayAccount,
+      status: "failed", expiresAt: new Date(Date.now() - 1000),
+      createdAt: new Date(reference.createdAt.getTime() - 7_200_000 - (index + 1) * 1000),
+    })),
+  });
+  const overview = (await request("GET", "/", a.id)).json.data;
+  assert.equal(overview.invoices, undefined);
+  assert.equal(overview.latestInvoiceId, one.id);
+  assert.equal(overview.openInvoice.id, one.id);
+  const invoicePage = (await request("GET", "/invoices?pageSize=12", a.id)).json.data;
+  const invoiceHistory = (await request("GET", "/invoices?pageSize=12&page=2", a.id)).json.data;
+  assert.equal(invoicePage.total, 15);
+  assert.equal(invoicePage.items.length, 12);
+  assert.equal(invoiceHistory.items.length, 3);
+  assert.equal(invoicePage.items[0].qrisCode, null);
+  assert.equal((await request("GET", `/invoices/${one.id}`, a.id)).json.data.qrisCode, one.qrisCode);
+  const historicalId = invoiceHistory.items[0].id;
+  assert.equal((await request("GET", `/invoices/${historicalId}`, a.id)).status, 200);
+  assert.equal((await request("GET", `/invoices/${historicalId}`, b.id)).status, 404);
+  assert.equal((await request("GET", "/invoices?pageSize=49", a.id)).status, 400);
   const time = new Date().toISOString();
   const candidate = {
     transaction_id: "subscription-test-payment",

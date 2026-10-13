@@ -77,11 +77,13 @@ export async function persistBackup(
   token: string,
   onProgress?: (progress: ImportProgress) => void,
 ): Promise<ImportProgress> {
-  const existing = await api.bootstrap<BackupBundle>(token);
   const progress = { added: 0, skipped: 0 };
   for (const key of collectionOrder) {
-    const known = new Set(recordsFor(existing, key).map((item) => item.id));
-    for (const item of recordsFor(bundle, key)) {
+    const incoming = recordsFor(bundle, key);
+    if (!incoming.length) continue;
+    const existing = await api.all<{ id: string }>(`/record-ids/${key}`, token);
+    const known = new Set(existing.map((item) => item.id));
+    for (const item of incoming) {
       if (known.has(item.id)) {
         progress.skipped += 1;
         onProgress?.({ ...progress });
@@ -106,7 +108,7 @@ export async function persistTransactions(
   token: string,
   onProgress?: (progress: ImportProgress) => void,
 ): Promise<ImportProgress> {
-  const existing = await api.get<Transaction[]>("/transactions", token);
+  const existing = await api.all<{ id: string }>("/record-ids/transactions", token);
   const known = new Set(existing.map((item) => item.id));
   const progress = { added: 0, skipped: 0 };
   for (const transaction of transactions) {
