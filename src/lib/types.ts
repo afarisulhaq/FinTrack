@@ -2,6 +2,7 @@
 
 export type WalletType =
   | "bank"
+  | "rdn"
   | "cash"
   | "e-wallet"
   | "investment"
@@ -99,6 +100,8 @@ export interface Budget {
 export type AssetClass = "stock" | "crypto" | "gold" | "mutual-fund" | "bond";
 
 export interface Investment {
+  walletId?: string | null;
+  sellWalletId?: string | null;
   id: string;
   name: string;
   symbol: string;

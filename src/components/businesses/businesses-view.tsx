@@ -5,7 +5,7 @@ import { WalletPicker } from "~/components/ui/wallet-select";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Pencil, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { formatBusinessReturn } from "~/lib/business-summary";
 import { PageWrapper } from "~/components/layout/page-wrapper";
@@ -401,24 +401,27 @@ export function BusinessesView({ businessId }: { businessId?: string }) {
                 <div className="flex flex-wrap gap-2">
                   <Button
                     variant="outline"
-                    className="min-h-11"
+                    className="h-11 w-11 shrink-0 p-0"
+                    aria-label="Edit bisnis"
+                    title="Edit bisnis"
                     disabled={saving}
                     onClick={() => openBusiness(true)}
                   >
-                    Edit bisnis
+                    <Pencil aria-hidden className="h-4 w-4" />
                   </Button>
                   <Button
                     variant="outline"
-                    className="min-h-11"
+                    className="hover:text-danger h-11 w-11 shrink-0 p-0"
+                    aria-label="Hapus bisnis"
                     disabled={saving || !!(entryPager.summary ?? selected.summary).transactionCount}
                     title={
                       (entryPager.summary ?? selected.summary).transactionCount
                         ? "Hapus semua transaksi terlebih dahulu"
-                        : undefined
+                        : "Hapus bisnis"
                     }
                     onClick={() => void removeBusiness()}
                   >
-                    Hapus bisnis
+                    <Trash2 aria-hidden className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
@@ -491,21 +494,23 @@ export function BusinessesView({ businessId }: { businessId?: string }) {
                       <div className="flex gap-2">
                         <Button
                           variant="outline"
-                          className="min-h-11"
+                          className="h-11 w-11 shrink-0 p-0"
+                          title="Edit transaksi"
                           disabled={saving}
                           aria-label={`Edit ${entry.description}`}
                           onClick={() => openEntry(entry)}
                         >
-                          Edit
+                          <Pencil aria-hidden className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="outline"
-                          className="min-h-11"
+                          className="hover:text-danger h-11 w-11 shrink-0 p-0"
+                          title="Hapus transaksi"
                           disabled={saving}
                           aria-label={`Hapus ${entry.description}`}
                           onClick={() => void removeEntry(entry)}
                         >
-                          Hapus
+                          <Trash2 aria-hidden className="h-4 w-4" />
                         </Button>
                       </div>
                     </li>

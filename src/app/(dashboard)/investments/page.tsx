@@ -22,6 +22,7 @@ import { Modal } from "~/components/ui/modal";
 import { StatCard } from "~/components/ui/stat-card";
 import { AmountInput } from "~/components/ui/amount-input";
 import { Input } from "~/components/ui/input";
+import { WalletPicker } from "~/components/ui/wallet-select";
 import { Pagination } from "~/components/ui/pagination";
 import { useServerPagination } from "~/lib/use-server-pagination";
 import { ServerListStatus } from "~/components/ui/server-paginated-list";
@@ -33,6 +34,7 @@ import { api } from "~/lib/api";
 import { formatCurrency } from "~/lib/utils";
 import { invalidateServerLists } from "~/lib/page-records";
 import type { AssetClass, Investment } from "~/lib/types";
+import { flattenWalletTree, walletOptionLabel } from "~/lib/wallets";
 
 type MarketSearchResult = {
   symbol: string;
@@ -87,6 +89,11 @@ export default function InvestmentsPage() {
   const addInvestment = useFinanceStore((s) => s.addInvestment);
   const updateInvestment = useFinanceStore((s) => s.updateInvestment);
   const deleteInvestment = useFinanceStore((s) => s.deleteInvestment);
+  const wallets = useFinanceStore((s) => s.wallets);
+  const walletLabels = useMemo(
+    () => new Map(flattenWalletTree(wallets).map((wallet) => [wallet.id, walletOptionLabel(wallet, wallets)])),
+    [wallets],
+  );
   const token = useAuthStore((s) => s.token);
 
   const [ihsg, setIhsg] = useState<{
@@ -110,6 +117,7 @@ export default function InvestmentsPage() {
     symbol: "",
     assetClass: "stock" as AssetClass,
     broker: "Stockbit",
+    walletId: "",
     quantity: "",
     avgBuyPrice: "",
     currentPrice: "",
@@ -125,6 +133,7 @@ export default function InvestmentsPage() {
   const [sellPrice, setSellPrice] = useState("");
   const [sellFee, setSellFee] = useState("");
   const [sellQuantity, setSellQuantity] = useState("");
+  const [sellWalletId, setSellWalletId] = useState("");
 
   const investmentPager = useServerPagination<
     Investment,
@@ -178,6 +187,7 @@ export default function InvestmentsPage() {
       symbol: "",
       assetClass: "stock",
       broker: "Stockbit",
+      walletId: "",
       quantity: "",
       avgBuyPrice: "",
       currentPrice: "",
@@ -372,6 +382,7 @@ export default function InvestmentsPage() {
       symbol: inv.symbol,
       assetClass: inv.assetClass,
       broker: inv.broker,
+      walletId: inv.walletId ?? "",
       quantity: String(
         inv.assetClass === "stock" ? inv.quantity / 100 : inv.quantity,
       ),
@@ -400,6 +411,7 @@ export default function InvestmentsPage() {
       symbol,
       assetClass: form.assetClass,
       broker: form.broker,
+      walletId: form.walletId || null,
       quantity,
       soldQuantity: 0,
       avgBuyPrice: Number(form.avgBuyPrice),
@@ -412,7 +424,10 @@ export default function InvestmentsPage() {
       sellFee: null,
     };
 
-    if (editing) updateInvestment(editing.id, payload);
+    if (editing) {
+      const { sellPrice, soldAt, sellFee, soldQuantity, ...changes } = payload;
+      updateInvestment(editing.id, changes);
+    }
     else addInvestment(payload);
 
     resetForm();
@@ -433,6 +448,7 @@ export default function InvestmentsPage() {
     setSellPrice(String(inv.currentPrice || inv.avgBuyPrice));
     setSellFee(String(inv.sellFee ?? ""));
     setSellQuantity(String(inv.quantity));
+    setSellWalletId(inv.walletId ?? "");
   };
 
   const confirmSell = () => {
@@ -443,6 +459,7 @@ export default function InvestmentsPage() {
     if (qty > inv.quantity) return; // server will also reject, but keep UI in sync
     updateInvestment(inv.id, {
       sellPrice: Number(sellPrice),
+      sellWalletId: sellWalletId || null,
       sellFee: Number(sellFee) || 0,
       soldAt: new Date().toISOString(),
       // Quantity here is the number of lots to sell. The server
@@ -725,6 +742,11 @@ export default function InvestmentsPage() {
                             <p className="text-text-muted text-[10px]">
                               {displaySymbol(inv.symbol)}
                             </p>
+                            {inv.walletId && (
+                              <p className="text-text-secondary text-[10px]">
+                                {walletLabels.get(inv.walletId) ?? "Dompet tidak tersedia"}
+                              </p>
+                            )}
                           </div>
                         </div>
                       </td>
@@ -973,6 +995,23 @@ export default function InvestmentsPage() {
               </select>
             </div>
           </div>
+          <div className="space-y-1.5">
+            <label htmlFor="investment-wallet" className="text-text-secondary text-sm font-medium">
+              Dompet sumber dana
+            </label>
+            <WalletPicker
+              id="investment-wallet"
+              value={form.walletId}
+              onChange={(value) => field("walletId", value)}
+              currency="IDR"
+              emptyLabel="Tanpa dompet"
+            />
+            <p className="text-text-secondary text-xs">
+              {editing
+                ? "Mengubah jumlah, harga beli, fee, atau dompet akan menyesuaikan saldo dana beli."
+                : "Pilih RDN atau kantong Ajaib / Stockbit untuk memotong nilai beli dan fee. Tanpa dompet hanya mencatat investasi."}
+            </p>
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <Input
               label={
@@ -1151,9 +1190,22 @@ export default function InvestmentsPage() {
             </div>
 
             <div className="space-y-1.5">
+              <label htmlFor="investment-sell-wallet" className="text-text-secondary text-sm font-medium">
+                Dompet penerima hasil jual
+              </label>
+              <WalletPicker
+                id="investment-sell-wallet"
+                value={sellWalletId}
+                onChange={setSellWalletId}
+                currency="IDR"
+                emptyLabel="Tanpa dompet"
+              />
+              <p className="text-text-secondary text-xs">Hasil jual setelah fee masuk ke saldo dompet ini. Tanpa dompet tidak mengubah saldo.</p>
+            </div>
+            <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="text-text-primary text-xs font-medium">
-                  Jumlah Lot
+                  {sellModal.investment.assetClass === "stock" ? "Jumlah Lembar" : "Jumlah Unit"}
                 </label>
                 {sellModal.investment.quantity > 0 && (
                   <button
@@ -1181,7 +1233,7 @@ export default function InvestmentsPage() {
               </div>
               {Number(sellQuantity) > sellModal.investment.quantity && (
                 <p className="text-danger text-[11px]">
-                  Maksimal {sellModal.investment.quantity} lot (jumlah dimiliki)
+                  Maksimal {sellModal.investment.quantity} {sellModal.investment.assetClass === "stock" ? "lembar" : "unit"} (jumlah dimiliki)
                 </p>
               )}
             </div>
@@ -1224,7 +1276,7 @@ export default function InvestmentsPage() {
                 <div className="text-text-muted mb-1 flex justify-between">
                   <span>
                     Nilai Jual ({Number(sellQuantity).toLocaleString("id-ID")}{" "}
-                    lot)
+                    {sellModal.investment.assetClass === "stock" ? "lembar" : "unit"})
                   </span>
                   <span>
                     {formatCurrency(Number(sellPrice) * Number(sellQuantity))}

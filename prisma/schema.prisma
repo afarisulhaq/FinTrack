@@ -229,6 +229,8 @@ model Budget {
 }
 
 model Investment {
+    walletId     String?
+    walletEffects Json @default("[]")
     id           String   @id @default(cuid())
     name         String
     symbol       String

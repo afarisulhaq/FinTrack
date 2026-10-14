@@ -29,6 +29,7 @@ import { walletGroupBalance } from "~/lib/wallets";
 
 const WALLET_TYPE_LABELS: Record<WalletType, string> = {
   bank: "Bank",
+  rdn: "RDN",
   cash: "Tunai",
   "e-wallet": "E-Wallet",
   investment: "Investasi",

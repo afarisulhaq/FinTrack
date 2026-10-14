@@ -108,7 +108,7 @@ const mutationResources: Record<string, readonly string[]> = {
   wallets: ["/wallets", "/analytics"],
   transactions: ["/transactions", "/wallets", "/budgets", "/analytics"],
   budgets: ["/budgets", "/transactions"],
-  investments: ["/investments", "/analytics"],
+  investments: ["/investments", "/wallets", "/analytics"],
   bills: ["/bills", "/wallets", "/analytics"],
   savingGoals: ["/savingGoals", "/wallets", "/analytics"],
   debts: ["/debts", "/debtContacts", "/wallets", "/analytics"],
@@ -832,12 +832,15 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
 
   addInvestment: (investment) => {
     const item = { ...investment, id: genId() };
-    const existingKey = `${item.broker}|${item.symbol}|${item.assetClass}`;
+    const existingKey = `${item.broker}|${item.symbol}|${item.assetClass}|${item.walletId ?? ""}`;
+    const previous = get().investments.find((inv) =>
+      inv.quantity > 0 && `${inv.broker}|${inv.symbol}|${inv.assetClass}|${inv.walletId ?? ""}` === existingKey,
+    );
 
     set((state) => {
       const existing = state.investments.find(
         (inv) =>
-          `${inv.broker}|${inv.symbol}|${inv.assetClass}` === existingKey,
+          inv.quantity > 0 && `${inv.broker}|${inv.symbol}|${inv.assetClass}|${inv.walletId ?? ""}` === existingKey,
       );
       if (!existing) return { investments: [...state.investments, item] };
 
@@ -858,6 +861,7 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
                 quantity: nextQty,
                 avgBuyPrice: nextAvgBuyPrice,
                 currentPrice: item.currentPrice || inv.currentPrice,
+                buyFee: (inv.buyFee ?? 0) + (item.buyFee ?? 0),
                 color: item.color,
               }
             : inv,
@@ -876,19 +880,17 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
             : [
                 ...state.investments.filter(
                   (inv) =>
-                    `${inv.broker}|${inv.symbol}|${inv.assetClass}` !==
-                    `${saved.broker}|${saved.symbol}|${saved.assetClass}`,
+                    inv.id !== item.id,
                 ),
                 saved,
               ],
         }));
       },
       onError: () => {
-        // Hard to undo a merge cleanly; remove the optimistic add. The
-        // update of an existing holding would need a fuller snapshot,
-        // but `addInvestment` for an existing symbol is rare.
         set((state) => ({
-          investments: state.investments.filter((i) => i.id !== item.id),
+          investments: state.investments.filter((i) => i.id !== item.id).map((inv) =>
+            previous && inv.id === previous.id ? previous : inv,
+          ),
         }));
       },
       errorTitle: "Gagal menambah investasi",
