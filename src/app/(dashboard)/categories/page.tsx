@@ -13,6 +13,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { DynamicIcon } from "~/components/ui/dynamic-icon";
+import { IconPicker as SharedIconPicker } from "~/components/ui/icon-picker";
 import { PageWrapper } from "~/components/layout/page-wrapper";
 import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
@@ -814,31 +815,12 @@ function IconPicker({
   onChange: (v: string) => void;
 }) {
   return (
-    <div className="flex flex-col gap-1.5">
-      <label className="text-text-secondary text-sm font-medium">{label}</label>
-      <div className="flex flex-wrap gap-1.5">
-        {CATEGORY_ICONS.map((iconName) => (
-          <button
-            key={iconName}
-            type="button"
-            onClick={() => onChange(iconName)}
-            className={cn(
-              "flex h-9 w-9 items-center justify-center rounded-lg text-lg transition-colors",
-              value === iconName
-                ? "bg-primary/20 ring-primary text-primary ring-2"
-                : "bg-bg-elevated hover:bg-bg-elevated/80 text-text-secondary",
-            )}
-          >
-            <DynamicIcon name={iconName} className="h-5 w-5" />
-          </button>
-        ))}
-      </div>
-      <Input
-        placeholder="Atau ketik nama Lucide icon..."
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-      />
-    </div>
+    <SharedIconPicker
+      label={label}
+      value={value}
+      onChange={onChange}
+      quickIcons={CATEGORY_ICONS}
+    />
   );
 }
 

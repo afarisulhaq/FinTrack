@@ -20,6 +20,7 @@ import { useFinanceStore } from "~/store/useFinanceStore";
 import { DynamicIcon } from "~/components/ui/dynamic-icon";
 import { formatCurrency, percentage } from "~/lib/utils";
 import type { Wallet, WalletType } from "~/lib/types";
+import { IconPicker } from "~/components/ui/icon-picker";
 import { Pagination } from "~/components/ui/pagination";
 import { ServerListStatus, ServerPaginatedList } from "~/components/ui/server-paginated-list";
 import { useServerPagination } from "~/lib/use-server-pagination";
@@ -468,33 +469,11 @@ export default function WalletsPage() {
             required
           />
 
-          {/* Icon picker */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-text-secondary text-sm font-medium">
-              Ikon
-            </label>
-            <div className="mb-1 flex flex-wrap gap-1.5">
-              {WALLET_ICONS.map((icon) => (
-                <button
-                  key={icon}
-                  type="button"
-                  onClick={() => fld("icon", icon)}
-                  className={`flex h-9 w-9 items-center justify-center rounded-lg text-lg transition-all ${
-                    form.icon === icon
-                      ? "bg-primary/20 ring-primary ring-2"
-                      : "bg-bg-elevated hover:bg-bg-elevated/80"
-                  }`}
-                >
-                  <DynamicIcon name={icon} className="h-5 w-5" />
-                </button>
-              ))}
-            </div>
-            <Input
-              placeholder="Atau ketik nama ikon Lucide..."
-              value={form.icon}
-              onChange={(e) => fld("icon", e.target.value)}
-            />
-          </div>
+          <IconPicker
+            value={form.icon}
+            onChange={(icon) => fld("icon", icon)}
+            quickIcons={WALLET_ICONS}
+          />
 
           <div className="grid grid-cols-2 gap-4">
             {/* Type */}

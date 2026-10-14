@@ -1,5 +1,11 @@
 import { toggleSplitWalletPayment } from "../services/split-wallet-payments.js";
 import {
+  applyCategoryDefaults,
+  ensureCategoryDefaults,
+  ensureMemoryCategoryDefaults,
+} from "../services/default-categories.js";
+import type { Category, SubCategory } from "../../src/lib/types.js";
+import {
   createInvestment,
   updateInvestment,
   deleteInvestment,
@@ -1761,6 +1767,7 @@ async function getExportFromDb(
 }
 
 async function getLookupFromDb(userId: string | null, accountId: string) {
+  await ensureCategoryDefaults(prisma, accountId);
   const where = userId ? { userId } : {};
   const [wallets, categories, subCategories, profile, setting, notifications] = await Promise.all([
     prisma.wallet.findMany({
@@ -1768,8 +1775,8 @@ async function getLookupFromDb(userId: string | null, accountId: string) {
       select: { id: true, name: true, type: true, balance: true, currency: true, color: true, icon: true, parentId: true },
       orderBy: [{ name: "asc" }, { id: "asc" }],
     }),
-    prisma.category.findMany({ where, orderBy: [{ sortOrder: "asc" }, { id: "asc" }] }),
-    prisma.subCategory.findMany({ where, orderBy: [{ sortOrder: "asc" }, { id: "asc" }] }),
+    prisma.category.findMany({ where: { userId: accountId }, orderBy: [{ sortOrder: "asc" }, { id: "asc" }] }),
+    prisma.subCategory.findMany({ where: { userId: accountId }, orderBy: [{ sortOrder: "asc" }, { id: "asc" }] }),
     prisma.user.findUnique({ where: { id: accountId } }),
     prisma.appSetting.findFirst(),
     prisma.notificationSetting.findUnique({ where: { userId: accountId } }),
@@ -1785,6 +1792,21 @@ async function getLookupFromDb(userId: string | null, accountId: string) {
     ...(profile ? { userProfile: serializeUserProfile(profile) } : {}),
     ...(notifications ? { notificationSettings: serializeNotificationSetting(notifications) } : {}),
     appConfig: setting ? serializeAppSetting(setting) : appConfig,
+  };
+}
+
+function getMemoryLookup(accountId: string) {
+  ensureMemoryCategoryDefaults(accountId, db.categories as Category[], db.subCategories as SubCategory[]);
+  const subCategories = (db.subCategories as SubCategory[]).filter(
+    (row) => "userId" in row && row.userId === accountId,
+  );
+  return {
+    wallets: db.wallets,
+    categories: db.categories
+      .filter((row) => "userId" in row && row.userId === accountId)
+      .map((row) => ({ ...row, subCategories: subCategories.filter((sub) => sub.categoryId === row.id) })),
+    subCategories,
+    appConfig,
   };
 }
 
@@ -1860,12 +1882,12 @@ export const financeRoutes = new Elysia({ prefix: "/api" })
         "Database sementara tidak tersedia. Coba sinkronkan kembali.",
       );
     }
-    return ok({ wallets: db.wallets, categories: db.categories, subCategories: db.subCategories, appConfig });
+    return ok(getMemoryLookup(strictUserIdFromRequest(request)!));
   })
   .get("/lookups", async ({ request, set }) => {
     if (await canUseDatabase()) return ok(await getLookupFromDb(currentUserIdFromRequest(request), strictUserIdFromRequest(request)!));
     if (isDatabaseConfigured()) { set.status = 503; return fail("Database sementara tidak tersedia"); }
-    return ok({ wallets: db.wallets, categories: db.categories, subCategories: db.subCategories });
+    return ok(getMemoryLookup(strictUserIdFromRequest(request)!));
   })
   .get("/export", async ({ request, set }) => {
     if (await canUseDatabase()) return ok(await getExportFromDb(currentUserIdFromRequest(request), strictUserIdFromRequest(request)));
@@ -2270,15 +2292,13 @@ export const financeRoutes = new Elysia({ prefix: "/api" })
           return fail("Email sudah terdaftar");
         }
         const hashed = await bcrypt.hash(password, 10);
-        const created = await prisma.user.create({
-          data: {
-            name: name.trim(),
-            email: normalizedEmail,
-            password: hashed,
-            role: role ?? "owner",
-            status: status ?? "active",
-          },
-        });
+        const created = await prisma.$transaction(async (client) => {
+          const created = await client.user.create({
+            data: { name: name.trim(), email: normalizedEmail, password: hashed, role: role ?? "owner", status: status ?? "active" },
+          });
+          await applyCategoryDefaults(client, created.id);
+          return created;
+        }, { timeout: 30000 });
         return ok(publicDbUser(created));
       }
 
@@ -2296,6 +2316,7 @@ export const financeRoutes = new Elysia({ prefix: "/api" })
         createdAt: new Date().toISOString(),
       };
       users.push(created);
+      ensureMemoryCategoryDefaults(created.id, db.categories as Category[], db.subCategories as SubCategory[]);
       return ok(publicUser(created));
     },
     {

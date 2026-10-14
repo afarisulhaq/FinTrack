@@ -62,6 +62,9 @@ COPY --from=build /app/server/dist ./server/dist
 # is only for the backend — they don't conflict.
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/prisma ./prisma
+COPY --from=build /app/server/services/default-categories.ts ./server/services/default-categories.ts
+COPY --from=build /app/src/lib/default-categories.ts ./src/lib/default-categories.ts
+COPY --from=build /app/scripts/load-env.mjs ./scripts/load-env.mjs
 COPY --from=build /app/package.json ./package.json
 
 # Entrypoint script that runs both processes

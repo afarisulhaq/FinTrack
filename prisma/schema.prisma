@@ -33,6 +33,7 @@ model User {
     timezone         String     @default("Asia/Jakarta")
     monthlyIncome    Decimal?
     disposableIncome Decimal?
+    categoryDefaultsVersion Int @default(0)
     createdAt        DateTime   @default(now())
     updatedAt        DateTime   @updatedAt
     marketWatchlist  MarketWatchlist?

@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { PageWrapper } from "~/components/layout/page-wrapper";
 import { DynamicIcon } from "~/components/ui/dynamic-icon";
+import { IconPicker } from "~/components/ui/icon-picker";
 import { Button } from "~/components/ui/button";
 import { Card, CardHeader, CardBody } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
@@ -433,23 +434,11 @@ export default function WishlistPage() {
               </select>
             </div>
           </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-text-secondary text-sm font-medium">
-              Ikon
-            </label>
-            <div className="flex flex-wrap gap-1.5">
-              {ICONS_LIST.map((icon) => (
-                <button
-                  key={icon}
-                  type="button"
-                  onClick={() => fld("icon", icon)}
-                  className={`flex h-9 w-9 items-center justify-center rounded-lg text-lg transition-all ${form.icon === icon ? "bg-primary/20 ring-primary ring-2" : "bg-bg-elevated"}`}
-                >
-                  <DynamicIcon name={icon} className="h-5 w-5" />
-                </button>
-              ))}
-            </div>
-          </div>
+          <IconPicker
+            value={form.icon}
+            onChange={(icon) => fld("icon", icon)}
+            quickIcons={ICONS_LIST}
+          />
           <Input
             label="URL Produk (opsional)"
             placeholder="https://..."

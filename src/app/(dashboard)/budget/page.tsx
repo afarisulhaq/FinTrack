@@ -7,6 +7,7 @@ import { flattenWalletTree } from "~/lib/wallets";
 import { useState, useMemo } from "react";
 import { Plus, Pencil, Trash2, PiggyBank, AlertTriangle } from "lucide-react";
 import { DynamicIcon } from "~/components/ui/dynamic-icon";
+import { IconPicker } from "~/components/ui/icon-picker";
 import { PageWrapper } from "~/components/layout/page-wrapper";
 import { Button } from "~/components/ui/button";
 import { Card, CardHeader, CardBody } from "~/components/ui/card";
@@ -778,33 +779,12 @@ export default function BudgetPage() {
             </div>
           )}
 
-          {/* Emoji picker */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-text-secondary text-sm font-medium">
-              Ikon Kategori
-            </label>
-            <div className="mb-1 flex flex-wrap gap-1.5">
-              {QUICK_ICONS.map((icon) => (
-                <button
-                  key={icon}
-                  type="button"
-                  onClick={() => fld("categoryIcon", icon)}
-                  className={`flex h-9 w-9 items-center justify-center rounded-lg text-lg transition-all ${
-                    form.categoryIcon === icon
-                      ? "bg-primary/20 ring-primary ring-2"
-                      : "bg-bg-elevated hover:bg-bg-elevated/80"
-                  }`}
-                >
-                  <DynamicIcon name={icon} className="h-5 w-5" />
-                </button>
-              ))}
-            </div>
-            <Input
-              placeholder="Atau ketik nama ikon Lucide..."
-              value={form.categoryIcon}
-              onChange={(e) => fld("categoryIcon", e.target.value)}
-            />
-          </div>
+          <IconPicker
+            label="Ikon Kategori"
+            value={form.categoryIcon}
+            onChange={(icon) => fld("categoryIcon", icon)}
+            quickIcons={QUICK_ICONS}
+          />
 
           <div className="grid grid-cols-2 gap-4">
             {/* Period */}

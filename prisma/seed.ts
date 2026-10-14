@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import { PrismaClient } from "@prisma/client";
+import { ensureCategoryDefaults } from "../server/services/default-categories.js";
 
 const prisma = new PrismaClient();
 
@@ -96,140 +97,13 @@ async function main() {
     );
   }
 
-  // If there's no user to attach sample data to (e.g. production
-  // without env-var admin), bail before we try to seed categories /
-  // wallets / etc. under a non-existent userId.
+  const accounts = await prisma.user.findMany({ select: { id: true } });
+  for (const account of accounts) await ensureCategoryDefaults(prisma, account.id);
   if (!primaryUser) {
     console.log("No primary user — skipping sample data seed.");
     return;
   }
   const userId = primaryUser.id;
-
-  // ── Master + sub categories ───────────────────────────────────────
-  // Seeded with `isSystem: true` so they survive a "reset data" sweep.
-  // The Category↔SubCategory link uses the `id` we set so re-running
-  // the seed (idempotent) just no-ops the sub-categories.
-  await prisma.category.upsert({
-    where: { id: "cat-inc-gaji" },
-    update: {},
-    create: {
-      id: "cat-inc-gaji",
-      type: "income",
-      name: "Gaji",
-      icon: "Briefcase",
-      color: "#22c55e",
-      sortOrder: 0,
-      isSystem: true,
-      userId,
-    },
-  });
-  await prisma.subCategory.upsert({
-    where: { id: "sub-inc-gaji-pokok" },
-    update: {},
-    create: {
-      id: "sub-inc-gaji-pokok",
-      name: "Gaji Pokok",
-      icon: "Banknote",
-      color: "#22c55e",
-      sortOrder: 0,
-      isSystem: true,
-      userId,
-      categoryId: "cat-inc-gaji",
-    },
-  });
-  await prisma.subCategory.upsert({
-    where: { id: "sub-inc-gaji-bonus" },
-    update: {},
-    create: {
-      id: "sub-inc-gaji-bonus",
-      name: "Bonus",
-      icon: "Gift",
-      color: "#16a34a",
-      sortOrder: 1,
-      isSystem: true,
-      userId,
-      categoryId: "cat-inc-gaji",
-    },
-  });
-  await prisma.subCategory.upsert({
-    where: { id: "sub-inc-gaji-tunjangan" },
-    update: {},
-    create: {
-      id: "sub-inc-gaji-tunjangan",
-      name: "Tunjangan",
-      icon: "Trophy",
-      color: "#15803d",
-      sortOrder: 2,
-      isSystem: true,
-      userId,
-      categoryId: "cat-inc-gaji",
-    },
-  });
-  const incomeSeed = [
-    {
-      id: "cat-inc-freelance",
-      name: "Freelance",
-      icon: "Laptop",
-      color: "#06b6d4",
-    },
-    {
-      id: "cat-inc-investasi",
-      name: "Investasi",
-      icon: "TrendingUp",
-      color: "#a855f7",
-    },
-    { id: "cat-inc-hadiah", name: "Hadiah", icon: "Gift", color: "#f59e0b" },
-  ];
-  for (const [i, c] of incomeSeed.entries()) {
-    await prisma.category.upsert({
-      where: { id: c.id },
-      update: {},
-      create: {
-        id: c.id,
-        type: "income",
-        name: c.name,
-        icon: c.icon,
-        color: c.color,
-        sortOrder: i + 1,
-        isSystem: true,
-        userId,
-      },
-    });
-  }
-  const expenseSeed = [
-    { id: "cat-exp-makan", name: "Makan", icon: "Utensils", color: "#f97316" },
-    {
-      id: "cat-exp-transport",
-      name: "Transport",
-      icon: "Car",
-      color: "#3b82f6",
-    },
-    { id: "cat-exp-belanja", name: "Belanja", icon: "🛍️", color: "#a855f7" },
-    { id: "cat-exp-hiburan", name: "Hiburan", icon: "Film", color: "#ec4899" },
-    {
-      id: "cat-exp-kesehatan",
-      name: "Kesehatan",
-      icon: "HeartPulse",
-      color: "#22c55e",
-    },
-    { id: "cat-exp-tagihan", name: "Tagihan", icon: "Lightbulb", color: "#FFD147" },
-  ];
-  for (const [i, c] of expenseSeed.entries()) {
-    await prisma.category.upsert({
-      where: { id: c.id },
-      update: {},
-      create: {
-        id: c.id,
-        type: "expense",
-        name: c.name,
-        icon: c.icon,
-        color: c.color,
-        sortOrder: i,
-        isSystem: true,
-        userId,
-      },
-    });
-  }
 
   await prisma.wallet.upsert({
     where: { id: "w-bca" },

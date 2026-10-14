@@ -38,6 +38,8 @@ process.env.DATABASE_URL = "postgresql://mock/test";
 (db as any).$queryRaw = async () => [];
 let filter: any;
 for (const model of ["category", "subCategory"]) {
+  (db as any)[model].count = async () => 0;
+  (db as any)[model].groupBy = async () => [];
   (db as any)[model].findMany = async ({ where }: any) => {
     filter = where;
     return [];
@@ -59,7 +61,10 @@ for (const resource of ["categories", "subCategories"]) {
     assert.equal(response.status, 200);
     assert.deepEqual(
       filter,
-      role === "admin" ? undefined : { userId: "owner" },
+      {
+        ...(role === "admin" ? {} : { userId: "owner" }),
+        ...(resource === "subCategories" ? { category: role === "admin" ? {} : { userId: "owner" } } : {}),
+      },
     );
   }
 }
@@ -69,6 +74,7 @@ Object.defineProperty(globalThis, "window", {
       getItem: () => JSON.stringify({ state: { token: "test" } }),
     },
     location: { origin: "http://localhost" },
+    setTimeout: () => 0,
   },
   configurable: true,
 });

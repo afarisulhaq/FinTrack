@@ -19,6 +19,7 @@ interface ModalProps {
   description?: string;
   children: ReactNode;
   size?: keyof typeof sizeMap;
+  zIndex?: number;
 }
 
 function Modal({
@@ -28,6 +29,7 @@ function Modal({
   description,
   children,
   size = "md",
+  zIndex = 100,
 }: ModalProps) {
   return (
     <Dialog.Root open={open} onOpenChange={(value) => !value && onClose()}>
@@ -38,7 +40,8 @@ function Modal({
               <Dialog.Overlay asChild>
                 <motion.div
                   key="modal-overlay"
-                  className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-md"
+                  className="fixed inset-0 bg-black/70 backdrop-blur-md"
+                  style={{ zIndex }}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
@@ -49,7 +52,8 @@ function Modal({
               <Dialog.Content asChild onEscapeKeyDown={onClose}>
                 <motion.div
                   key="modal-content"
-                  className="fixed inset-0 z-[101] flex items-center justify-center p-4 sm:p-6 pointer-events-none focus:outline-none"
+                  className="fixed inset-0 flex items-center justify-center p-4 sm:p-6 pointer-events-none focus:outline-none"
+                  style={{ zIndex: zIndex + 1 }}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}

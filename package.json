@@ -23,6 +23,7 @@
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
+    "db:seed-categories": "tsx --import ./scripts/load-env.mjs prisma/seed-default-categories.ts",
     "db:studio": "prisma studio",
     "db:clean-sample": "tsx prisma/clean-sample-data.ts",
     "db:fix-investments": "tsx prisma/fix-investment-positions.ts",
