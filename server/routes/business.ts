@@ -161,7 +161,16 @@ export const businessRoutes = new Elysia({ prefix: "/api/businesses" })
       where: { id: params.businessId, userId: authUser(request).sub }, select: { id: true },
     });
     if (!business) { set.status = 404; return fail("Bisnis tidak ditemukan"); }
-    const where = { businessId: business.id };
+    if (query.type && query.type !== "income" && query.type !== "expense") {
+      set.status = 400;
+      return fail("Jenis transaksi tidak valid");
+    }
+    const search = (query.search ?? "").trim();
+    const where = {
+      businessId: business.id,
+      ...(query.type ? { type: query.type } : {}),
+      ...(search ? { description: { contains: search, mode: "insensitive" as const } } : {}),
+    };
     const page = await databasePage(readPage(query),
       () => db.businessTransaction.count({ where }),
       (skip, take) => db.businessTransaction.findMany({
