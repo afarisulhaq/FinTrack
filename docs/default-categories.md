@@ -2,7 +2,7 @@
 
 Daftar pengguna disimpan di `src/lib/default-categories.ts`: 14 kategori pengeluaran, 5 kategori pemasukan, dan 107 subkategori. Nama, ikon, warna, slug, serta warna latar pada template mengikuti daftar yang diberikan. Model kategori saat ini menyimpan nama, ikon, dan warna; slug serta warna latar tetap tersimpan pada template.
 
-Registrasi dan pembuatan akun oleh admin mengisi kategori dalam transaksi database yang sama dengan pembuatan akun. Akun lama diisi saat menjalankan seed atau saat pertama kali memuat bootstrap/lookups. Semua peran mendapat salinan dengan `userId` masing-masing. Lookup form memakai kategori akun yang sedang login, termasuk untuk admin, sehingga tidak menampilkan salinan default milik seluruh akun sekaligus.
+Registrasi dan pembuatan akun oleh admin mengisi kategori dalam transaksi database yang sama dengan pembuatan akun. Akun lama diisi saat menjalankan seed atau saat pertama kali memuat bootstrap/lookups. Semua peran mendapat salinan dengan `userId` masing-masing. Lookup form, daftar kategori, daftar subkategori, dan total pada pagination memakai akun yang sedang login, termasuk untuk admin, sehingga tidak menampilkan salinan default milik seluruh akun sekaligus.
 
 Kategori dengan jenis dan nama yang sama dipakai kembali tanpa mengganti ID, ikon, warna, atau urutan yang sudah disunting. Subkategori yang cocok juga tidak ditimpa. Kategori kustom, transaksi, dan relasi yang sudah ada dipertahankan. Kategori lama dengan nama berbeda tetap tersedia bersama default baru.
 
@@ -21,3 +21,5 @@ Perintah tersebut hanya mengisi kategori default. Deployment Docker dengan sinkr
 ## Verifikasi
 
 `node --import tsx tests/default-categories.regression.ts` memakai Prisma tiruan untuk memverifikasi jumlah dan ikon dari daftar, seluruh peran akun, pengisian berulang/concurrent, data kustom, default yang dihapus, rollback dan retry, registrasi, akun yang dibuat admin, backfill bootstrap akun lama, lookup milik akun sendiri, serta mode tanpa database.
+
+Kasus beberapa akun dengan default identik juga diuji melalui endpoint pagination: admin tetap menerima 19 kategori unik berdasarkan jenis dan nama, total pengeluaran 14, total pemasukan 5, serta 11 subkategori untuk Makanan & Minum, tanpa menjumlahkan salinan akun lain. Database aktif tidak dapat dijangkau dari sesi implementasi ini, sehingga pemeriksaan duplikasi fisik pada database aktif belum terverifikasi.

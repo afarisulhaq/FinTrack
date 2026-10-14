@@ -3,7 +3,7 @@ import { Elysia } from "elysia";
 import * as lucide from "lucide-react";
 import { db } from "../server/prisma-client";
 import { authRoutes } from "../server/routes/auth";
-import { financeRoutes } from "../server/routes/finance";
+import { financeRoutes, resourceRoutes } from "../server/routes/finance";
 import { signToken } from "../server/auth";
 import {
   ensureCategoryDefaults,
@@ -20,6 +20,22 @@ let failChildren = false;
 let queue = Promise.resolve();
 let locks = 0;
 let sequence = 0;
+const filterRows = (rows: any[], where: any) =>
+  rows.filter(
+    (row) =>
+      (!where.userId || row.userId === where.userId) &&
+      (!where.type || row.type === where.type) &&
+      (!where.categoryId ||
+        (typeof where.categoryId === "string"
+          ? row.categoryId === where.categoryId
+          : where.categoryId.in.includes(row.categoryId))),
+  );
+function groups(rows: any[], key: string) {
+  return [...new Set(rows.map((row) => row[key]))].map((value) => ({
+    [key]: value,
+    _count: rows.filter((row) => row[key] === value).length,
+  }));
+}
 const client = {
   $queryRawUnsafe: async (query: string) => {
     assert.match(query, /FOR UPDATE/);
@@ -73,8 +89,11 @@ const client = {
       }
       return category;
     },
-    findMany: async ({ where }: any) =>
-      categories.filter((row) => !where.userId || row.userId === where.userId),
+    findMany: async ({ where, skip = 0, take = categories.length }: any) =>
+      filterRows(categories, where).slice(skip, skip + take),
+    count: async ({ where }: any) => filterRows(categories, where).length,
+    groupBy: async ({ where, by }: any) =>
+      groups(filterRows(categories, where), by[0]),
   },
   subCategory: {
     createMany: async ({ data, skipDuplicates }: any) => {
@@ -99,8 +118,11 @@ const client = {
       }
       return { count: data.length };
     },
-    findMany: async ({ where }: any) =>
-      subs.filter((row) => !where.userId || row.userId === where.userId),
+    findMany: async ({ where, skip = 0, take = subs.length }: any) =>
+      filterRows(subs, where).slice(skip, skip + take),
+    count: async ({ where }: any) => filterRows(subs, where).length,
+    groupBy: async ({ where, by }: any) =>
+      groups(filterRows(subs, where), by[0]),
   },
   wallet: { findMany: async () => [] },
   appSetting: { findFirst: async () => null },
@@ -108,7 +130,23 @@ const client = {
 };
 process.env.DATABASE_URL = "postgresql://mock/test";
 delete process.env.TURNSTILE_SECRET_KEY;
-(db as any).$queryRaw = async () => [{ ok: 1 }];
+(db as any).$queryRaw = async (query: any) => {
+  if (query?.sql?.includes("WITH categories AS")) {
+    const userId = query.values[0];
+    return ["expense", "income"].map((type) => ({
+      type,
+      count: subs.filter(
+        (sub) =>
+          sub.userId === userId &&
+          categories.some(
+            (category) =>
+              category.id === sub.categoryId && category.type === type,
+          ),
+      ).length,
+    }));
+  }
+  return [{ ok: 1 }];
+};
 for (const [key, value] of Object.entries(client))
   if (key !== "$queryRawUnsafe") (db as any)[key] = value;
 (db as any).$transaction = (fn: any) => {
@@ -234,7 +272,7 @@ assert.equal(
 failChildren = false;
 await ensureCategoryDefaults(db, "failure");
 assert.equal(subs.filter((row) => row.userId === "failure").length, 107);
-const app = new Elysia().use(authRoutes).use(financeRoutes);
+const app = new Elysia().use(authRoutes).use(financeRoutes).use(resourceRoutes);
 const adminToken = signToken({
   sub: "admin",
   email: "admin@example.invalid",
@@ -320,6 +358,42 @@ assert.equal(
   bootstrap.body.data.categories.length,
   19,
   "admin's form uses its own defaults, not copies from every account",
+);
+const categoryList = await request(
+  "GET",
+  "/categories?pageSize=48",
+  undefined,
+  adminToken,
+);
+assert.equal(categoryList.status, 200, JSON.stringify(categoryList));
+assert.equal(
+  categoryList.body.data.total,
+  19,
+  "admin's paginated list must not combine copies from all accounts",
+);
+assert.equal(categoryList.body.data.items.length, 19);
+assert.equal(
+  new Set(
+    categoryList.body.data.items.map((row: any) => `${row.type}:${row.name}`),
+  ).size,
+  19,
+);
+assert.equal(categoryList.body.data.summary.expense, 14);
+assert.equal(categoryList.body.data.summary.income, 5);
+const food = categories.find(
+  (row) => row.userId === "admin" && row.name === "Makanan & Minum",
+);
+const subList = await request(
+  "GET",
+  `/subCategories?categoryId=${food.id}&pageSize=48`,
+  undefined,
+  adminToken,
+);
+assert.equal(subList.status, 200, JSON.stringify(subList));
+assert.equal(
+  subList.body.data.total,
+  11,
+  "subcategory pagination also stays within the account and selected parent",
 );
 accounts.set("old-account", user("old-account"));
 const oldToken = signToken({

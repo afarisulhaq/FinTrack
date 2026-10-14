@@ -59,13 +59,12 @@ for (const resource of ["categories", "subCategories"]) {
       }),
     );
     assert.equal(response.status, 200);
-    assert.deepEqual(
-      filter,
-      {
-        ...(role === "admin" ? {} : { userId: "owner" }),
-        ...(resource === "subCategories" ? { category: role === "admin" ? {} : { userId: "owner" } } : {}),
-      },
-    );
+    assert.deepEqual(filter, {
+      userId: "owner",
+      ...(resource === "subCategories"
+        ? { category: { userId: "owner" } }
+        : {}),
+    });
   }
 }
 Object.defineProperty(globalThis, "window", {

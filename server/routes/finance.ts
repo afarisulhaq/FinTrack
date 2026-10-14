@@ -1165,7 +1165,9 @@ function serializeFinanceRecord(resource: string, row: unknown): Record<string, 
 async function listPagedResource(resource: ResourceKey, request: Request, query: ListQuery) {
   const input = readPage(query);
   const scope: ListScope = {
-    userId: currentUserIdFromRequest(request),
+    userId: resource === "categories" || resource === "subCategories"
+      ? strictUserIdFromRequest(request)
+      : currentUserIdFromRequest(request),
     authId: strictUserIdFromRequest(request)!,
   };
   const ledger = await listLedger(resource, scope, query, input, serializeFinanceRecord);
