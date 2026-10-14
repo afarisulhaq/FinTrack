@@ -185,6 +185,7 @@ function getDateHeader(key: string): string {
 export default function TransactionsPage() {
   const wallets = useFinanceStore((s) => s.wallets);
   const categories = useFinanceStore((s) => s.categories);
+  const subCategories = useFinanceStore((s) => s.subCategories);
   const addTransaction = useFinanceStore((s) => s.addTransaction);
   const updateTransaction = useFinanceStore((s) => s.updateTransaction);
   const ensureSubCategory = useFinanceStore((s) => s.ensureSubCategory);
@@ -350,7 +351,16 @@ export default function TransactionsPage() {
     if (walletId === form.destinationWalletId) fld("destinationWalletId", "");
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  function transactionTitle(tx: Transaction) {
+    const subCategory =
+      subCategories.find((sub) => sub.id === tx.subCategoryId) ??
+      categories
+        .flatMap((category) => category.subCategories)
+        .find((sub) => sub.id === tx.subCategoryId);
+    return tx.description.trim() || subCategory?.name || tx.category;
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (
       !Number.isFinite(Number(form.amount)) ||
@@ -365,17 +375,20 @@ export default function TransactionsPage() {
     // (as a sub of the picked master). This keeps the master/sub
     // structure consistent and means the next transaction can re-pick
     // the sub from a chip instead of re-typing.
+    let subCategoryId = form.subCategoryId;
     if (
       form.categoryId &&
       form.newSubCategoryName.trim() &&
       !form.subCategoryId
     ) {
-      void ensureSubCategory(
+      const subCategory = await ensureSubCategory(
         form.categoryId,
         form.newSubCategoryName.trim(),
         form.categoryIcon,
         undefined,
       );
+      if (!subCategory) return;
+      subCategoryId = subCategory.id;
     }
     const updates = {
       type: form.type,
@@ -383,7 +396,7 @@ export default function TransactionsPage() {
       category: form.category,
       categoryIcon: form.categoryIcon,
       categoryId: form.categoryId || null,
-      subCategoryId: form.subCategoryId || null,
+      subCategoryId: subCategoryId || null,
       walletId: form.walletId,
       walletName: allWallets.find((w) => w.id === form.walletId)?.name ?? "",
       destinationWalletId:
@@ -393,7 +406,7 @@ export default function TransactionsPage() {
           ? (allWallets.find((w) => w.id === form.destinationWalletId)?.name ??
             "")
           : null,
-      description: form.description || form.category,
+      description: form.description.trim(),
       date: new Date(
         form.date +
           "T" +
@@ -558,7 +571,7 @@ export default function TransactionsPage() {
                       {/* Description + meta */}
                       <div className="min-w-0 flex-1">
                         <p className="text-text-primary truncate text-sm font-semibold">
-                          {tx.description}
+                          {transactionTitle(tx)}
                         </p>
                         <p className="text-text-muted mt-0.5 truncate text-xs">
                           {tx.category} · {tx.walletName}
@@ -594,7 +607,7 @@ export default function TransactionsPage() {
                       {/* Delete */}
                       <button
                         type="button"
-                        aria-label={`Edit transaksi ${tx.description || tx.category}`}
+                        aria-label={`Edit transaksi ${transactionTitle(tx)}`}
                         onClick={() => openEdit(tx)}
                         className="text-text-secondary hover:bg-bg-elevated focus-visible:ring-primary flex h-9 w-9 shrink-0 items-center justify-center rounded-lg focus-visible:ring-2"
                       >
@@ -602,7 +615,7 @@ export default function TransactionsPage() {
                       </button>
                       <button
                         type="button"
-                        aria-label={`Hapus transaksi ${tx.description || tx.category}`}
+                        aria-label={`Hapus transaksi ${transactionTitle(tx)}`}
                         onClick={() => deleteTransaction(tx.id)}
                         className="text-text-secondary hover:text-danger hover:bg-danger/10 focus-visible:ring-primary flex h-9 w-9 shrink-0 items-center justify-center rounded-lg focus-visible:ring-2"
                       >
