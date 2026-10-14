@@ -1168,6 +1168,7 @@ async function createPrismaResource(
   body: Record<string, unknown>,
   userId: string | null,
   restore = false,
+  walletScopeUserId: string | null = userId,
 ) {
   const data: Record<string, unknown> = {
     ...body,
@@ -1219,7 +1220,7 @@ async function createPrismaResource(
     case "transactions": {
       return prisma.$transaction(async (client) => {
         const data = { ...resolved, date: new Date(body.date as string) };
-        await validateTransactionWallets(client, data, userId);
+        await validateTransactionWallets(client, data, walletScopeUserId);
         const created = await client.transaction.create({
           data: data as never,
         });
@@ -2921,6 +2922,7 @@ export const resourceRoutes = new Elysia({ prefix: "/api" })
           body as Record<string, unknown>,
           strictUserIdFromRequest(request),
           new URL(request.url).searchParams.get("restore") === "1",
+          currentUserIdFromRequest(request),
         );
         set.status = 201;
         return ok(item);

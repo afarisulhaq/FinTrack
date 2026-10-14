@@ -35,6 +35,16 @@ const wallets = new Map([
       balance: 100,
     },
   ],
+  [
+    "legacy",
+    {
+      id: "legacy",
+      name: "Legacy",
+      userId: null,
+      currency: "IDR",
+      balance: 100,
+    },
+  ],
 ]);
 let rows = new Map<string, any>();
 let failDestination = false;
@@ -89,12 +99,17 @@ const token = signToken({
   email: "test@example.invalid",
   role: "owner",
 });
-async function request(method: string, path: string, body?: unknown) {
+const adminToken = signToken({
+  sub: "admin",
+  email: "admin@example.invalid",
+  role: "admin",
+});
+async function request(method: string, path: string, body?: unknown, authToken = token) {
   const response = await app.handle(
     new Request(`http://localhost/api/transactions${path}`, {
       method,
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${authToken}`,
         "Content-Type": "application/json",
       },
       ...(body ? { body: JSON.stringify(body) } : {}),
@@ -132,6 +147,34 @@ failDestination = true;
 assert.equal((await request("POST", "", transfer)).status, 400);
 assert.equal(wallets.get("source")!.balance, 500);
 assert.equal(rows.size, 0);
+failDestination = false;
+for (const walletId of ["foreign", "legacy", "missing"]) {
+  assert.equal(
+    (await request("POST", "", { ...transfer, type: "income", walletId })).status,
+    400,
+  );
+}
+for (const walletId of ["source", "legacy", "foreign"]) {
+  for (const type of ["income", "expense"]) {
+    const balance = wallets.get(walletId)!.balance;
+    const result = await request("POST", "", {
+      ...transfer, id: `admin-${walletId}-${type}`, type, walletId, userId: "forged",
+    }, adminToken);
+    assert.equal(result.status, 201, JSON.stringify(result.body));
+    assert.equal(rows.get(`admin-${walletId}-${type}`).userId, "admin");
+    assert.equal(wallets.get(walletId)!.balance, balance + (type === "income" ? 50 : -50));
+  }
+}
+const adminTransfer = await request("POST", "", {
+  ...transfer, id: "admin-transfer", walletId: "legacy", destinationWalletId: "foreign",
+}, adminToken);
+assert.equal(adminTransfer.status, 201, JSON.stringify(adminTransfer.body));
+assert.equal(wallets.get("legacy")!.balance, 50);
+assert.equal(wallets.get("foreign")!.balance, 150);
+assert.equal(
+  (await request("POST", "", { ...transfer, walletId: "missing" }, adminToken)).status,
+  400,
+);
 console.log(
-  "PASS: transfer create/edit/delete, same-wallet and ownership validation, atomic rollback",
+  "PASS: transfer create/edit/delete, ownership validation, atomic rollback, admin income/expense/transfer with legacy and assigned wallets, creator ownership",
 );
