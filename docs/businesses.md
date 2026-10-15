@@ -2,7 +2,7 @@
 
 Menu **Bisnis** tersedia di `/businesses`. Buat bisnis terlebih dahulu, lalu catat pembelian/pengeluaran atau pemasukan penjualan. Setiap catatan mempunyai nominal, keterangan, tanggal, dan pilihan dompet.
 
-Halaman awal menampilkan satu kartu per bisnis, berisi pemasukan, pengeluaran, selisih, jumlah transaksi, dan hasil terhadap pengeluaran. Klik kartu untuk membuka `/businesses/[businessId]`, tempat detail dan form pencatatan berada. Tautan **Kembali ke semua bisnis** membuka daftar kartu. URL detail dapat dibuka langsung atau di-refresh.
+Halaman awal menampilkan dashboard arus kas tahunan, diikuti satu kartu buku kas per bisnis. Dashboard membandingkan pemasukan, pengeluaran, dan selisih kas setiap bulan selama Januari–Desember. Kartu buku kas tetap berisi total sepanjang waktu: pemasukan, pengeluaran, selisih, jumlah transaksi, dan hasil terhadap pengeluaran. Klik kartu untuk membuka `/businesses/[businessId]`, tempat detail dan form pencatatan berada. Tautan **Kembali ke semua bisnis** membuka dashboard dan daftar kartu. URL detail dapat dibuka langsung atau di-refresh.
 
 Hasil terhadap pengeluaran dihitung sebagai `(pemasukan - pengeluaran) / pengeluaran × 100%` dari seluruh catatan bisnis. Contoh pembelian Rp100.000 dan penjualan Rp120.000 menghasilkan selisih Rp20.000 dan hasil 20%. Nilai bisa negatif. Jika pengeluaran nol, tampilkan **Belum dapat dihitung**. Nilai ini bukan imbal hasil tahunan atau perhitungan laba persediaan.
 
@@ -16,6 +16,25 @@ Hasil terhadap pengeluaran dihitung sebagai `(pemasukan - pengeluaran) / pengelu
 Ringkasan menampilkan pemasukan, pengeluaran, dan selisih semua catatan. Selisih merupakan arus pencatatan, bukan perhitungan laba akuntansi dengan persediaan. Buku bisnis disimpan terpisah dari transaksi pribadi. Sinkronisasi dompet mengubah saldo dompet, tanpa membuat salinan transaksi pribadi.
 
 Penyimpanan catatan dan perubahan saldo menggunakan transaksi database dengan isolasi serializable. Bisnis dan dompet harus dimiliki pengguna yang login. Relasi dompet dan bisnis memakai `Restrict` untuk mencegah penghapusan yang meninggalkan catatan terkait. Saat database tidak tersedia, API mengembalikan kegagalan tanpa menyimpan ke memori sementara.
+
+## Dashboard tahunan
+
+- Filter **Tahun** dan **Bisnis** berlaku untuk grafik, ringkasan kas, kontribusi bisnis, dan enam transaksi terbaru, bukan kartu buku kas di bawahnya. **Reset filter** kembali ke tahun berjalan dalam zona waktu akun dan semua bisnis.
+- Tahun pilihan berasal dari transaksi pengguna, ditambah tahun berjalan. Pengelompokan bulan, batas tahun, dan waktu transaksi mengikuti zona waktu akun; akun tanpa pengaturan memakai `Asia/Jakarta`.
+- Batang penuh menunjukkan pemasukan, batang berarsir menunjukkan pengeluaran, dan garis putus-putus menunjukkan selisih kas. Tooltip menampilkan nominal rupiah; **Lihat angka bulanan** membuka tabel Januari–Desember yang dapat dipakai melalui keyboard dan digeser di dalam panel pada ponsel.
+- Ringkasan berisi selisih kas, pemasukan, pengeluaran, margin kas, dan jumlah transaksi sesuai filter. Margin kas adalah `selisih kas / pemasukan × 100%`; tanpa pemasukan, margin tidak tersedia. Ini berbeda dari hasil terhadap pengeluaran pada kartu buku kas.
+- Kontribusi bisnis diurutkan berdasarkan pemasukan, menampilkan porsi pemasukan serta selisih kas. Tautan kontribusi dan transaksi terbaru membuka buku kas bisnis terkait.
+- Selisih dan margin kas bukan laba akuntansi: persediaan dan HPP belum diperhitungkan. Bulan tanpa transaksi bernilai nol. Kondisi kosong, memuat, gagal, dan **Coba lagi** tersedia tanpa menampilkan angka periode lama sebagai hasil filter baru.
+
+`GET /api/businesses/dashboard` menerima `year` opsional (bilangan bulat 1–9998) dan `businessId` opsional. Tanpa tahun, server memilih tahun berjalan dalam zona waktu akun. Pilihan bisnis dan agregat mencakup seluruh bisnis milik akun, tidak terbatas halaman kartu. Bisnis milik akun lain atau ID tidak ditemukan menghasilkan 404. Hak admin tidak memperluas lingkup data bisnis. Agregasi nominal menggunakan desimal PostgreSQL, rentang tahun berbatas akhir eksklusif, dan snapshot repeatable-read; hanya hasil agregat dan enam transaksi terbaru yang dikirim ke browser.
+
+Verifikasi dashboard memakai database sementara, bukan database akun pengguna:
+
+```sh
+DATABASE_URL='postgresql://fintrack@localhost:55432/postgres' npx tsx tests/business-dashboard.integration.ts
+```
+
+Tes mencakup batas bulan/tahun dan DST, desimal, margin negatif/tanpa pemasukan, bulan kosong, kesesuaian total dengan kontribusi dan bulan, filter bisnis di luar halaman pertama, urutan transaksi, isolasi akun/admin, filter invalid, autentikasi, dan database tidak tersedia.
 
 ## Penerapan
 

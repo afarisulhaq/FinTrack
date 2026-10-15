@@ -1,6 +1,7 @@
 "use client";
 
 import { WalletPicker } from "~/components/ui/wallet-select";
+import { BusinessDashboardPanel } from "~/components/businesses/business-dashboard";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -329,6 +330,7 @@ export function BusinessesView({ businessId }: { businessId?: string }) {
         ) : undefined
       }
     >
+      {!businessId && <BusinessDashboardPanel />}
       <ServerListStatus {...(businessId ? entryPager : businessPager)} />
       {businessId && (
         <Link
@@ -378,6 +380,13 @@ export function BusinessesView({ businessId }: { businessId?: string }) {
         </div>
       ) : !businessId ? (
         <>
+          <div>
+            <h2 className="text-xl font-semibold">Buku kas bisnis</h2>
+            <p className="text-text-secondary mt-1 text-sm">
+              Buka bisnis untuk mencatat transaksi. Angka pada kartu mencakup
+              seluruh waktu, terpisah dari filter dashboard.
+            </p>
+          </div>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {businessPager.items.map((business) => {
               const summary = business.summary;
