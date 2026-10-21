@@ -7,6 +7,7 @@ export interface SubscriptionInvoice {
   durationDays: number;
   status: string;
   qrisCode: string | null;
+  checkoutUrl: string | null;
   createdAt: string;
   expiresAt: string;
   paidAt: string | null;

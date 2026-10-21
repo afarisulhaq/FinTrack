@@ -1,124 +1,180 @@
-# Langganan melalui GoPay Merchant Gateway
+# Langganan melalui QRIS Gateway
 
-Integrasi sudah tersedia di `/subscription` dan API `/api/subscriptions`. Checkout
-tertutup secara default. Harga, durasi, dan manfaat paket belum ditetapkan. Tidak
-ada fitur gratis yang dibatasi oleh perubahan ini; `Subscription.expiresAt` menjadi
-dasar status langganan untuk aturan akses yang ditentukan kemudian.
+Integrasi tersedia di `/subscription` dan API `/api/subscriptions`. Checkout
+tertutup secara default. Harga, durasi, dan manfaat paket belum ditetapkan.
+`Subscription.expiresAt` menjadi dasar status langganan.
+
+Gateway berdiri sendiri di repo
+<https://github.com/afarisulhaq/qris-gateway> dan tidak lagi menjadi bagian
+repo FinTrack. Kontrak integrasi mengikuti
+[`docs/integrasi-website.md`](https://github.com/afarisulhaq/qris-gateway/blob/main/docs/integrasi-website.md)
+di repo tersebut: `POST /v1/invoices` dengan `X-API-Key`, halaman bayar
+`checkout_url`, pemeriksaan `POST /v1/invoices/:id/check`, dan webhook HMAC.
 
 ## Gateway dan konfigurasi
 
-Gateway terpisah tersedia di [`qris-gateway`](../qris-gateway/README.md), dengan
-dashboard admin, koneksi OTP GoBiz, invoice, mutasi, dan API key. Adapter mengikuti
-kontrak repo <https://github.com/ahmadzakiyox/gopay-api-gateaway>; kode obfuscated
-upstream tidak dijalankan. Jalankan layanan dengan penyimpanan `data/` permanen.
-Login OTP dilakukan sendiri di dashboard gateway, bukan melalui FinTrack atau
-chat. Buat API key bernama FinTrack pada menu API & integrasi. Pakai
-merchant khusus gateway: pencocokan mutasi tidak mempunyai referensi
-invoice bank, sehingga transaksi dari jual beli lain dapat menimbulkan kecocokan
-nominal yang salah. Gateway ini merupakan integrasi tidak resmi.
-
-Docker Compose utama sudah menyertakan service `qris-gateway`. Jalankan
-`docker compose --env-file .env.production up -d --build`, lalu buat admin gateway
-sekali dengan `docker compose --env-file .env.production exec qris-gateway npm run setup`.
-FinTrack otomatis memakai `http://qris-gateway:3010` melalui jaringan Compose.
-Isi API key, merchant, dan konfigurasi paket pada `.env.production`, lalu
-jalankan kembali Compose agar backend membaca nilai baru.
-
-Isi variabel berikut di lingkungan **backend**. Jangan gunakan awalan
-`NEXT_PUBLIC_` untuk API key atau kredensial merchant.
+Jalankan gateway mengikuti README gateway (Bun, `bun run setup`, build
+frontend untuk produksi, `APP_URL` origin HTTPS). Di FinTrack, buat API key
+pada lingkungan yang benar di menu **API & webhook**, lalu simpan nilainya di
+secret manager atau `.env` backend. Jangan memakai `NEXT_PUBLIC_` untuk key
+atau secret.
 
 ```dotenv
 SUBSCRIPTIONS_ENABLED=false
-GOPAY_GATEWAY_URL=http://127.0.0.1:3010
-GOPAY_GATEWAY_API_KEY=<API key gateway, minimal 16 karakter>
-GOPAY_GATEWAY_MERCHANT_ID=<merchant ID yang diatur pada dashboard gateway>
-GOPAY_DEDICATED_MERCHANT=true
+QRIS_BASE_URL=<origin gateway, contoh https://pay.example.com>
+QRIS_API_KEY=<API key gateway, minimal 16 karakter>
+QRIS_ENVIRONMENT=sandbox
+QRIS_PROVIDER=gopay
+QRIS_CONNECTION_ID=<ID dompet, wajib saat QRIS_ENVIRONMENT=production>
+QRIS_WEBHOOK_SECRETS=<secret webhook, dipisah koma, opsional>
 SUBSCRIPTION_PLAN_NAME=<nama paket>
 SUBSCRIPTION_PRICE_IDR=<harga dasar dalam rupiah bulat>
 SUBSCRIPTION_DURATION_DAYS=<jumlah hari, 1 sampai 366>
 ```
 
-URL gateway jarak jauh harus HTTPS; hostname `qris-gateway` diizinkan melalui HTTP
-untuk service internal Compose. Gateway menerima header `X-Api-Key` dan
-`X-Gopay-Merchant-Id`. Tidak ada kredensial atau URL checkout gateway yang dikirim
-ke browser. QR dirender lokal dengan `qrcode.react`, tanpa layanan gambar QR pihak
-ketiga. Backend memakai `POST /create-qris` dan `GET /transactions`.
+- `QRIS_BASE_URL` harus origin yang sama dengan `APP_URL` gateway agar
+  `checkout_url` tervalidasi. Produksi wajib HTTPS; hanya `localhost` dan
+  `127.0.0.1` yang boleh HTTP untuk pengujian lokal.
+- `QRIS_ENVIRONMENT` harus sama dengan environment API key; key sandbox tidak
+  dapat membaca invoice produksi dan sebaliknya.
+- `QRIS_CONNECTION_ID` wajib diisi pada produksi (ambil lewat
+  `GET /v1/connections`) dan dikosongkan pada sandbox.
+- `QRIS_WEBHOOK_SECRETS` berbeda dari API key. Saat secret dirotasi di
+  dashboard gateway, pertahankan secret lama di daftar sampai antrean event
+  lama selesai.
+- Tanpa webhook, pembayaran tetap terkonfirmasi lewat pemeriksaan manual;
+  webhook hanya mempercepat status lunas tanpa klik pengguna.
 
-Sebelum membuka checkout, tentukan manfaat serta ketentuan paket, pastikan merchant
-dan QRIS sesuai, lalu uji pembayaran nominal kecil serta refund pada akun merchant.
-Baru kemudian ubah `SUBSCRIPTIONS_ENABLED=true`. Landing page tetap menyatakan
-paket belum tersedia sampai harga dan penjualan benar-benar diluncurkan.
+Sebelum membuka checkout, tentukan manfaat serta ketentuan paket, uji
+pembayaran nominal kecil pada sandbox, baru ubah `SUBSCRIPTIONS_ENABLED=true`.
+Landing page tetap menyatakan paket belum tersedia sampai harga dan penjualan
+benar-benar diluncurkan. Jangan mengaktifkan checkout produksi dengan key
+sandbox: langganan yang aktif berasal dari status lunas yang diterima backend.
+
+## Alur pembayaran
+
+1. `createInvoice` membuat baris invoice lokal (status `creating`) lalu memanggil
+   `POST /v1/invoices` dengan `external_id` stabil
+   `fintrack:<environment>:<invoiceId>`. Percobaan ulang memakai referensi,
+   nominal, dan keterangan yang sama sehingga gateway me-replay invoice yang
+   sama, bukan membuat yang kedua.
+2. FinTrack mengirim `amount` = harga dasar. Gateway menambahkan kode unik
+   (Rp0 sampai Rp99) dan hasilnya disimpan sebagai `amount` invoice FinTrack
+   (`payable_amount`). Total inilah yang ditampilkan dan dibayar pelanggan;
+   FinTrack tidak pernah mengubahnya sendiri.
+3. Pelanggan memindai QR dari `qr_code` di halaman Langganan, atau membuka
+   `checkout_url` di tab baru. Gateway tidak mengembalikan browser ke toko,
+   jadi halaman Langganan memberi petunjuk untuk kembali dan memeriksa status.
+4. Status lunas datang dari dua jalur: webhook `invoice.paid` (aktif
+   otomatis) dan `POST /api/subscriptions/invoices/:id/check` yang memanggil
+   `POST /v1/invoices/:id/check` (paling cepat setiap 15 detik). Keduanya
+   diarahkan ke aktivasi `pending -> paid` yang idempoten dalam satu
+   transaksi PostgreSQL, jadi event ganda atau klik berulang tidak menambah
+   masa berlaku dua kali.
+5. `invoice.cancelled` dan `invoice.failed` menutup invoice lokal.
+   `invoice.expired` tidak menyimpan status apa pun: status kedaluwarsa
+   diturunkan dari waktu lokal supaya pembayaran tepat waktu yang terverifikasi
+   telat masih bisa mengaktifkan langganan hingga 24 jam setelah batas.
+
+## Webhook
+
+Receiver FinTrack: `POST /api/webhooks/qris`, umum diakses lewat rewrite
+`/api/*` sebagai `https://<domain>/api/webhooks/qris`. Isi URL tersebut dan
+secretnya pada **API & webhook** gateway di environment yang sama, lalu isi
+`QRIS_WEBHOOK_SECRETS` di backend. Gateway menolak localhost dan IP privat
+untuk URL webhook, jadi receiver ini baru berfungsi di balik HTTPS publik.
+
+Urutan penerimaan sesuai panduan gateway: baca byte mentah, verifikasi
+HMAC-SHA256 `X-QRIS-Signature` dengan perbandingan constant-time, parse JSON,
+cocokkan `X-QRIS-Event-Id`, `X-QRIS-Environment`, event, environment,
+`external_id`, nominal, dompet, dan konfigurasi, lalu simpan status dan
+balas `204`. Signature salah mendapat `401`; data tidak cocok mendapat `409`
+sehingga gateway mengirim ulang. Tidak ada tabel deduplikasi: transisi status
+lokal idempoten, jadi pengiriman at-least-once aman.
 
 ## Database
 
-Generate client saat build/install dengan `npm run db:generate`. Terapkan patch
-`prisma/patches/20261008-subscriptions.sql` melalui proses deployment database yang
-biasa digunakan proyek. Patch menambah dua tabel tanpa mengubah data keuangan.
-Jangan menjalankan `db push` pada database produksi untuk perubahan ini.
+Generate client saat build/install dengan `npm run db:generate`. Terapkan
+patch melalui proses deployment database yang biasa digunakan proyek:
+
+1. `prisma/patches/20261008-subscriptions.sql` membuat tabel langganan.
+2. `prisma/patches/20261020-subscriptions-qris-v1-api.sql` menyesuaikan
+   kontrak `/v1`: kolom `checkoutUrl` baru, penghapusan unique nominal lokal
+   dan `providerTransactionId`, serta CHECK `amount >= baseAmount`.
+
+Patch kedua wajib dijalankan di semua lingkungan yang menjalankan patch
+pertama, termasuk database development: CHECK lama menolak total yang sama
+dengan harga dasar. Jangan menjalankan `db push` pada database produksi untuk
+perubahan ini.
 
 ## Verifikasi dan batasan
 
-- Harga dan durasi diambil dari konfigurasi backend dan disalin ke invoice.
-- Payload QRIS harus memiliki checksum CRC16 yang benar, IDR (360), negara ID,
-  metode dinamis (12), dan nominal yang persis sama dengan invoice.
-- Tambahan Rp1 sampai Rp999 termasuk dalam total yang ditampilkan sebelum bayar.
-  Nominal invoice tidak pernah digunakan kembali, termasuk invoice gagal atau
-  kedaluwarsa. Ini sengaja membatasi maksimal 999 nominal per rentang harga dasar;
-  nominal habis menutup pembuatan invoice. Jangan hapus riwayat invoice untuk
-  mengosongkan rentang. Untuk volume lebih besar, gunakan provider yang memiliki
-  referensi order pada transaksi atau lakukan rekonsiliasi manual yang dirancang
-  terpisah. Penggantian harga tidak boleh dianggap sebagai reset jaminan pencocokan.
-- Satu invoice terbuka digunakan kembali. Maksimal tiga invoice baru per akun per
-  jam; pemeriksaan paling cepat setiap 15 detik, tanpa polling GoPay otomatis.
-- Hanya mutasi `settlement` atau `capture` dengan ID transaksi, nominal bulat, dan
-  waktu dalam jendela invoice yang diterima. `refund`, `partial_refund`, `pending`,
-  status kosong atau `success` yang tidak eksplisit tidak mengaktifkan paket.
-- Dua mutasi yang cocok atau hasil 100 mutasi ditolak untuk aktivasi otomatis.
-  Gateway tidak menyediakan pagination yang cukup untuk membuktikan hasil lengkap.
-- Jendela pembayaran maksimal lima menit. Batas waktu bersifat lokal: QR lama
-  mungkin masih bisa dibayar lewat bank. Pembayaran terlambat perlu rekonsiliasi
-  manual. Pembayaran tepat waktu yang terlambat tampil di mutasi bisa dicek sampai
-  24 jam setelah batas waktu, dengan waktu pembayaran tetap harus sebelum batas.
-- Klaim ID transaksi unik dan aktivasi/perpanjangan berada dalam satu transaksi
-  PostgreSQL. Pengulangan pemeriksaan tidak menambah masa berlaku dua kali.
-- Perpanjangan menambah jumlah hari dari masa berlaku aktif; akun kedaluwarsa
-  dihitung dari waktu aktivasi. Ini bukan auto-debit.
-- Invoice terikat ke URL gateway dan merchant awal. Perubahan akun menutup
-  verifikasi invoice lama sampai konfigurasi semula dipulihkan.
-- Refund setelah aktivasi belum mencabut langganan otomatis; perlu proses manual.
-  Pemeriksaan yang lewat dari 24 jam juga perlu proses manual.
-- Tidak ada webhook publik untuk menandai lunas; browser tidak dapat mengirim
-  nominal, status paid, atau periode langganan.
+- Harga dan durasi diambil dari konfigurasi backend dan disalin ke invoice;
+  nominal bayar berasal dari `payable_amount` respons gateway, divalidasi
+  berada di `amount` sampai `amount + 99`.
+- Payload QR produksi divalidasi: CRC16 benar, IDR (360), negara ID, metode
+  dinamis (12), dan nominal persis `payable_amount`. QR sandbox berisi tautan
+  checkout uji dan tidak divalidasi sebagai payload QRIS.
+- `checkout_url` wajib berorigin sama dengan `QRIS_BASE_URL` dan berpath
+  `/pay/`; respons yang melanggar ditolak sebagai 502 dan invoice dicoba
+  ulang dengan referensi yang sama.
+- Satu invoice terbuka digunakan kembali. Maksimal tiga invoice baru per akun
+  per jam; pemeriksaan paling cepat setiap 15 detik, tanpa polling otomatis.
+- Pembuatan yang gagal karena jaringan, `409`, `429`, atau `5xx` mempertahankan
+  baris `creating` untuk replay idempoten; penolakan data (`400`, `401`,
+  `403`, `404`) menutup invoice sebagai `failed`.
+- Aktivasi memeriksa waktu lunas berada di rentang invoice dan tidak pernah
+  menurunkan status `paid`. Invoice terikat ke URL, environment, dan dompet
+  saat dibuat; perubahan konfigurasi menutup verifikasi invoice lama.
+- Refund setelah aktivasi belum mencabut langganan otomatis; perlu proses
+  manual. Pemeriksaan yang lewat dari 24 jam juga perlu proses manual.
+- Browser tidak pernah menerima API key atau secret: semua panggilan gateway
+  terjadi di backend, dan status akhir selalu dibaca dari database FinTrack.
 
 ## Pengujian
 
 `tests/subscriptions.integration.ts` hanya boleh dijalankan pada PostgreSQL
-sementara dengan user `fintrack_test` dan port `55432`. Gateway dimock pada batas
-HTTP. Tes meliputi kepemilikan invoice, pembayaran paralel, refund, nominal/waktu
-salah, respons ambigu, klaim ganda, perpanjangan, penyimpanan setelah reconnect,
-gateway gagal, pergantian merchant, dan checkout yang belum dikonfigurasi.
+sementara dengan user `fintrack_test` dan port `55432`. Gateway dimock pada
+batas HTTP.
 
 ```sh
 DATABASE_URL=postgresql://fintrack_test@127.0.0.1:55432/postgres npx tsx tests/subscriptions.integration.ts
 ```
 
-Tes ini tidak membuktikan sesi GoBiz, QRIS merchant, atau pembayaran bank nyata
-berfungsi. Ketiganya harus diuji setelah gateway dan akun merchant tersedia.
+Tes ini tidak membuktikan sesi provider, QRIS merchant, atau pembayaran bank
+nyata berfungsi. Ketiganya harus diuji setelah gateway dan akun merchant
+tersedia.
 
-## QA perubahan (2026-10-08)
+## QA perubahan (2026-10-20)
 
-- Hard Gate PASS: halaman baru tidak memuat statistik atau fitur rekaan; harga
-  berasal dari konfigurasi. Browser memeriksa kondisi kosong, error, kedaluwarsa,
-  lunas, keyboard, dan enam kombinasi tema/ukuran tanpa overflow atau error JS.
-  Kontras teks yang diperiksa minimal 6,93:1.
-- Purpose Gate PASS: permukaan datar memisahkan status akun, rincian invoice, dan
-  riwayat. QR hitam/putih untuk pemindaian; aksen emas pada tindakan pembayaran.
-  Ikon kartu di navigasi menandai pembayaran; tidak ada ikon dekoratif baru.
-- Liveliness PASS: ENERGY 2 / RHYTHM 2 / MOTION 1 mengikuti DESIGN.md. Nominal total
-  dan QR menjadi fokus pembayaran, rincian memakai angka tabular, dua kolom
-  bertumpuk di layar sempit, transisi mengikuti komponen tombol proyek.
-- Craftsmanship PASS: build web dan server, TypeScript, lint file perubahan,
-  format, patch SQL pada schema kosong, uji integrasi PostgreSQL/gateway mock,
-  serta browser pada 360/768/1440 piksel tema terang/gelap lolos. Pembayaran bank
-  nyata dan gateway merchant belum diuji. Laporan ini mencakup halaman dan alur
-  langganan baru, bukan audit semua halaman lama.
+- `tsc --noEmit`, `next lint`, `prettier --check` pada file yang diubah, `tsc -p
+  server/tsconfig.json`, dan `next build` lolos.
+- `tests/subscriptions.integration.ts` lolos pada PostgreSQL port 55432 dengan
+  gateway di-mock di batas HTTP: konfigurasi (HTTPS, environment, `connection_id`
+  produksi), create idempoten lewat `external_id`, total payable dan validasi QR,
+  origin `checkout_url`, riwayat/pagination, jeda 15 detik, aktivasi lunas
+  idempoten, perpanjangan tepat satu periode, replay setelah jaringan putus,
+  rekonsiliasi respons hilang (satu invoice gateway untuk dua percobaan),
+  penolakan permanen 4xx menutup invoice, perubahan konfigurasi menutup
+  verifikasi, serta webhook: signature salah 401, body diubah 401, header
+  event/environment 400, referensi/nominal 409, event ganda 204 tanpa aktivasi
+  ganda, event sebelum create disimpan ditolak 409 lalu berhasil saat retry.
+- Smoke E2E terhadap gateway asli (repo `afarisulhaq/qris-gateway`, mode
+  sandbox, data terisolasi): `POST /v1/invoices` menghasilkan invoice pending
+  dengan `checkout_url` `/pay/` origin sama, halaman checkout terbuka tanpa
+  login, `POST /v1/invoices/:id/simulate` lunas, lalu `/check` dari FinTrack
+  mengaktifkan langganan satu kali dan pemeriksaan ulang tidak menambah masa
+  berlaku. Sandbox gateway menghasilkan `payable_amount == amount` (kode unik 0),
+  yang diblokir CHECK lama `amount > baseAmount`; patch 20261020 menggantinya
+  dengan `>=`. Kedua patch berjalan idempoten pada database hasil `db push`.
+- Browser nyata (headless Chromium) pada `/subscription`: login, copy nominal
+  Rp0..Rp99, Buat invoice QRIS -> status pending dengan QR SVG, hitung mundur,
+  tautan checkout, dan petunjuk kembali; tautan membuka halaman checkout gateway
+  di tab baru (judul dan label sandbox terbaca); tombol simulator lunas di
+  gateway lalu Periksa pembayaran di FinTrack menampilkan Lunas dan perpanjangan
+  tepat 30 hari dari masa berlaku sebelumnya; invoice kedaluwarsa menampilkan
+  status beserta tombol periksa. Tanpa exception JavaScript pada alur ini.
+- Batas: pengiriman webhook HTTPS publik tidak diuji (gateway menolak URL
+  lokal; receiver dibuktikan lewat payload bertanda tangan pada tes), pembayaran
+  provider nyata tidak diuji, dan build gateway dijalankan dari checkout sumber,
+  bukan dari image Docker.

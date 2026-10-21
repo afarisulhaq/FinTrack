@@ -1,4 +1,6 @@
 import { toggleSplitWalletPayment } from "../services/split-wallet-payments.js";
+import { applyCategoryDefaults, ensureCategoryDefaults, ensureMemoryCategoryDefaults, } from "../services/default-categories.js";
+import { createInvestment, updateInvestment, deleteInvestment, } from "../services/investment-wallets.js";
 import { reconcileWalletEffects, readWalletEffects, resourceWalletUpdate, lockFinanceRecord, } from "../services/wallet-effects.js";
 import { Elysia, t } from "elysia";
 import { Prisma } from "@prisma/client";
@@ -279,6 +281,7 @@ async function resolveCategoryNames(body) {
 }
 function serializeInvestment(i) {
     return {
+        walletId: i.walletId ?? null,
         id: i.id,
         name: i.name,
         symbol: i.symbol,
@@ -304,6 +307,7 @@ function normalizeInvestmentBody(body) {
         .toUpperCase()
         .replace(/\.JK$/, "");
     return {
+        walletId: body.walletId ? String(body.walletId) : null,
         name: String(body.name ?? symbol),
         symbol,
         assetClass,
@@ -767,7 +771,9 @@ function serializeFinanceRecord(resource, row) {
 async function listPagedResource(resource, request, query) {
     const input = readPage(query);
     const scope = {
-        userId: currentUserIdFromRequest(request),
+        userId: resource === "categories" || resource === "subCategories"
+            ? strictUserIdFromRequest(request)
+            : currentUserIdFromRequest(request),
         authId: strictUserIdFromRequest(request),
     };
     const ledger = await listLedger(resource, scope, query, input, serializeFinanceRecord);
@@ -781,7 +787,7 @@ async function listPagedResource(resource, request, query) {
         return people;
     throw new PaginationError("Daftar tidak didukung");
 }
-async function createPrismaResource(resource, body, userId, restore = false) {
+async function createPrismaResource(resource, body, userId, restore = false, walletScopeUserId = userId) {
     const data = {
         ...body,
         userId: userId ?? undefined,
@@ -829,7 +835,7 @@ async function createPrismaResource(resource, body, userId, restore = false) {
         case "transactions": {
             return prisma.$transaction(async (client) => {
                 const data = { ...resolved, date: new Date(body.date) };
-                await validateTransactionWallets(client, data, userId);
+                await validateTransactionWallets(client, data, walletScopeUserId);
                 const created = await client.transaction.create({
                     data: data,
                 });
@@ -844,59 +850,7 @@ async function createPrismaResource(resource, body, userId, restore = false) {
         }
         case "investments": {
             const investment = normalizeInvestmentBody(body);
-            if (restore && body.id) {
-                const created = await prisma.investment.create({
-                    data: {
-                        ...investment,
-                        id: String(body.id),
-                        userId: userId ?? undefined,
-                    },
-                });
-                return serializeInvestment(created);
-            }
-            // Only merge with positions that are still open. A fully
-            // sold position (quantity = 0) or a partially sold position
-            // (quantity > 0 with some soldQuantity) is still "open" in
-            // the sense that the user can re-buy. A position with
-            // quantity = 0 is closed — buying again on the same
-            // (broker, symbol, assetClass) is a fresh position, not an
-            // update to the historical one. Filtering on quantity > 0
-            // gives us both behaviors.
-            const existing = await prisma.investment.findFirst({
-                where: {
-                    userId,
-                    broker: investment.broker,
-                    symbol: investment.symbol,
-                    assetClass: investment.assetClass,
-                    quantity: { gt: 0 },
-                },
-            });
-            if (existing) {
-                const oldQty = toNumber(existing.quantity);
-                const addQty = investment.quantity;
-                const nextQty = oldQty + addQty;
-                const nextAvg = nextQty > 0
-                    ? (oldQty * toNumber(existing.avgBuyPrice) +
-                        addQty * investment.avgBuyPrice) /
-                        nextQty
-                    : investment.avgBuyPrice;
-                const updated = await prisma.investment.update({
-                    where: { id: existing.id },
-                    data: {
-                        name: investment.name || existing.name,
-                        quantity: nextQty,
-                        avgBuyPrice: nextAvg,
-                        currentPrice: investment.currentPrice || existing.currentPrice,
-                        currency: investment.currency,
-                        color: investment.color,
-                        buyFee: (toNumber(existing.buyFee) ?? 0) + (investment.buyFee ?? 0),
-                    },
-                });
-                return serializeInvestment(updated);
-            }
-            const created = await prisma.investment.create({
-                data: { ...investment, userId: userId ?? undefined },
-            });
+            const created = await prisma.$transaction((client) => createInvestment(client, { ...investment, ...(body.id ? { id: String(body.id) } : {}) }, userId, walletScopeUserId, restore));
             return serializeInvestment(created);
         }
         case "notes": {
@@ -1063,85 +1017,7 @@ async function updatePrismaResource(resource, resourceId, body, userId) {
             return serializeBudget(updated);
         }
         case "investments": {
-            const existing = await prisma.investment.findFirst({ where });
-            if (!existing)
-                throw new Error("Data tidak ditemukan");
-            const normalized = normalizeInvestmentBody({ ...body });
-            const existingQty = toNumber(existing.quantity);
-            const existingSoldQty = toNumber(existing.soldQuantity ?? 0);
-            // Sell event handling. Three cases:
-            //   1. Body sets sellPrice + sellQuantity → reduce quantity by
-            //      sellQuantity (floor 0), bump soldQuantity. Partial
-            //      sells leave the position open with a non-zero quantity.
-            //   2. Body sets sellPrice without sellQuantity → backwards-
-            //      compat full sell. quantity drops to 0, soldQuantity
-            //      increases by what was still held.
-            //   3. Body sets sellPrice to null → undo a sell. The user
-            //      is un-selling the last event: we restore the quantity
-            //      and zero out soldQuantity. We don't try to be clever
-            //      about partial undo (no history table for that yet).
-            let sellDerived = {};
-            if (body.sellPrice !== undefined && body.sellPrice !== null) {
-                const explicitSellQty = body.sellQuantity !== undefined ? Number(body.sellQuantity) : null;
-                if (explicitSellQty !== null) {
-                    if (explicitSellQty <= 0) {
-                        throw new Error("Jumlah jual harus lebih dari 0");
-                    }
-                    if (explicitSellQty > existingQty) {
-                        throw new Error(`Tidak bisa jual ${explicitSellQty} lot, hanya punya ${existingQty}`);
-                    }
-                    sellDerived = {
-                        quantity: existingQty - explicitSellQty,
-                        soldQuantity: existingSoldQty + explicitSellQty,
-                    };
-                }
-                else {
-                    // Backwards-compat: setting sellPrice alone means full sell.
-                    sellDerived = {
-                        quantity: 0,
-                        soldQuantity: existingSoldQty + existingQty,
-                    };
-                }
-            }
-            else if (body.sellPrice === null) {
-                // Undo the last sell. Restore the held amount and zero
-                // out the cumulative sold counter.
-                sellDerived = {
-                    quantity: existingQty + existingSoldQty,
-                    soldQuantity: 0,
-                };
-            }
-            const updated = await prisma.investment.update({
-                where: { id: resourceId },
-                data: {
-                    ...normalized,
-                    name: body.name === undefined ? undefined : normalized.name,
-                    symbol: body.symbol === undefined ? undefined : normalized.symbol,
-                    assetClass: body.assetClass === undefined ? undefined : normalized.assetClass,
-                    broker: body.broker === undefined ? undefined : normalized.broker,
-                    // quantity is server-managed on sell/undo; only let the
-                    // client override it when the body explicitly sends one
-                    // *and* there's no sell event in the same request.
-                    quantity: body.quantity === undefined && Object.keys(sellDerived).length === 0
-                        ? undefined
-                        : body.quantity !== undefined
-                            ? normalized.quantity
-                            : sellDerived.quantity,
-                    soldQuantity: body.soldQuantity === undefined
-                        ? sellDerived.soldQuantity
-                        : normalized.soldQuantity,
-                    avgBuyPrice: body.avgBuyPrice === undefined ? undefined : normalized.avgBuyPrice,
-                    currentPrice: body.currentPrice === undefined
-                        ? undefined
-                        : normalized.currentPrice,
-                    currency: body.currency === undefined ? undefined : normalized.currency,
-                    color: body.color === undefined ? undefined : normalized.color,
-                    sellPrice: body.sellPrice === undefined ? undefined : normalized.sellPrice,
-                    soldAt: body.soldAt === undefined ? undefined : normalized.soldAt,
-                    buyFee: body.buyFee === undefined ? undefined : normalized.buyFee,
-                    sellFee: body.sellFee === undefined ? undefined : normalized.sellFee,
-                },
-            });
+            const updated = await prisma.$transaction((client) => updateInvestment(client, resourceId, body, normalizeInvestmentBody(body), userId));
             return serializeInvestment(updated);
         }
         case "notes": {
@@ -1296,9 +1172,7 @@ async function deletePrismaResource(resource, resourceId, userId) {
             return;
         }
         case "investments": {
-            const result = await prisma.investment.deleteMany({ where });
-            if (result.count === 0)
-                throw new Error("Data tidak ditemukan");
+            await prisma.$transaction((client) => deleteInvestment(client, resourceId, userId));
             return;
         }
         case "notes": {
@@ -1451,6 +1325,7 @@ async function getExportFromDb(userId, notificationUserId) {
     };
 }
 async function getLookupFromDb(userId, accountId) {
+    await ensureCategoryDefaults(prisma, accountId);
     const where = userId ? { userId } : {};
     const [wallets, categories, subCategories, profile, setting, notifications] = await Promise.all([
         prisma.wallet.findMany({
@@ -1458,8 +1333,8 @@ async function getLookupFromDb(userId, accountId) {
             select: { id: true, name: true, type: true, balance: true, currency: true, color: true, icon: true, parentId: true },
             orderBy: [{ name: "asc" }, { id: "asc" }],
         }),
-        prisma.category.findMany({ where, orderBy: [{ sortOrder: "asc" }, { id: "asc" }] }),
-        prisma.subCategory.findMany({ where, orderBy: [{ sortOrder: "asc" }, { id: "asc" }] }),
+        prisma.category.findMany({ where: { userId: accountId }, orderBy: [{ sortOrder: "asc" }, { id: "asc" }] }),
+        prisma.subCategory.findMany({ where: { userId: accountId }, orderBy: [{ sortOrder: "asc" }, { id: "asc" }] }),
         prisma.user.findUnique({ where: { id: accountId } }),
         prisma.appSetting.findFirst(),
         prisma.notificationSetting.findUnique({ where: { userId: accountId } }),
@@ -1475,6 +1350,18 @@ async function getLookupFromDb(userId, accountId) {
         ...(profile ? { userProfile: serializeUserProfile(profile) } : {}),
         ...(notifications ? { notificationSettings: serializeNotificationSetting(notifications) } : {}),
         appConfig: setting ? serializeAppSetting(setting) : appConfig,
+    };
+}
+function getMemoryLookup(accountId) {
+    ensureMemoryCategoryDefaults(accountId, db.categories, db.subCategories);
+    const subCategories = db.subCategories.filter((row) => "userId" in row && row.userId === accountId);
+    return {
+        wallets: db.wallets,
+        categories: db.categories
+            .filter((row) => "userId" in row && row.userId === accountId)
+            .map((row) => ({ ...row, subCategories: subCategories.filter((sub) => sub.categoryId === row.id) })),
+        subCategories,
+        appConfig,
     };
 }
 async function listUsers(query) {
@@ -1546,7 +1433,7 @@ export const financeRoutes = new Elysia({ prefix: "/api" })
         set.status = 503;
         return fail("Database sementara tidak tersedia. Coba sinkronkan kembali.");
     }
-    return ok({ wallets: db.wallets, categories: db.categories, subCategories: db.subCategories, appConfig });
+    return ok(getMemoryLookup(strictUserIdFromRequest(request)));
 })
     .get("/lookups", async ({ request, set }) => {
     if (await canUseDatabase())
@@ -1555,7 +1442,7 @@ export const financeRoutes = new Elysia({ prefix: "/api" })
         set.status = 503;
         return fail("Database sementara tidak tersedia");
     }
-    return ok({ wallets: db.wallets, categories: db.categories, subCategories: db.subCategories });
+    return ok(getMemoryLookup(strictUserIdFromRequest(request)));
 })
     .get("/export", async ({ request, set }) => {
     if (await canUseDatabase())
@@ -1913,15 +1800,13 @@ export const financeRoutes = new Elysia({ prefix: "/api" })
             return fail("Email sudah terdaftar");
         }
         const hashed = await bcrypt.hash(password, 10);
-        const created = await prisma.user.create({
-            data: {
-                name: name.trim(),
-                email: normalizedEmail,
-                password: hashed,
-                role: role ?? "owner",
-                status: status ?? "active",
-            },
-        });
+        const created = await prisma.$transaction(async (client) => {
+            const created = await client.user.create({
+                data: { name: name.trim(), email: normalizedEmail, password: hashed, role: role ?? "owner", status: status ?? "active" },
+            });
+            await applyCategoryDefaults(client, created.id);
+            return created;
+        }, { timeout: 30000 });
         return ok(publicDbUser(created));
     }
     if (users.some((u) => u.email === normalizedEmail)) {
@@ -1938,6 +1823,7 @@ export const financeRoutes = new Elysia({ prefix: "/api" })
         createdAt: new Date().toISOString(),
     };
     users.push(created);
+    ensureMemoryCategoryDefaults(created.id, db.categories, db.subCategories);
     return ok(publicUser(created));
 }, {
     body: t.Object({
@@ -2384,7 +2270,7 @@ export const resourceRoutes = new Elysia({ prefix: "/api" })
     }
     if ((await canUseDatabase()) && prismaResources.has(resource)) {
         try {
-            const item = await createPrismaResource(resource, body, strictUserIdFromRequest(request), new URL(request.url).searchParams.get("restore") === "1");
+            const item = await createPrismaResource(resource, body, strictUserIdFromRequest(request), new URL(request.url).searchParams.get("restore") === "1", currentUserIdFromRequest(request));
             set.status = 201;
             return ok(item);
         }
@@ -2403,6 +2289,10 @@ export const resourceRoutes = new Elysia({ prefix: "/api" })
         }
         set.status = 201;
         return ok(body);
+    }
+    if (resource === "investments" && body.walletId) {
+        set.status = 503;
+        return fail("Database belum tersedia untuk investasi dengan dompet");
     }
     if (resource === "transactions" && body.type === "transfer") {
         set.status = 503;
@@ -2448,6 +2338,11 @@ export const resourceRoutes = new Elysia({ prefix: "/api" })
     if (index === -1) {
         set.status = 404;
         return fail("Data tidak ditemukan");
+    }
+    if (resource === "investments" &&
+        (body.walletId || body.sellWalletId || list[index]?.walletId)) {
+        set.status = 503;
+        return fail("Database belum tersedia untuk investasi dengan dompet");
     }
     if (resource === "transactions" &&
         (body.type === "transfer" || list[index]?.type === "transfer")) {

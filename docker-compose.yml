@@ -1,16 +1,19 @@
-# FinTrack and QRIS Gateway production deploy.
+# FinTrack production deploy.
 #
 # Usage:
 #   1. cp .env.production.example .env.production
 #   2. edit .env.production (isi database, JWT, TURNSTILE_SECRET_KEY dll.)
 #   3. docker compose --env-file .env.production up -d --build
-#   4. docker compose logs -f app   # to watch the first boot
+#   4. docker logs -f fintrack      # to watch the first boot
 #
 # The image does NOT include Postgres. Set DATABASE_URL to an
 # external DB (managed, RDS, Supabase, your own VPS, etc.) and the
 # backend will connect to it on startup.
 #
-# FinTrack publishes port 3000; the gateway dashboard binds to localhost:3010.
+# QRIS Gateway runs as its own deployment (see
+# docs/subscriptions-qris.md) and is reached through QRIS_BASE_URL.
+#
+# FinTrack publishes port 3000.
 # The Elysia backend stays on the
 # internal network on port 4000 and is reached through Next.js's
 # `/api/*` rewrite (see next.config.mjs).
@@ -29,14 +32,8 @@ services:
     restart: unless-stopped
     env_file:
       - .env.production
-    environment:
-      GOPAY_GATEWAY_URL: http://qris-gateway:3010
-    depends_on:
-      qris-gateway:
-        condition: service_healthy
     networks:
       - web
-      - gateway
     ports:
       # Browser-facing Next.js. Put a reverse proxy (Caddy / Nginx /
       # Cloudflare Tunnel) in front of this in production for TLS
@@ -72,46 +69,10 @@ services:
         max-size: "10m"
         max-file: "5"
 
-  qris-gateway:
-    build:
-      context: ./qris-gateway
-      dockerfile: Dockerfile
-    image: fintrack-qris-gateway:latest
-    restart: unless-stopped
-    networks:
-      - gateway
-    environment:
-      HOST: 0.0.0.0
-      PORT: 3010
-      DATA_DIR: /app/data
-      PUBLIC_URL: ${QRIS_GATEWAY_PUBLIC_URL:-http://127.0.0.1:3010}
-      SECURE_COOKIES: ${QRIS_GATEWAY_SECURE_COOKIES:-false}
-    ports:
-      - "127.0.0.1:${QRIS_GATEWAY_PORT:-3010}:3010"
-    volumes:
-      - qris-gateway-data:/app/data
-    healthcheck:
-      test:
-        - CMD
-        - node
-        - -e
-        - "fetch('http://127.0.0.1:3010/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "5"
-
 volumes:
   whatsapp-session:
   fintrack-data:
-  qris-gateway-data:
 
 networks:
   web:
     external: true
-  gateway:

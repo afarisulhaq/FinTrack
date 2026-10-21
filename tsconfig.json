@@ -37,7 +37,6 @@
     "server/dist",
     ".next",
     "infra",
-    "public/sw.js",
-    "qris-gateway"
+    "public/sw.js"
   ]
 }

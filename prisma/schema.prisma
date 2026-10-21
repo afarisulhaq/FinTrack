@@ -58,13 +58,13 @@ model SubscriptionInvoice {
     plan                  String
     planName              String
     baseAmount            Int
-    amount                Int      @unique
+    amount                Int
     durationDays          Int
     status                String   @default("creating")
     qrisCode              String?
+    checkoutUrl           String?
     gatewayReference      String?
     gatewayAccount        String
-    providerTransactionId String?  @unique
     paidAt                DateTime?
     lastCheckedAt         DateTime?
     createdAt             DateTime @default(now())

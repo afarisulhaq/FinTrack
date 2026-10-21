@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { PageWrapper } from "~/components/layout/page-wrapper";
-import { Button } from "~/components/ui/button";
+import { Button, buttonVariants } from "~/components/ui/button";
+import { cn } from "~/lib/utils";
 import { api } from "~/lib/api";
 import type { BillingOverview, SubscriptionInvoice } from "~/lib/subscriptions";
 import { useAuthStore } from "~/store/useAuthStore";
@@ -29,7 +30,7 @@ const labels: Record<string, string> = {
   pending: "Menunggu pembayaran",
   paid: "Lunas",
   expired: "Batas pembayaran berakhir",
-  failed: "QRIS gagal dibuat",
+  failed: "Invoice gagal atau dibatalkan",
 };
 
 export default function SubscriptionPage() {
@@ -43,7 +44,9 @@ export default function SubscriptionPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [invoice, setInvoice] = useState<SubscriptionInvoice | null>(null);
   const [invoiceLoading, setInvoiceLoading] = useState(false);
-  const invoicePager = useServerPagination<SubscriptionInvoice>("/subscriptions/invoices");
+  const invoicePager = useServerPagination<SubscriptionInvoice>(
+    "/subscriptions/invoices",
+  );
   const load = useCallback(async () => {
     if (!token) return;
     setLoading(true);
@@ -67,20 +70,37 @@ export default function SubscriptionPage() {
   }, []);
   const activeInvoiceId = selectedId ?? overview?.latestInvoiceId;
   useEffect(() => {
-    if (!token || !activeInvoiceId) { setInvoice(null); return; }
+    if (!token || !activeInvoiceId) {
+      setInvoice(null);
+      return;
+    }
     let cancelled = false;
     setInvoice(null);
     setInvoiceLoading(true);
-    void api.get<SubscriptionInvoice>(`/subscriptions/invoices/${activeInvoiceId}`, token)
-      .then((row) => { if (!cancelled) setInvoice(row); })
-      .catch((cause: unknown) => {
-        if (!cancelled) setError(cause instanceof Error ? cause.message : "Gagal memuat invoice");
+    void api
+      .get<SubscriptionInvoice>(
+        `/subscriptions/invoices/${activeInvoiceId}`,
+        token,
+      )
+      .then((row) => {
+        if (!cancelled) setInvoice(row);
       })
-      .finally(() => { if (!cancelled) setInvoiceLoading(false); });
-    return () => { cancelled = true; };
+      .catch((cause: unknown) => {
+        if (!cancelled)
+          setError(
+            cause instanceof Error ? cause.message : "Gagal memuat invoice",
+          );
+      })
+      .finally(() => {
+        if (!cancelled) setInvoiceLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [token, activeInvoiceId]);
-  const hasOpenInvoice = Boolean(overview?.openInvoice &&
-    now < Date.parse(overview.openInvoice.expiresAt));
+  const hasOpenInvoice = Boolean(
+    overview?.openInvoice && now < Date.parse(overview.openInvoice.expiresAt),
+  );
   const expired = invoice ? now >= Date.parse(invoice.expiresAt) : false;
   const pending = invoice?.status === "pending" && !expired;
   const creating = invoice?.status === "creating" && !expired;
@@ -97,37 +117,56 @@ export default function SubscriptionPage() {
     now < Date.parse(invoice.expiresAt) + 86_400_000 &&
     overview?.available;
 
-  async function act(check: boolean) {
-    if (!token || busy) return;
-    setBusy(true);
-    setError("");
-    if (check) setCheckAfter(Date.now() + 15_000);
-    try {
-      const saved = await api.post<SubscriptionInvoice>(
-        check
-          ? `/subscriptions/invoices/${invoice!.id}/check`
-          : "/subscriptions/invoices",
-        token,
-        {},
-      );
-      setInvoice(saved);
-      invalidateServerLists(["/subscriptions/invoices"]);
-      setSelectedId(saved.id);
-      await load();
-    } catch (cause) {
-      setError(
-        cause instanceof Error ? cause.message : "Gagal memproses pembayaran",
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
+  const act = useCallback(
+    async (check: boolean) => {
+      if (!token || busy) return;
+      setBusy(true);
+      setError("");
+      if (check) setCheckAfter(Date.now() + 15_000);
+      try {
+        const saved = await api.post<SubscriptionInvoice>(
+          check
+            ? `/subscriptions/invoices/${invoice!.id}/check`
+            : "/subscriptions/invoices",
+          token,
+          {},
+        );
+        setInvoice(saved);
+        invalidateServerLists(["/subscriptions/invoices"]);
+        setSelectedId(saved.id);
+        await load();
+      } catch (cause) {
+        setError(
+          cause instanceof Error ? cause.message : "Gagal memproses pembayaran",
+        );
+      } finally {
+        setBusy(false);
+      }
+    },
+    [token, busy, invoice, load],
+  );
+
+  // Returning from the hosted checkout re-reads status from the backend,
+  // throttled by the 15 second window the API already enforces.
+  useEffect(() => {
+    if (!pending) return;
+    const onVisibility = () => {
+      if (document.visibilityState === "visible" && Date.now() >= checkAfter)
+        void act(true);
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, [pending, checkAfter, act]);
 
   return (
     <PageWrapper title="Langganan" subtitle="Status paket dan pembayaran QRIS">
       <div className="mx-auto max-w-4xl space-y-6">
         <ServerListStatus {...invoicePager} />
-        {invoiceLoading && <p role="status" className="text-text-secondary text-sm">Memuat invoice...</p>}
+        {invoiceLoading && (
+          <p role="status" className="text-text-secondary text-sm">
+            Memuat invoice...
+          </p>
+        )}
         {error && (
           <div
             role="alert"
@@ -181,9 +220,9 @@ export default function SubscriptionPage() {
                   </p>
                   <p className="text-text-secondary mt-3 text-sm leading-relaxed">
                     Setiap pembayaran menambah masa langganan. Perpanjangan
-                    dibayar melalui QRIS setiap periode. Total invoice termasuk
-                    tambahan nominal unik Rp1 sampai Rp999 untuk pencocokan
-                    pembayaran.
+                    dibayar melalui QRIS setiap periode. Total invoice dapat
+                    ditambah kode unik Rp0 sampai Rp99 oleh gateway; bayar tepat
+                    sesuai total yang tertera.
                   </p>
                   <Button
                     className="mt-5 min-h-11"
@@ -275,22 +314,48 @@ export default function SubscriptionPage() {
                       </Button>
                     )}
                   </div>
-                  {pending && invoice.qrisCode && (
+                  {pending && (invoice.qrisCode || invoice.checkoutUrl) && (
                     <div className="flex flex-col items-center justify-center gap-4">
-                      <div className="w-full max-w-[272px] rounded-lg bg-white p-4">
-                        <QRCodeSVG
-                          value={invoice.qrisCode}
-                          size={240}
-                          marginSize={4}
-                          className="h-auto w-full"
-                          title={`QRIS pembayaran ${money(invoice.amount)}`}
-                        />
-                      </div>
-                      <p className="text-text-secondary max-w-xs text-center text-sm">
-                        Scan dengan aplikasi bank atau e-wallet. Pastikan nama
-                        merchant dan total {money(invoice.amount)} sesuai
-                        sebelum membayar.
-                      </p>
+                      {invoice.qrisCode && (
+                        <>
+                          <div className="w-full max-w-[272px] rounded-lg bg-white p-4">
+                            <QRCodeSVG
+                              value={invoice.qrisCode}
+                              size={240}
+                              marginSize={4}
+                              className="h-auto w-full"
+                              title={`QRIS pembayaran ${money(invoice.amount)}`}
+                            />
+                          </div>
+                          <p className="text-text-secondary max-w-xs text-center text-sm">
+                            Scan dengan aplikasi bank atau e-wallet. Pastikan
+                            nama merchant dan total {money(invoice.amount)}{" "}
+                            sesuai sebelum membayar.
+                          </p>
+                        </>
+                      )}
+                      {invoice.checkoutUrl && (
+                        <>
+                          <a
+                            href={invoice.checkoutUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={cn(
+                              buttonVariants({
+                                variant: "outline",
+                                size: "lg",
+                              }),
+                              "min-h-11",
+                            )}
+                          >
+                            Buka halaman pembayaran
+                          </a>
+                          <p className="text-text-secondary max-w-xs text-center text-xs">
+                            Kembali ke tab ini setelah membayar, lalu periksa
+                            status pembayaran.
+                          </p>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
@@ -307,43 +372,43 @@ export default function SubscriptionPage() {
                 </p>
               ) : (
                 <>
-                <ul className="divide-border mt-3 divide-y">
-                  {invoicePager.items.map((row) => (
-                    <li
-                      key={row.id}
-                      className="flex flex-wrap items-start justify-between gap-3 py-3 text-sm"
-                    >
-                      <div>
-                        <p className="text-text-primary">
-                          {row.planName} · {money(row.amount)}
-                        </p>
-                        <p className="text-text-secondary mt-1">
-                          {date(row.createdAt)} WIB
-                        </p>
-                        <p className="text-text-secondary mt-1 text-xs break-all">
-                          {row.id}
-                        </p>
-                      </div>
-                      <p className="text-text-secondary">
-                        {labels[
-                          ["pending", "creating"].includes(row.status) &&
-                          now >= Date.parse(row.expiresAt)
-                            ? "expired"
-                            : row.status
-                        ] ?? row.status}
-                      </p>
-                      <Button
-                        variant="outline"
-                        className="min-h-11"
-                        disabled={busy || loading}
-                        onClick={() => setSelectedId(row.id)}
+                  <ul className="divide-border mt-3 divide-y">
+                    {invoicePager.items.map((row) => (
+                      <li
+                        key={row.id}
+                        className="flex flex-wrap items-start justify-between gap-3 py-3 text-sm"
                       >
-                        Lihat invoice
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-                <Pagination {...invoicePager} label="invoice" />
+                        <div>
+                          <p className="text-text-primary">
+                            {row.planName} · {money(row.amount)}
+                          </p>
+                          <p className="text-text-secondary mt-1">
+                            {date(row.createdAt)} WIB
+                          </p>
+                          <p className="text-text-secondary mt-1 text-xs break-all">
+                            {row.id}
+                          </p>
+                        </div>
+                        <p className="text-text-secondary">
+                          {labels[
+                            ["pending", "creating"].includes(row.status) &&
+                            now >= Date.parse(row.expiresAt)
+                              ? "expired"
+                              : row.status
+                          ] ?? row.status}
+                        </p>
+                        <Button
+                          variant="outline"
+                          className="min-h-11"
+                          disabled={busy || loading}
+                          onClick={() => setSelectedId(row.id)}
+                        >
+                          Lihat invoice
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                  <Pagination {...invoicePager} label="invoice" />
                 </>
               )}
             </section>

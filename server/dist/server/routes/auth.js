@@ -1,7 +1,8 @@
 import bcrypt from "bcryptjs";
 import { Elysia, t } from "elysia";
 import { z } from "zod";
-import { users } from "../data.js";
+import { db, users } from "../data.js";
+import { applyCategoryDefaults, ensureMemoryCategoryDefaults, } from "../services/default-categories.js";
 import { extractToken, signToken, verifyToken } from "../auth.js";
 import { canUseDatabase, db as prisma } from "../prisma-client.js";
 import { fail, id, ok, publicUser } from "../utils.js";
@@ -170,15 +171,13 @@ export const authRoutes = new Elysia({ prefix: "/api/auth" })
         // log in and reach the dashboard. The first bootstrap admin
         // (created by the seed with `ADMIN_EMAIL` + `ADMIN_PASSWORD`)
         // is exempt from this gate.
-        const user = await prisma.user.create({
-            data: {
-                name,
-                email: normalizedEmail,
-                password: hashed,
-                role: "owner",
-                status: "pending",
-            },
-        });
+        const user = await prisma.$transaction(async (client) => {
+            const created = await client.user.create({
+                data: { name, email: normalizedEmail, password: hashed, role: "owner", status: "pending" },
+            });
+            await applyCategoryDefaults(client, created.id);
+            return created;
+        }, { timeout: 30000 });
         // Don't issue a token — the user can't log in until approved.
         // Return the user with their `pending` status so the client
         // can show the "waiting for approval" message.
@@ -202,6 +201,7 @@ export const authRoutes = new Elysia({ prefix: "/api/auth" })
         createdAt: new Date().toISOString(),
     };
     users.push(newUser);
+    ensureMemoryCategoryDefaults(newUser.id, db.categories, db.subCategories);
     return ok({
         token: null,
         user: publicUser(newUser),

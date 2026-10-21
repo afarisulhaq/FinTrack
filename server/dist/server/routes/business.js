@@ -4,6 +4,7 @@ import { db, canUseDatabase } from "../prisma-client.js";
 import { extractToken, verifyToken } from "../auth.js";
 import { ok, fail } from "../utils.js";
 import { databasePage, readPage } from "../services/pagination.js";
+import { getBusinessDashboard } from "../services/business-dashboard.js";
 async function businessTotals(businessId) {
     const groups = await db.businessTransaction.groupBy({
         by: ["type"], where: { businessId }, _sum: { amount: true }, _count: true,
@@ -129,6 +130,19 @@ export const businessRoutes = new Elysia({ prefix: "/api/businesses" })
             ...row, summary: await businessTotals(row.id),
         }))) });
 })
+    .get("/dashboard", async ({ request, query, set }) => {
+    const year = query.year === undefined ? undefined : Number(query.year);
+    if (year !== undefined && (!/^\d+$/.test(query.year) || !Number.isInteger(year) || year < 1 || year > 9998)) {
+        set.status = 400;
+        return fail("Tahun harus berupa bilangan bulat antara 1 dan 9998");
+    }
+    const dashboard = await getBusinessDashboard(authUser(request).sub, year, query.businessId);
+    if (!dashboard) {
+        set.status = 404;
+        return fail("Bisnis tidak ditemukan");
+    }
+    return ok(dashboard);
+})
     .get("/:businessId", async ({ request, params, set }) => {
     const row = await db.business.findFirst({
         where: { id: params.businessId, userId: authUser(request).sub },
@@ -147,7 +161,16 @@ export const businessRoutes = new Elysia({ prefix: "/api/businesses" })
         set.status = 404;
         return fail("Bisnis tidak ditemukan");
     }
-    const where = { businessId: business.id };
+    if (query.type && query.type !== "income" && query.type !== "expense") {
+        set.status = 400;
+        return fail("Jenis transaksi tidak valid");
+    }
+    const search = (query.search ?? "").trim();
+    const where = {
+        businessId: business.id,
+        ...(query.type ? { type: query.type } : {}),
+        ...(search ? { description: { contains: search, mode: "insensitive" } } : {}),
+    };
     const page = await databasePage(readPage(query), () => db.businessTransaction.count({ where }), (skip, take) => db.businessTransaction.findMany({
         where, skip, take, orderBy: [{ date: "desc" }, { createdAt: "desc" }, { id: "desc" }],
         include: { wallet: { select: { name: true } } },

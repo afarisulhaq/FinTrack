@@ -12,6 +12,7 @@ import { authRoutes } from "./routes/auth.js";
 import { financeRoutes, resourceRoutes } from "./routes/finance.js";
 import { businessRoutes } from "./routes/business.js";
 import { subscriptionRoutes } from "./routes/subscriptions.js";
+import { webhookRoutes } from "./routes/webhook.js";
 import { botRoutes } from "./routes/bot.js";
 import { stockScreeningRoutes } from "./routes/stock-screening.js";
 import { marketWatchlistRoutes } from "./routes/market-watchlist.js";
@@ -56,6 +57,7 @@ const app = new Elysia({ adapter: node() })
   .use(financeRoutes)
   .use(businessRoutes)
   .use(subscriptionRoutes)
+  .use(webhookRoutes)
   .use(analyticsRoutes)
   .use(pagedPeopleRoutes)
   .use(resourceRoutes)
