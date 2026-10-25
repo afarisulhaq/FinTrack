@@ -48,16 +48,13 @@ services:
       options:
         max-size: "10m"
         max-file: "5"
-
 volumes:
   fintrack-data:
     external: true
     name: fintrack_fintrack-data
-
   whatsapp-session:
     external: true
     name: fintrack_whatsapp-session
-
 networks:
   web:
     external: true

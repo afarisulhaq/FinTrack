@@ -38,7 +38,14 @@ import { fail, id, ok, publicUser } from "../utils.js";
 import { listLedger } from "../services/list-ledger.js";
 import { listAssets } from "../services/list-assets.js";
 import { listPeople } from "../services/list-people.js";
-import { PaginationError, readPage, pageArray, databasePage, type ListQuery, type ListScope } from "../services/pagination.js";
+import {
+  PaginationError,
+  readPage,
+  pageArray,
+  databasePage,
+  type ListQuery,
+  type ListScope,
+} from "../services/pagination.js";
 
 type ResourceKey = keyof typeof db;
 type Decimalish = { toString(): string } | number | string | null | undefined;
@@ -62,27 +69,45 @@ const prismaResources = new Set<ResourceKey>([
   "subCategories",
 ]);
 const recordIdTables: Record<string, string> = {
-  wallets: "Wallet", transactions: "Transaction", budgets: "Budget",
-  investments: "Investment", bills: "Bill", savingGoals: "SavingGoal",
-  notes: "Note", recurringTransactions: "RecurringTransaction", debts: "Debt",
-  debtContacts: "DebtContact", cards: "Card", wishlist: "WishlistItem",
-  reimbursements: "Reimbursement", teamMembers: "TeamMember",
-  categories: "Category", subCategories: "SubCategory", splitBills: "SplitBill",
+  wallets: "Wallet",
+  transactions: "Transaction",
+  budgets: "Budget",
+  investments: "Investment",
+  bills: "Bill",
+  savingGoals: "SavingGoal",
+  notes: "Note",
+  recurringTransactions: "RecurringTransaction",
+  debts: "Debt",
+  debtContacts: "DebtContact",
+  cards: "Card",
+  wishlist: "WishlistItem",
+  reimbursements: "Reimbursement",
+  teamMembers: "TeamMember",
+  categories: "Category",
+  subCategories: "SubCategory",
+  splitBills: "SplitBill",
 };
 
 const contactBody = z.object({
-  id: z.string().optional(), name: z.string().trim().min(1),
-  phone: z.string().nullish(), note: z.string().nullish(),
+  id: z.string().optional(),
+  name: z.string().trim().min(1),
+  phone: z.string().nullish(),
+  note: z.string().nullish(),
 });
 const memberBody = z.object({
-  id: z.string().optional(), name: z.string().min(1), email: z.string().email(),
-  phone: z.string().nullish(), avatar: z.string().nullish(),
+  id: z.string().optional(),
+  name: z.string().min(1),
+  email: z.string().email(),
+  phone: z.string().nullish(),
+  avatar: z.string().nullish(),
   role: z.enum(["owner", "member", "viewer"]),
   status: z.enum(["active", "invited", "inactive"]),
   invitedAt: z.string().optional(),
   permissions: z.object({
-    canViewAllWallets: z.boolean(), canAddTransactions: z.boolean(),
-    canManageBudgets: z.boolean(), walletIds: z.array(z.string()),
+    canViewAllWallets: z.boolean(),
+    canAddTransactions: z.boolean(),
+    canManageBudgets: z.boolean(),
+    walletIds: z.array(z.string()),
   }),
 });
 
@@ -1137,7 +1162,10 @@ function databaseSerializer<T>(serialize: (row: T) => Record<string, unknown>) {
     return serialize(row);
   };
 }
-const recordSerializers: Record<string, (row: unknown) => Record<string, unknown>> = {
+const recordSerializers: Record<
+  string,
+  (row: unknown) => Record<string, unknown>
+> = {
   wallets: databaseSerializer(serializeWallet),
   transactions: databaseSerializer(serializeTransaction),
   budgets: databaseSerializer(serializeBudget),
@@ -1156,25 +1184,52 @@ const recordSerializers: Record<string, (row: unknown) => Record<string, unknown
   categories: databaseSerializer(serializeCategory),
   subCategories: databaseSerializer(serializeSubCategory),
 };
-function serializeFinanceRecord(resource: string, row: unknown): Record<string, unknown> {
+function serializeFinanceRecord(
+  resource: string,
+  row: unknown,
+): Record<string, unknown> {
   const serialize = recordSerializers[resource];
-  if (!serialize) throw new PaginationError("Resource tidak mendukung pagination");
+  if (!serialize)
+    throw new PaginationError("Resource tidak mendukung pagination");
   return serialize(row);
 }
 
-async function listPagedResource(resource: ResourceKey, request: Request, query: ListQuery) {
+async function listPagedResource(
+  resource: ResourceKey,
+  request: Request,
+  query: ListQuery,
+) {
   const input = readPage(query);
   const scope: ListScope = {
-    userId: resource === "categories" || resource === "subCategories"
-      ? strictUserIdFromRequest(request)
-      : currentUserIdFromRequest(request),
+    userId:
+      resource === "categories" || resource === "subCategories"
+        ? strictUserIdFromRequest(request)
+        : currentUserIdFromRequest(request),
     authId: strictUserIdFromRequest(request)!,
   };
-  const ledger = await listLedger(resource, scope, query, input, serializeFinanceRecord);
+  const ledger = await listLedger(
+    resource,
+    scope,
+    query,
+    input,
+    serializeFinanceRecord,
+  );
   if (ledger !== null) return ledger;
-  const assets = await listAssets(resource, scope, query, input, serializeFinanceRecord);
+  const assets = await listAssets(
+    resource,
+    scope,
+    query,
+    input,
+    serializeFinanceRecord,
+  );
   if (assets !== null) return assets;
-  const people = await listPeople(resource, scope, query, input, serializeFinanceRecord);
+  const people = await listPeople(
+    resource,
+    scope,
+    query,
+    input,
+    serializeFinanceRecord,
+  );
   if (people !== null) return people;
   throw new PaginationError("Daftar tidak didukung");
 }
@@ -1218,8 +1273,12 @@ async function createPrismaResource(
         prepared.deadline = new Date(String(prepared.deadline));
       if (resource === "debts" && prepared.dueDate)
         prepared.dueDate = new Date(String(prepared.dueDate));
-      if (restore) prepared.walletEffects = [];
-      await reconcileWalletEffects(client, [], prepared.walletEffects, userId);
+      await reconcileWalletEffects(
+        client,
+        [],
+        prepared.walletEffects,
+        walletScopeUserId,
+      );
       const created = await (client as any)[model].create({ data: prepared });
       return resource === "bills"
         ? serializeBill(created)
@@ -1277,11 +1336,22 @@ async function createPrismaResource(
     case "debtContacts": {
       const contact = contactBody.parse(body);
       const name = contact.name.replace(/\s+/g, " ");
-      const existingIds = await prisma.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT "id" FROM "DebtContact" WHERE "userId" = ${userId} AND lower(regexp_replace(trim("name"), '\\s+', ' ', 'g')) = ${name.toLowerCase()} ORDER BY "id" LIMIT 1`);
-      const fields = { name, phone: contact.phone?.trim(), note: contact.note?.trim() };
+      const existingIds = await prisma.$queryRaw<{ id: string }[]>(
+        Prisma.sql`SELECT "id" FROM "DebtContact" WHERE "userId" = ${userId} AND lower(regexp_replace(trim("name"), '\\s+', ' ', 'g')) = ${name.toLowerCase()} ORDER BY "id" LIMIT 1`,
+      );
+      const fields = {
+        name,
+        phone: contact.phone?.trim(),
+        note: contact.note?.trim(),
+      };
       const created = existingIds.length
-        ? await prisma.debtContact.update({ where: { id: existingIds[0].id }, data: fields })
-        : await prisma.debtContact.create({ data: { ...fields, id: contact.id, userId } });
+        ? await prisma.debtContact.update({
+            where: { id: existingIds[0].id },
+            data: fields,
+          })
+        : await prisma.debtContact.create({
+            data: { ...fields, id: contact.id, userId },
+          });
       return serializeDebtContact(created);
     }
     case "cards": {
@@ -1307,7 +1377,11 @@ async function createPrismaResource(
     case "teamMembers": {
       const member = memberBody.parse(body);
       const created = await prisma.teamMember.create({
-        data: { ...member, userId, invitedAt: member.invitedAt ? new Date(member.invitedAt) : undefined },
+        data: {
+          ...member,
+          userId,
+          invitedAt: member.invitedAt ? new Date(member.invitedAt) : undefined,
+        },
       });
       return serializeTeamMember(created);
     }
@@ -1446,7 +1520,13 @@ async function updatePrismaResource(
     }
     case "investments": {
       const updated = await prisma.$transaction((client) =>
-        updateInvestment(client, resourceId, body, normalizeInvestmentBody(body), userId),
+        updateInvestment(
+          client,
+          resourceId,
+          body,
+          normalizeInvestmentBody(body),
+          userId,
+        ),
       );
       return serializeInvestment(updated);
     }
@@ -1771,18 +1851,34 @@ async function getExportFromDb(
 async function getLookupFromDb(userId: string | null, accountId: string) {
   await ensureCategoryDefaults(prisma, accountId);
   const where = userId ? { userId } : {};
-  const [wallets, categories, subCategories, profile, setting, notifications] = await Promise.all([
-    prisma.wallet.findMany({
-      where,
-      select: { id: true, name: true, type: true, balance: true, currency: true, color: true, icon: true, parentId: true },
-      orderBy: [{ name: "asc" }, { id: "asc" }],
-    }),
-    prisma.category.findMany({ where: { userId: accountId }, orderBy: [{ sortOrder: "asc" }, { id: "asc" }] }),
-    prisma.subCategory.findMany({ where: { userId: accountId }, orderBy: [{ sortOrder: "asc" }, { id: "asc" }] }),
-    prisma.user.findUnique({ where: { id: accountId } }),
-    prisma.appSetting.findFirst(),
-    prisma.notificationSetting.findUnique({ where: { userId: accountId } }),
-  ]);
+  const [wallets, categories, subCategories, profile, setting, notifications] =
+    await Promise.all([
+      prisma.wallet.findMany({
+        where,
+        select: {
+          id: true,
+          name: true,
+          type: true,
+          balance: true,
+          currency: true,
+          color: true,
+          icon: true,
+          parentId: true,
+        },
+        orderBy: [{ name: "asc" }, { id: "asc" }],
+      }),
+      prisma.category.findMany({
+        where: { userId: accountId },
+        orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+      }),
+      prisma.subCategory.findMany({
+        where: { userId: accountId },
+        orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+      }),
+      prisma.user.findUnique({ where: { id: accountId } }),
+      prisma.appSetting.findFirst(),
+      prisma.notificationSetting.findUnique({ where: { userId: accountId } }),
+    ]);
   const subRows = subCategories.map(serializeSubCategory);
   return {
     wallets: nestWallets(wallets.map(serializeWallet)),
@@ -1792,13 +1888,19 @@ async function getLookupFromDb(userId: string | null, accountId: string) {
     })),
     subCategories: subRows,
     ...(profile ? { userProfile: serializeUserProfile(profile) } : {}),
-    ...(notifications ? { notificationSettings: serializeNotificationSetting(notifications) } : {}),
+    ...(notifications
+      ? { notificationSettings: serializeNotificationSetting(notifications) }
+      : {}),
     appConfig: setting ? serializeAppSetting(setting) : appConfig,
   };
 }
 
 function getMemoryLookup(accountId: string) {
-  ensureMemoryCategoryDefaults(accountId, db.categories as Category[], db.subCategories as SubCategory[]);
+  ensureMemoryCategoryDefaults(
+    accountId,
+    db.categories as Category[],
+    db.subCategories as SubCategory[],
+  );
   const subCategories = (db.subCategories as SubCategory[]).filter(
     (row) => "userId" in row && row.userId === accountId,
   );
@@ -1806,7 +1908,10 @@ function getMemoryLookup(accountId: string) {
     wallets: db.wallets,
     categories: db.categories
       .filter((row) => "userId" in row && row.userId === accountId)
-      .map((row) => ({ ...row, subCategories: subCategories.filter((sub) => sub.categoryId === row.id) })),
+      .map((row) => ({
+        ...row,
+        subCategories: subCategories.filter((sub) => sub.categoryId === row.id),
+      })),
     subCategories,
     appConfig,
   };
@@ -1817,50 +1922,122 @@ async function listUsers(query: ListQuery) {
   const search = (query.search ?? "").trim();
   const role = query.role;
   const status = query.status;
-  if (role && !["admin", "owner", "member"].includes(role)) throw new PaginationError("Peran tidak valid");
-  if (status && !["active", "pending", "inactive"].includes(status)) throw new PaginationError("Status tidak valid");
+  if (role && !["admin", "owner", "member"].includes(role))
+    throw new PaginationError("Peran tidak valid");
+  if (status && !["active", "pending", "inactive"].includes(status))
+    throw new PaginationError("Status tidak valid");
   const today = new Date();
   const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-  const days = Array.from({ length: 7 }, (_, index) => new Date(today.getFullYear(), today.getMonth(), today.getDate() - 6 + index));
+  const days = Array.from(
+    { length: 7 },
+    (_, index) =>
+      new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate() - 6 + index,
+      ),
+  );
   if (await canUseDatabase()) {
     const signupDate = Prisma.sql`("createdAt" AT TIME ZONE 'UTC' AT TIME ZONE ${Intl.DateTimeFormat().resolvedOptions().timeZone})`;
     const where: Prisma.UserWhereInput = {
-      ...(role === "admin" || role === "owner" || role === "member" ? { role } : {}),
-      ...(status === "active" || status === "pending" || status === "inactive" ? { status } : {}),
-      ...(search ? { OR: [{ name: { contains: search, mode: "insensitive" as const } }, { email: { contains: search, mode: "insensitive" as const } }] } : {}),
+      ...(role === "admin" || role === "owner" || role === "member"
+        ? { role }
+        : {}),
+      ...(status === "active" || status === "pending" || status === "inactive"
+        ? { status }
+        : {}),
+      ...(search
+        ? {
+            OR: [
+              { name: { contains: search, mode: "insensitive" as const } },
+              { email: { contains: search, mode: "insensitive" as const } },
+            ],
+          }
+        : {}),
     };
-    const [result, roleCounts, statusCounts, newThisMonth, daysRows] = await Promise.all([
-      databasePage(input, () => prisma.user.count({ where }), (skip, take) =>
-        prisma.user.findMany({ where, skip, take, orderBy: [{ createdAt: "desc" }, { id: "asc" }] })),
-      prisma.user.groupBy({ by: ["role"], _count: true }),
-      prisma.user.groupBy({ by: ["status"], _count: true }),
-      prisma.user.count({ where: { createdAt: { gte: monthStart } } }),
-      prisma.$queryRaw<{ day: string; users: bigint }[]>(Prisma.sql`SELECT to_char(${signupDate}, 'YYYY-MM-DD') AS day, COUNT(*) AS users FROM "User" WHERE "createdAt" >= ${days[0]} GROUP BY day`),
-    ]);
-    return { ...result, items: result.items.map(publicDbUser), summary: {
-      total: roleCounts.reduce((total, row) => total + row._count, 0),
-      totalUsers: roleCounts.reduce((total, row) => total + row._count, 0),
-      activeUsers: statusCounts.find((row) => row.status === "active")?._count ?? 0,
-      newThisMonth,
-      last7: days.map((day) => ({
-        day: day.toLocaleDateString("id-ID", { weekday: "short" }),
-        users: Number(daysRows.find((row) => row.day === `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`)?.users ?? 0),
-      })),
-      roles: Object.fromEntries(roleCounts.map((row) => [row.role, row._count])),
-      statuses: Object.fromEntries(statusCounts.map((row) => [row.status, row._count])),
-    } };
+    const [result, roleCounts, statusCounts, newThisMonth, daysRows] =
+      await Promise.all([
+        databasePage(
+          input,
+          () => prisma.user.count({ where }),
+          (skip, take) =>
+            prisma.user.findMany({
+              where,
+              skip,
+              take,
+              orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+            }),
+        ),
+        prisma.user.groupBy({ by: ["role"], _count: true }),
+        prisma.user.groupBy({ by: ["status"], _count: true }),
+        prisma.user.count({ where: { createdAt: { gte: monthStart } } }),
+        prisma.$queryRaw<{ day: string; users: bigint }[]>(
+          Prisma.sql`SELECT to_char(${signupDate}, 'YYYY-MM-DD') AS day, COUNT(*) AS users FROM "User" WHERE "createdAt" >= ${days[0]} GROUP BY day`,
+        ),
+      ]);
+    return {
+      ...result,
+      items: result.items.map(publicDbUser),
+      summary: {
+        total: roleCounts.reduce((total, row) => total + row._count, 0),
+        totalUsers: roleCounts.reduce((total, row) => total + row._count, 0),
+        activeUsers:
+          statusCounts.find((row) => row.status === "active")?._count ?? 0,
+        newThisMonth,
+        last7: days.map((day) => ({
+          day: day.toLocaleDateString("id-ID", { weekday: "short" }),
+          users: Number(
+            daysRows.find(
+              (row) =>
+                row.day ===
+                `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`,
+            )?.users ?? 0,
+          ),
+        })),
+        roles: Object.fromEntries(
+          roleCounts.map((row) => [row.role, row._count]),
+        ),
+        statuses: Object.fromEntries(
+          statusCounts.map((row) => [row.status, row._count]),
+        ),
+      },
+    };
   }
   if (isDatabaseConfigured()) throw new Error("Database tidak tersedia");
-  const rows = users.filter((user) => (!role || user.role === role) && (!status || user.status === status) &&
-    (!search || `${user.name} ${user.email}`.toLowerCase().includes(search.toLowerCase())));
+  const rows = users.filter(
+    (user) =>
+      (!role || user.role === role) &&
+      (!status || user.status === status) &&
+      (!search ||
+        `${user.name} ${user.email}`
+          .toLowerCase()
+          .includes(search.toLowerCase())),
+  );
   return pageArray(rows.map(publicUser), input, {
     total: users.length,
     totalUsers: users.length,
     activeUsers: users.filter((user) => user.status === "active").length,
-    newThisMonth: users.filter((user) => new Date(user.createdAt) >= monthStart).length,
-    last7: days.map((day) => ({ day: day.toLocaleDateString("id-ID", { weekday: "short" }), users: users.filter((user) => new Date(user.createdAt).toDateString() === day.toDateString()).length })),
-    roles: Object.fromEntries(["admin", "owner", "member"].map((key) => [key, users.filter((user) => user.role === key).length])),
-    statuses: Object.fromEntries(["active", "pending", "inactive"].map((key) => [key, users.filter((user) => user.status === key).length])),
+    newThisMonth: users.filter((user) => new Date(user.createdAt) >= monthStart)
+      .length,
+    last7: days.map((day) => ({
+      day: day.toLocaleDateString("id-ID", { weekday: "short" }),
+      users: users.filter(
+        (user) =>
+          new Date(user.createdAt).toDateString() === day.toDateString(),
+      ).length,
+    })),
+    roles: Object.fromEntries(
+      ["admin", "owner", "member"].map((key) => [
+        key,
+        users.filter((user) => user.role === key).length,
+      ]),
+    ),
+    statuses: Object.fromEntries(
+      ["active", "pending", "inactive"].map((key) => [
+        key,
+        users.filter((user) => user.status === key).length,
+      ]),
+    ),
   });
 }
 
@@ -1875,7 +2052,10 @@ export const financeRoutes = new Elysia({ prefix: "/api" })
   .get("/bootstrap", async ({ request, set }) => {
     if (await canUseDatabase()) {
       return ok(
-        await getLookupFromDb(currentUserIdFromRequest(request), strictUserIdFromRequest(request)!),
+        await getLookupFromDb(
+          currentUserIdFromRequest(request),
+          strictUserIdFromRequest(request)!,
+        ),
       );
     }
     if (isDatabaseConfigured()) {
@@ -1887,36 +2067,85 @@ export const financeRoutes = new Elysia({ prefix: "/api" })
     return ok(getMemoryLookup(strictUserIdFromRequest(request)!));
   })
   .get("/lookups", async ({ request, set }) => {
-    if (await canUseDatabase()) return ok(await getLookupFromDb(currentUserIdFromRequest(request), strictUserIdFromRequest(request)!));
-    if (isDatabaseConfigured()) { set.status = 503; return fail("Database sementara tidak tersedia"); }
+    if (await canUseDatabase())
+      return ok(
+        await getLookupFromDb(
+          currentUserIdFromRequest(request),
+          strictUserIdFromRequest(request)!,
+        ),
+      );
+    if (isDatabaseConfigured()) {
+      set.status = 503;
+      return fail("Database sementara tidak tersedia");
+    }
     return ok(getMemoryLookup(strictUserIdFromRequest(request)!));
   })
   .get("/export", async ({ request, set }) => {
-    if (await canUseDatabase()) return ok(await getExportFromDb(currentUserIdFromRequest(request), strictUserIdFromRequest(request)));
-    if (isDatabaseConfigured()) { set.status = 503; return fail("Database sementara tidak tersedia"); }
+    if (await canUseDatabase())
+      return ok(
+        await getExportFromDb(
+          currentUserIdFromRequest(request),
+          strictUserIdFromRequest(request),
+        ),
+      );
+    if (isDatabaseConfigured()) {
+      set.status = 503;
+      return fail("Database sementara tidak tersedia");
+    }
     return ok({ ...db, appConfig });
   })
   .get("/record-ids/:resource", async ({ request, params, query, set }) => {
-    const table = Object.hasOwn(recordIdTables, params.resource) ? recordIdTables[params.resource] : undefined;
-    if (!table) { set.status = 404; return fail("Resource tidak ditemukan"); }
+    const table = Object.hasOwn(recordIdTables, params.resource)
+      ? recordIdTables[params.resource]
+      : undefined;
+    if (!table) {
+      set.status = 404;
+      return fail("Resource tidak ditemukan");
+    }
     const input = readPage(query);
     const userId = currentUserIdFromRequest(request);
     if (await canUseDatabase()) {
-      const tenant = userId ? Prisma.sql`"userId" = ${userId}` : Prisma.sql`TRUE`;
+      const tenant = userId
+        ? Prisma.sql`"userId" = ${userId}`
+        : Prisma.sql`TRUE`;
       const identifier = Prisma.raw(`"${table}"`);
-      return ok(await databasePage(input,
-        async () => Number((await prisma.$queryRaw<{ count: bigint }[]>(Prisma.sql`SELECT COUNT(*) AS count FROM ${identifier} WHERE ${tenant}`))[0].count),
-        (skip, take) => prisma.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT "id" FROM ${identifier} WHERE ${tenant} ORDER BY "id" LIMIT ${take} OFFSET ${skip}`),
-      ));
+      return ok(
+        await databasePage(
+          input,
+          async () =>
+            Number(
+              (
+                await prisma.$queryRaw<{ count: bigint }[]>(
+                  Prisma.sql`SELECT COUNT(*) AS count FROM ${identifier} WHERE ${tenant}`,
+                )
+              )[0].count,
+            ),
+          (skip, take) =>
+            prisma.$queryRaw<{ id: string }[]>(
+              Prisma.sql`SELECT "id" FROM ${identifier} WHERE ${tenant} ORDER BY "id" LIMIT ${take} OFFSET ${skip}`,
+            ),
+        ),
+      );
     }
-    if (isDatabaseConfigured()) { set.status = 503; return fail("Database sementara tidak tersedia"); }
+    if (isDatabaseConfigured()) {
+      set.status = 503;
+      return fail("Database sementara tidak tersedia");
+    }
     const resource = params.resource as ResourceKey;
-    const records = resource === "wallets" ? flattenWallets(db.wallets as SerializedWallet[]) : db[resource];
+    const records =
+      resource === "wallets"
+        ? flattenWallets(db.wallets as SerializedWallet[])
+        : db[resource];
     const authId = strictUserIdFromRequest(request);
-    const rows = records.filter((row) => {
-      const owner = "userId" in row ? row.userId : null;
-      return typeof owner === "string" ? !userId || owner === userId : authId === "usr-demo-001" || !userId;
-    }).map((row) => ({ id: row.id })).sort((a, b) => a.id.localeCompare(b.id));
+    const rows = records
+      .filter((row) => {
+        const owner = "userId" in row ? row.userId : null;
+        return typeof owner === "string"
+          ? !userId || owner === userId
+          : authId === "usr-demo-001" || !userId;
+      })
+      .map((row) => ({ id: row.id }))
+      .sort((a, b) => a.id.localeCompare(b.id));
     return ok(pageArray(rows, input));
   })
   .get("/market-search", async ({ query, set }) => {
@@ -2244,9 +2473,17 @@ export const financeRoutes = new Elysia({ prefix: "/api" })
   })
   // User list (for admin)
   .get("/users", async ({ request, query, set }) => {
-    const token = extractToken(request.headers.get("authorization") ?? undefined);
-    if (verifyToken(token ?? "")?.role !== "admin") { set.status = 403; return fail("Admin required"); }
-    if (isDatabaseConfigured() && !(await canUseDatabase())) { set.status = 503; return fail("Database sementara tidak tersedia"); }
+    const token = extractToken(
+      request.headers.get("authorization") ?? undefined,
+    );
+    if (verifyToken(token ?? "")?.role !== "admin") {
+      set.status = 403;
+      return fail("Admin required");
+    }
+    if (isDatabaseConfigured() && !(await canUseDatabase())) {
+      set.status = 503;
+      return fail("Database sementara tidak tersedia");
+    }
     return ok(await listUsers(query));
   })
   // Admin CRUD for users. The GET endpoint is the legacy list
@@ -2294,13 +2531,22 @@ export const financeRoutes = new Elysia({ prefix: "/api" })
           return fail("Email sudah terdaftar");
         }
         const hashed = await bcrypt.hash(password, 10);
-        const created = await prisma.$transaction(async (client) => {
-          const created = await client.user.create({
-            data: { name: name.trim(), email: normalizedEmail, password: hashed, role: role ?? "owner", status: status ?? "active" },
-          });
-          await applyCategoryDefaults(client, created.id);
-          return created;
-        }, { timeout: 30000 });
+        const created = await prisma.$transaction(
+          async (client) => {
+            const created = await client.user.create({
+              data: {
+                name: name.trim(),
+                email: normalizedEmail,
+                password: hashed,
+                role: role ?? "owner",
+                status: status ?? "active",
+              },
+            });
+            await applyCategoryDefaults(client, created.id);
+            return created;
+          },
+          { timeout: 30000 },
+        );
         return ok(publicDbUser(created));
       }
 
@@ -2318,7 +2564,11 @@ export const financeRoutes = new Elysia({ prefix: "/api" })
         createdAt: new Date().toISOString(),
       };
       users.push(created);
-      ensureMemoryCategoryDefaults(created.id, db.categories as Category[], db.subCategories as SubCategory[]);
+      ensureMemoryCategoryDefaults(
+        created.id,
+        db.categories as Category[],
+        db.subCategories as SubCategory[],
+      );
       return ok(publicUser(created));
     },
     {
@@ -2645,7 +2895,10 @@ export const financeRoutes = new Elysia({ prefix: "/api" })
   })
   .use(requireAdmin)
   .get("/admin/users", async ({ query, set }) => {
-    if (isDatabaseConfigured() && !(await canUseDatabase())) { set.status = 503; return fail("Database sementara tidak tersedia"); }
+    if (isDatabaseConfigured() && !(await canUseDatabase())) {
+      set.status = 503;
+      return fail("Database sementara tidak tersedia");
+    }
     return ok(await listUsers(query));
   })
   // Approve / reject / suspend a user. Used by /admin/users to flip
@@ -2783,7 +3036,10 @@ function updateMemoryWalletEffects(
 export const resourceRoutes = new Elysia({ prefix: "/api" })
   .use(requireAuth)
   .onError(({ error, set }) => {
-    if (error instanceof PaginationError) { set.status = error.status; return fail(error.message); }
+    if (error instanceof PaginationError) {
+      set.status = error.status;
+      return fail(error.message);
+    }
   })
   .onBeforeHandle(async ({ params, set }) => {
     const resource = (params as { resource?: string }).resource as ResourceKey;
@@ -2851,7 +3107,11 @@ export const resourceRoutes = new Elysia({ prefix: "/api" })
       set.status = 503;
       return fail("Database belum tersedia untuk transfer antar dompet");
     }
-    let item: Record<string, unknown> = { id: id(resource), ...(body as object), userId: strictUserIdFromRequest(request) };
+    let item: Record<string, unknown> = {
+      id: id(resource),
+      ...(body as object),
+      userId: strictUserIdFromRequest(request),
+    };
     if (
       resource === "bills" ||
       resource === "savingGoals" ||
@@ -2906,7 +3166,9 @@ export const resourceRoutes = new Elysia({ prefix: "/api" })
     }
     if (
       resource === "investments" &&
-      ((body as any).walletId || (body as any).sellWalletId || list[index]?.walletId)
+      ((body as any).walletId ||
+        (body as any).sellWalletId ||
+        list[index]?.walletId)
     ) {
       set.status = 503;
       return fail("Database belum tersedia untuk investasi dengan dompet");

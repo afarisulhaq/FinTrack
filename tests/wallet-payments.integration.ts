@@ -207,6 +207,7 @@ Object.defineProperty(globalThis, "window", {
   value: Object.assign(new EventTarget(), {
     localStorage: { getItem: () => JSON.stringify({ state: { token } }) },
     location: { origin: "http://localhost" },
+    setTimeout: globalThis.setTimeout.bind(globalThis),
   }),
   configurable: true,
 });
@@ -254,6 +255,7 @@ try {
     ],
   };
   await useFinanceStore.getState().addSplitBill(storeSplit);
+  await useFinanceStore.getState().refreshWallets();
   assert.equal(
     flattenWalletTree(useFinanceStore.getState().wallets).find(
       (wallet) => wallet.id === source.id,
@@ -269,14 +271,73 @@ try {
       true,
       destination.id,
     );
+  await useFinanceStore.getState().refreshWallets();
   assert.equal(
     flattenWalletTree(useFinanceStore.getState().wallets).find(
       (wallet) => wallet.id === destination.id,
     )!.balance,
     startDestination + 100,
   );
+  let startWalletPost!: () => void;
+  let releaseWalletPost!: () => void;
+  let finishDebtPost!: () => void;
+  const walletPostStarted = new Promise<void>((resolve) => {
+    startWalletPost = resolve;
+  });
+  const walletPostGate = new Promise<void>((resolve) => {
+    releaseWalletPost = resolve;
+  });
+  const debtPostFinished = new Promise<void>((resolve) => {
+    finishDebtPost = resolve;
+  });
+  let debtPostCount = 0;
+  globalThis.fetch = async (url, options) => {
+    const path = new URL(String(url), "http://localhost").pathname;
+    if (path.endsWith("/wallets") && options?.method === "POST") {
+      startWalletPost();
+      await walletPostGate;
+    }
+    const response = await app.handle(new Request(String(url), options));
+    if (path.endsWith("/debts") && options?.method === "POST") {
+      debtPostCount++;
+      finishDebtPost();
+    }
+    return response;
+  };
+  useFinanceStore.getState().addWallet({
+    name: "Wallet write barrier",
+    type: "cash",
+    balance: 0,
+    currency: "IDR",
+    color: "#111111",
+    icon: "Wallet",
+  });
+  await walletPostStarted;
+  const pendingWallet = flattenWalletTree(
+    useFinanceStore.getState().wallets,
+  ).find((wallet) => wallet.name === "Wallet write barrier")!;
+  useFinanceStore.getState().addDebt({
+    direction: "owe",
+    personName: "Write barrier test",
+    amount: 200,
+    paidAmount: 0,
+    installments: [],
+    walletId: pendingWallet.id,
+    isSettled: false,
+    description: "Wait for wallet persistence",
+    createdAt: new Date().toISOString(),
+  });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(debtPostCount, 0, "debt waits until the wallet POST completes");
+  releaseWalletPost();
+  await debtPostFinished;
+  assert.equal(
+    db.wallets.find((wallet) => wallet.id === pendingWallet.id)?.balance,
+    200,
+  );
+  await new Promise((resolve) => setTimeout(resolve, 20));
   console.log(
-    "PASS: wallet balances refresh in the client store after bill payment, split creation, and participant receipt",
+    "PASS: wallet balances refresh in the client store after bill payment, split creation, participant receipt, and debt waits for wallet persistence",
   );
 } finally {
   globalThis.fetch = originalFetch;

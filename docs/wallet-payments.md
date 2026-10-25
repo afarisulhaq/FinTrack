@@ -41,6 +41,9 @@ node --import tsx tests/debt-installments.regression.ts
 ```
 
 Tes API memeriksa pembayaran, perubahan, pembalikan, dan pembayaran ulang dalam
-mode pengembangan. Tes layanan memeriksa pembatasan dompet pemilik, transaksi
-gagal, klaim publik, konfirmasi pemilik, dan pembatalan penerimaan dengan klien
-database tiruan. PostgreSQL aktual dan tampilan browser belum diuji di sesi ini.
+mode pengembangan. Integrasi PostgreSQL memeriksa cakupan dompet admin saat
+pencatatan utang.
+Browser smoke membuat utang Rp125.000 dari kontak tersimpan dan dompet
+tersimpan pada mobile; saldo dompet berubah dari Rp500.000 menjadi Rp625.000.
+Picker serta tanpa overflow diverifikasi pada 360px, form juga diperiksa di
+desktop. Pembayaran bank nyata tidak diuji.

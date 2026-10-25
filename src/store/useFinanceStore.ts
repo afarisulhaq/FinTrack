@@ -11,7 +11,10 @@ import {
 } from "~/lib/wallets";
 import { toast } from "~/components/ui/toast";
 import { useAppConfigStore, type AppConfig } from "./useAppConfigStore";
-import { invalidateServerLists, subscribePageRecords } from "~/lib/page-records";
+import {
+  invalidateServerLists,
+  subscribePageRecords,
+} from "~/lib/page-records";
 import type {
   Wallet,
   Transaction,
@@ -132,8 +135,12 @@ function scheduleInvalidation(token: string, paths: readonly string[]) {
       return;
     }
     const currentToken = getBackendToken();
-    const resources = currentToken ? pendingInvalidations.get(currentToken) : undefined;
-    const refreshWallets = currentToken ? pendingWalletLookups.has(currentToken) : false;
+    const resources = currentToken
+      ? pendingInvalidations.get(currentToken)
+      : undefined;
+    const refreshWallets = currentToken
+      ? pendingWalletLookups.has(currentToken)
+      : false;
     pendingInvalidations.clear();
     pendingWalletLookups.clear();
     invalidationTimer = null;
@@ -144,7 +151,6 @@ function scheduleInvalidation(token: string, paths: readonly string[]) {
     invalidateServerLists([...resources]);
   }, 0);
 }
-
 
 async function readCurrent<T>(
   token: string,
@@ -175,15 +181,32 @@ async function persistResource<T = unknown>(
   }
   if (result.ok && token && token === getBackendToken()) {
     const resource = path.split(/[/?#]/)[1];
-    if ((resource === "wallets" && method === "DELETE") ||
-      (resource !== "wallets" && mutationResources[resource]?.includes("/wallets")))
+    if (
+      (resource === "wallets" && method === "DELETE") ||
+      (resource !== "wallets" &&
+        mutationResources[resource]?.includes("/wallets"))
+    )
       pendingWalletLookups.add(token);
-    const paths = mutationResources[resource] ?? [path.startsWith("/user/") ? path : `/${resource}`];
-    if (method === "DELETE" && (resource === "categories" || resource === "subCategories")) {
-      scheduleInvalidation(token, ["/transactions", "/budgets", "/recurringTransactions"]);
+    const paths = mutationResources[resource] ?? [
+      path.startsWith("/user/") ? path : `/${resource}`,
+    ];
+    if (
+      method === "DELETE" &&
+      (resource === "categories" || resource === "subCategories")
+    ) {
+      scheduleInvalidation(token, [
+        "/transactions",
+        "/budgets",
+        "/recurringTransactions",
+      ]);
       if (resource === "categories") scheduleInvalidation(token, ["/bills"]);
     }
-    if (path === "/user/profile" && body && typeof body === "object" && "timezone" in body)
+    if (
+      path === "/user/profile" &&
+      body &&
+      typeof body === "object" &&
+      "timezone" in body
+    )
       scheduleInvalidation(token, ["/analytics"]);
     scheduleInvalidation(token, paths);
   }
@@ -290,7 +313,6 @@ async function withPersist<T = unknown>(
 }
 
 // ── Store Interface ───────────────────────────────────────────────────────────
-
 
 interface BootstrapData {
   wallets?: Wallet[];
@@ -549,11 +571,24 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
     }
     const token = getBackendToken();
     set((state) => ({
-      ...(state.dataToken !== token ? {
-        transactions: [], budgets: [], investments: [], bills: [], savingGoals: [],
-        debts: [], debtContacts: [], cards: [], wishlist: [], reimbursements: [],
-        notes: [], recurringTransactions: [], splitBills: [], teamMembers: [],
-      } : {}),
+      ...(state.dataToken !== token
+        ? {
+            transactions: [],
+            budgets: [],
+            investments: [],
+            bills: [],
+            savingGoals: [],
+            debts: [],
+            debtContacts: [],
+            cards: [],
+            wishlist: [],
+            reimbursements: [],
+            notes: [],
+            recurringTransactions: [],
+            splitBills: [],
+            teamMembers: [],
+          }
+        : {}),
       wallets: data.wallets ? normalizeWalletTree(data.wallets) : state.wallets,
       categories: data.categories ?? state.categories,
       subCategories: data.subCategories ?? state.subCategories,
@@ -833,14 +868,19 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
   addInvestment: (investment) => {
     const item = { ...investment, id: genId() };
     const existingKey = `${item.broker}|${item.symbol}|${item.assetClass}|${item.walletId ?? ""}`;
-    const previous = get().investments.find((inv) =>
-      inv.quantity > 0 && `${inv.broker}|${inv.symbol}|${inv.assetClass}|${inv.walletId ?? ""}` === existingKey,
+    const previous = get().investments.find(
+      (inv) =>
+        inv.quantity > 0 &&
+        `${inv.broker}|${inv.symbol}|${inv.assetClass}|${inv.walletId ?? ""}` ===
+          existingKey,
     );
 
     set((state) => {
       const existing = state.investments.find(
         (inv) =>
-          inv.quantity > 0 && `${inv.broker}|${inv.symbol}|${inv.assetClass}|${inv.walletId ?? ""}` === existingKey,
+          inv.quantity > 0 &&
+          `${inv.broker}|${inv.symbol}|${inv.assetClass}|${inv.walletId ?? ""}` ===
+            existingKey,
       );
       if (!existing) return { investments: [...state.investments, item] };
 
@@ -877,20 +917,16 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
             ? state.investments.map((inv) =>
                 inv.id === saved.id ? saved : inv,
               )
-            : [
-                ...state.investments.filter(
-                  (inv) =>
-                    inv.id !== item.id,
-                ),
-                saved,
-              ],
+            : [...state.investments.filter((inv) => inv.id !== item.id), saved],
         }));
       },
       onError: () => {
         set((state) => ({
-          investments: state.investments.filter((i) => i.id !== item.id).map((inv) =>
-            previous && inv.id === previous.id ? previous : inv,
-          ),
+          investments: state.investments
+            .filter((i) => i.id !== item.id)
+            .map((inv) =>
+              previous && inv.id === previous.id ? previous : inv,
+            ),
         }));
       },
       errorTitle: "Gagal menambah investasi",
@@ -1028,7 +1064,8 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
     const token = getBackendToken();
     if (!token) return;
     await financeSync.waitForWrites();
-    if (token === getBackendToken()) scheduleInvalidation(token, ["/splitBills", "/split-bills"]);
+    if (token === getBackendToken())
+      scheduleInvalidation(token, ["/splitBills", "/split-bills"]);
   },
 
   // ── Bill Actions ───────────────────────────────────────────────────────────
@@ -1204,7 +1241,8 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
     const token = getBackendToken();
     if (!token) return;
     await financeSync.waitForWrites();
-    if (token === getBackendToken()) scheduleInvalidation(token, ["/savingGoals"]);
+    if (token === getBackendToken())
+      scheduleInvalidation(token, ["/savingGoals"]);
   },
 
   // ── Debt Actions ───────────────────────────────────────────────────────────
@@ -1212,21 +1250,24 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
   addDebt: (debt) => {
     const item = { ...debt, id: genId() };
     set((state) => ({ debts: [...state.debts, item] }));
-    void withPersist<Debt>("/debts", "POST", item, {
-      onSuccess: (saved) => {
-        if (saved)
+    void (async () => {
+      await financeSync.waitForWrites();
+      await withPersist<Debt>("/debts", "POST", item, {
+        onSuccess: (saved) => {
+          if (saved)
+            set((state) => ({
+              debts: state.debts.map((debt) =>
+                debt.id === item.id ? saved : debt,
+              ),
+            }));
+        },
+        onError: () =>
           set((state) => ({
-            debts: state.debts.map((debt) =>
-              debt.id === item.id ? saved : debt,
-            ),
-          }));
-      },
-      onError: () =>
-        set((state) => ({
-          debts: state.debts.filter((debt) => debt.id !== item.id),
-        })),
-      errorTitle: "Gagal menambah utang",
-    });
+            debts: state.debts.filter((debt) => debt.id !== item.id),
+          })),
+        errorTitle: "Gagal menambah utang",
+      });
+    })();
   },
 
   updateDebt: (id, updates) => {
@@ -1257,15 +1298,25 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
   },
 
   updateDebtInstallment: (debtId, installmentId, changes) => {
-    void withPersist(`/debts/${debtId}/installments/${installmentId}`, "PUT", changes, {
-      errorTitle: "Gagal memperbarui cicilan",
-    });
+    void withPersist(
+      `/debts/${debtId}/installments/${installmentId}`,
+      "PUT",
+      changes,
+      {
+        errorTitle: "Gagal memperbarui cicilan",
+      },
+    );
   },
 
   deleteDebtInstallment: (debtId, installmentId) => {
-    void withPersist(`/debts/${debtId}/installments/${installmentId}`, "DELETE", undefined, {
-      errorTitle: "Gagal menghapus cicilan",
-    });
+    void withPersist(
+      `/debts/${debtId}/installments/${installmentId}`,
+      "DELETE",
+      undefined,
+      {
+        errorTitle: "Gagal menghapus cicilan",
+      },
+    );
   },
 
   settleDebt: (id) => {
@@ -1823,9 +1874,16 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
     if (!token) return;
     try {
       const lookup = await readCurrent(token, () =>
-        api.get<{ categories: Category[]; subCategories: SubCategory[] }>("/lookups", token),
+        api.get<{ categories: Category[]; subCategories: SubCategory[] }>(
+          "/lookups",
+          token,
+        ),
       );
-      if (lookup) set({ categories: lookup.categories, subCategories: lookup.subCategories });
+      if (lookup)
+        set({
+          categories: lookup.categories,
+          subCategories: lookup.subCategories,
+        });
     } catch (error) {
       console.warn("Failed to refresh categories", error);
     }
@@ -1842,7 +1900,12 @@ export const useFinanceStore = create<FinanceStore>((set, get) => ({
         const data = await readCurrent(token, () =>
           api.bootstrap<BootstrapData>(token, AbortSignal.timeout(15000)),
         );
-        if (!data || token !== getBackendToken() || !financeSync.isCurrent(financeSync.snapshot())) return false;
+        if (
+          !data ||
+          token !== getBackendToken() ||
+          !financeSync.isCurrent(financeSync.snapshot())
+        )
+          return false;
         get().hydrateFromBackend(data);
         if (manualBootstrapRequests.delete(token)) invalidateServerLists("all");
         return true;
@@ -2133,19 +2196,75 @@ subscribePageRecords((resource, rows, token) => {
   if (token !== getBackendToken()) return;
   // Typed page hooks register domain rows; the shared registry retains only the common id type.
   switch (resource) {
-    case "transactions": { const records = rows as Transaction[]; useFinanceStore.setState({ transactions: records }); break; }
-    case "budgets": { const records = rows as Budget[]; useFinanceStore.setState({ budgets: records }); break; }
-    case "investments": { const records = rows as Investment[]; useFinanceStore.setState({ investments: records }); break; }
-    case "bills": { const records = rows as Bill[]; useFinanceStore.setState({ bills: records }); break; }
-    case "savingGoals": { const records = rows as SavingGoal[]; useFinanceStore.setState({ savingGoals: records }); break; }
-    case "debts": { const records = rows as DebtSnapshot[]; useFinanceStore.setState({ debts: records }); break; }
-    case "debtContacts": { const records = rows as DebtContact[]; useFinanceStore.setState({ debtContacts: records }); break; }
-    case "cards": { const records = rows as Card[]; useFinanceStore.setState({ cards: records }); break; }
-    case "wishlist": { const records = rows as WishlistItem[]; useFinanceStore.setState({ wishlist: records }); break; }
-    case "reimbursements": { const records = rows as Reimbursement[]; useFinanceStore.setState({ reimbursements: records }); break; }
-    case "notes": { const records = rows as Note[]; useFinanceStore.setState({ notes: records }); break; }
-    case "recurringTransactions": { const records = rows as RecurringTransaction[]; useFinanceStore.setState({ recurringTransactions: records }); break; }
-    case "splitBills": { const records = rows as SplitBillSnapshot[]; useFinanceStore.setState({ splitBills: records }); break; }
-    case "teamMembers": { const records = rows as TeamMember[]; useFinanceStore.setState({ teamMembers: records }); break; }
+    case "transactions": {
+      const records = rows as Transaction[];
+      useFinanceStore.setState({ transactions: records });
+      break;
+    }
+    case "budgets": {
+      const records = rows as Budget[];
+      useFinanceStore.setState({ budgets: records });
+      break;
+    }
+    case "investments": {
+      const records = rows as Investment[];
+      useFinanceStore.setState({ investments: records });
+      break;
+    }
+    case "bills": {
+      const records = rows as Bill[];
+      useFinanceStore.setState({ bills: records });
+      break;
+    }
+    case "savingGoals": {
+      const records = rows as SavingGoal[];
+      useFinanceStore.setState({ savingGoals: records });
+      break;
+    }
+    case "debts": {
+      const records = rows as DebtSnapshot[];
+      useFinanceStore.setState({ debts: records });
+      break;
+    }
+    case "debtContacts": {
+      const records = rows as DebtContact[];
+      useFinanceStore.setState({ debtContacts: records });
+      break;
+    }
+    case "cards": {
+      const records = rows as Card[];
+      useFinanceStore.setState({ cards: records });
+      break;
+    }
+    case "wishlist": {
+      const records = rows as WishlistItem[];
+      useFinanceStore.setState({ wishlist: records });
+      break;
+    }
+    case "reimbursements": {
+      const records = rows as Reimbursement[];
+      useFinanceStore.setState({ reimbursements: records });
+      break;
+    }
+    case "notes": {
+      const records = rows as Note[];
+      useFinanceStore.setState({ notes: records });
+      break;
+    }
+    case "recurringTransactions": {
+      const records = rows as RecurringTransaction[];
+      useFinanceStore.setState({ recurringTransactions: records });
+      break;
+    }
+    case "splitBills": {
+      const records = rows as SplitBillSnapshot[];
+      useFinanceStore.setState({ splitBills: records });
+      break;
+    }
+    case "teamMembers": {
+      const records = rows as TeamMember[];
+      useFinanceStore.setState({ teamMembers: records });
+      break;
+    }
   }
 });

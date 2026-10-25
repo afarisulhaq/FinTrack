@@ -30,13 +30,17 @@ import { StatCard } from "~/components/ui/stat-card";
 import { useFinanceStore } from "~/store/useFinanceStore";
 import { daysUntil, formatCurrency, formatDate } from "~/lib/utils";
 import type { DebtContact, DebtDirection, DebtInstallment } from "~/lib/types";
-import type { ContactListRow, DebtContactGroup, DebtListRow, DebtSummary } from "~/lib/people-pages";
+import type {
+  ContactListRow,
+  DebtContactGroup,
+  DebtListRow,
+  DebtSummary,
+} from "~/lib/people-pages";
 import { Pagination } from "~/components/ui/pagination";
 import { ServerListStatus } from "~/components/ui/server-paginated-list";
 import { useServerPagination } from "~/lib/use-server-pagination";
 
 type ActiveTab = "owe" | "lent";
-
 
 const CONTACTS_STORAGE_KEY = "fintrack_debt_contacts";
 const DELETED_CONTACTS_STORAGE_KEY = "fintrack_debt_deleted_contacts";
@@ -52,7 +56,6 @@ function loadSavedContacts(): DebtContact[] {
     return [];
   }
 }
-
 
 function loadDeletedContacts(): Set<string> {
   if (typeof window === "undefined") return new Set();
@@ -76,7 +79,6 @@ function getInitials(name: string) {
 function normalizeContactName(name: string) {
   return name.trim().replace(/\s+/g, " ").toLowerCase();
 }
-
 
 export default function DebtsPage() {
   const [debtWalletId, setDebtWalletId] = useState("");
@@ -104,7 +106,8 @@ export default function DebtsPage() {
 
   const [showContactModal, setShowContactModal] = useState(false);
   const [selectedContactId, setSelectedContactId] = useState<string>("");
-  // Read on mount only — the SSR sees an empty Set, so the first
+  const [contactPickerQuery, setContactPickerQuery] = useState("");
+  const [contactPickerOpen, setContactPickerOpen] = useState(false);
   // client render must match. We populate it inside the effect below
   // to keep hydration text and DOM byte-identical.
   const [deletedContactNames, setDeletedContactNames] = useState<Set<string>>(
@@ -147,13 +150,26 @@ export default function DebtsPage() {
     // it on every store update.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const contactPager = useServerPagination<ContactListRow>("/debtContacts", {
-    search: contactSearchQuery,
-    excludeNames: JSON.stringify(Array.from(deletedContactNames)),
-  }, { resource: "debtContacts" });
+  const contactPager = useServerPagination<ContactListRow>(
+    "/debtContacts",
+    {
+      search: contactSearchQuery,
+      excludeNames: JSON.stringify(Array.from(deletedContactNames)),
+    },
+    { resource: "debtContacts" },
+  );
+  const contactPickerPager = useServerPagination<ContactListRow>(
+    "/debtContacts",
+    {
+      search: contactPickerQuery,
+      excludeNames: JSON.stringify(Array.from(deletedContactNames)),
+    },
+    { resource: "debtContacts", pageSize: 8 },
+  );
   const allContacts = contactPager.items;
-  const debtContacts = allContacts.filter((contact) => !contact.id.startsWith("debt-contact-"));
+  const debtContacts = allContacts.filter(
+    (contact) => !contact.id.startsWith("debt-contact-"),
+  );
 
   function handleSaveContact(e: React.FormEvent) {
     e.preventDefault();
@@ -267,7 +283,8 @@ export default function DebtsPage() {
   });
 
   const groupPager = useServerPagination<DebtContactGroup, DebtSummary>(
-    "/debts", { view: "groups", direction: activeTab },
+    "/debts",
+    { view: "groups", direction: activeTab },
   );
   const debtPager = useServerPagination<DebtListRow>(
     expandedContactKey ? "/debts" : null,
@@ -284,12 +301,15 @@ export default function DebtsPage() {
   function handleDebtSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (
+      !selectedContactId ||
       !debtForm.personName ||
       !debtForm.amount ||
       !debtForm.description ||
       !debtWalletId
-    )
+    ) {
+      setContactPickerOpen(!selectedContactId);
       return;
+    }
 
     const cleanName = debtForm.personName.trim().replace(/\s+/g, " ");
     const cleanContact = debtForm.contact.trim() || undefined;
@@ -344,6 +364,8 @@ export default function DebtsPage() {
       description: "",
     });
     setSelectedContactId("");
+    setContactPickerQuery("");
+    setContactPickerOpen(false);
     setShowDebtModal(false);
   }
 
@@ -380,6 +402,8 @@ export default function DebtsPage() {
   function openDebtModal() {
     setDebtForm((f) => ({ ...f, direction: activeTab }));
     setSelectedContactId("");
+    setContactPickerQuery("");
+    setContactPickerOpen(false);
     setShowDebtModal(true);
     setDebtWalletId("");
   }
@@ -572,243 +596,254 @@ export default function DebtsPage() {
                   {isExpanded && (
                     <>
                       <ServerListStatus {...debtPager} />
-                      {!debtPager.loading && !debtPager.error && debtPager.total === 0 && (
-                        <p className="text-text-muted mt-3 text-sm">Tidak ada transaksi untuk kontak ini.</p>
-                      )}
-                    <div className="border-border mt-4 space-y-3 border-l-2 pl-4">
-                      {debtPager.items.map((debt) => {
-                        const remaining = debt.amount - debt.paidAmount;
-                        const debtPct = Math.round(
-                          (debt.paidAmount / debt.amount) * 100,
-                        );
-                        const days = debt.dueDate
-                          ? daysUntil(debt.dueDate)
-                          : null;
-                        const debtExpanded = expandedDebtId === debt.id;
+                      {!debtPager.loading &&
+                        !debtPager.error &&
+                        debtPager.total === 0 && (
+                          <p className="text-text-muted mt-3 text-sm">
+                            Tidak ada transaksi untuk kontak ini.
+                          </p>
+                        )}
+                      <div className="border-border mt-4 space-y-3 border-l-2 pl-4">
+                        {debtPager.items.map((debt) => {
+                          const remaining = debt.amount - debt.paidAmount;
+                          const debtPct = Math.round(
+                            (debt.paidAmount / debt.amount) * 100,
+                          );
+                          const days = debt.dueDate
+                            ? daysUntil(debt.dueDate)
+                            : null;
+                          const debtExpanded = expandedDebtId === debt.id;
 
-                        return (
-                          <div
-                            key={debt.id}
-                            className="bg-bg-elevated/60 rounded-xl p-3"
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <p className="text-text-primary text-sm font-medium">
-                                    {debt.description}
-                                  </p>
-                                  {debt.isSettled ? (
-                                    <Badge variant="success" size="sm">
-                                      Lunas
-                                    </Badge>
-                                  ) : (
-                                    <Badge variant="warning" size="sm">
-                                      Aktif
-                                    </Badge>
-                                  )}
-                                  {debt.dueDate &&
-                                    !debt.isSettled &&
-                                    days !== null && (
-                                      <Badge
-                                        variant={
-                                          days < 0
-                                            ? "danger"
-                                            : days <= 7
-                                              ? "warning"
-                                              : "default"
-                                        }
-                                        size="sm"
-                                      >
-                                        {days < 0
-                                          ? `Terlambat ${Math.abs(days)} hr`
-                                          : `${days} hr lagi`}
+                          return (
+                            <div
+                              key={debt.id}
+                              className="bg-bg-elevated/60 rounded-xl p-3"
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <p className="text-text-primary text-sm font-medium">
+                                      {debt.description}
+                                    </p>
+                                    {debt.isSettled ? (
+                                      <Badge variant="success" size="sm">
+                                        Lunas
+                                      </Badge>
+                                    ) : (
+                                      <Badge variant="warning" size="sm">
+                                        Aktif
                                       </Badge>
                                     )}
-                                </div>
-                                <p className="text-text-muted mt-0.5 text-xs">
-                                  Dibuat: {formatDate(debt.createdAt)}
-                                </p>
-                              </div>
-                              <div className="shrink-0 text-right">
-                                <p className="text-text-primary text-sm font-bold">
-                                  {formatCurrency(debt.amount)}
-                                </p>
-                                <p className="text-text-muted text-[10px]">
-                                  Sisa: {formatCurrency(remaining)}
-                                </p>
-                              </div>
-                            </div>
-
-                            <div className="mt-2 space-y-1">
-                              <div className="text-text-muted flex justify-between text-xs">
-                                <span>
-                                  Dibayar: {formatCurrency(debt.paidAmount)}
-                                </span>
-                                <span>{debtPct}%</span>
-                              </div>
-                              <ProgressBar
-                                value={debt.paidAmount}
-                                max={debt.amount}
-                                color={
-                                  activeTab === "owe" ? "#ef4444" : "#22c55e"
-                                }
-                                size="sm"
-                              />
-                            </div>
-
-                            {!debt.isSettled && (
-                              <div className="mt-3 flex flex-wrap gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => {
-                                    setEditingInstallmentId(null);
-                                    setInstallmentWalletId("");
-                                    setInstallmentForm({
-                                      amount: "",
-                                      date: "",
-                                      note: "",
-                                    });
-                                    setShowInstallmentModal(debt.id);
-                                  }}
-                                >
-                                  <Plus className="h-3.5 w-3.5" />
-                                  Catat Cicilan
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="success"
-                                  onClick={() => {
-                                    setEditingInstallmentId(null);
-                                    setInstallmentWalletId("");
-                                    setInstallmentForm({
-                                      amount: String(
-                                        Math.max(
-                                          0,
-                                          debt.amount - debt.paidAmount,
-                                        ),
-                                      ),
-                                      date: "",
-                                      note: "Pelunasan",
-                                    });
-                                    setShowInstallmentModal(debt.id);
-                                  }}
-                                >
-                                  <Check className="h-3.5 w-3.5" />
-                                  Lunas
-                                </Button>
-                                <button
-                                  onClick={async () => {
-                                    if (
-                                      await confirm({
-                                        title: "Hapus transaksi utang?",
-                                        message:
-                                          "Transaksi ini beserta seluruh catatan cicilannya akan dihapus.",
-                                        variant: "danger",
-                                        confirmText: "Hapus utang",
-                                      })
-                                    )
-                                      deleteDebt(debt.id);
-                                  }}
-                                  className="text-text-muted hover:bg-danger/10 hover:text-danger flex h-8 w-8 items-center justify-center rounded-lg transition-colors"
-                                  aria-label="Hapus transaksi utang"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </button>
-                              </div>
-                            )}
-
-                            {debt.installmentCount > 0 && (
-                              <button
-                                onClick={() =>
-                                  setExpandedDebtId(
-                                    debtExpanded ? null : debt.id,
-                                  )
-                                }
-                                className="text-text-muted hover:text-text-secondary mt-3 flex items-center gap-1.5 text-xs transition-colors"
-                              >
-                                {debtExpanded ? (
-                                  <ChevronUp className="h-3.5 w-3.5" />
-                                ) : (
-                                  <ChevronDown className="h-3.5 w-3.5" />
-                                )}
-                                {debt.installmentCount} catatan cicilan
-                              </button>
-                            )}
-
-                            {debtExpanded && (
-                              <>
-                              <ServerListStatus {...installmentPager} />
-                              {!installmentPager.loading && !installmentPager.error && installmentPager.total === 0 && (
-                                <p className="text-text-muted mt-3 text-sm">Belum ada catatan cicilan.</p>
-                              )}
-                              <div className="border-border mt-3 space-y-2 border-l-2 pl-4">
-                                {installmentPager.items.map((inst) => (
-                                  <div
-                                    key={inst.id}
-                                    className="flex flex-wrap items-center justify-between gap-2 text-xs"
-                                  >
-                                    <div>
-                                      <p className="text-text-secondary">
-                                        {inst.note || "Pembayaran"}
-                                      </p>
-                                      <p className="text-text-muted">
-                                        {formatDate(inst.date)}
-                                      </p>
-                                    </div>
-                                    <span className="text-success font-semibold">
-                                      +{formatCurrency(inst.amount)}
-                                    </span>
-                                    <div className="flex shrink-0 gap-1">
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => {
-                                          setEditingInstallmentId(inst.id);
-                                          setInstallmentWalletId(
-                                            inst.walletId ?? "",
-                                          );
-                                          setInstallmentForm({
-                                            amount: String(inst.amount),
-                                            date: inst.date.slice(0, 10),
-                                            note: inst.note ?? "",
-                                          });
-                                          setShowInstallmentModal(debt.id);
-                                        }}
-                                      >
-                                        Edit
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={async () => {
-                                          if (
-                                            await confirm({
-                                              title: "Hapus cicilan?",
-                                              message: `Cicilan ${formatCurrency(inst.amount)} akan dihapus dan sisa utang dihitung ulang.`,
-                                              variant: "danger",
-                                              confirmText: "Hapus cicilan",
-                                            })
-                                          )
-                                            deleteDebtInstallment(
-                                              debt.id,
-                                              inst.id,
-                                            );
-                                        }}
-                                      >
-                                        Hapus
-                                      </Button>
-                                    </div>
+                                    {debt.dueDate &&
+                                      !debt.isSettled &&
+                                      days !== null && (
+                                        <Badge
+                                          variant={
+                                            days < 0
+                                              ? "danger"
+                                              : days <= 7
+                                                ? "warning"
+                                                : "default"
+                                          }
+                                          size="sm"
+                                        >
+                                          {days < 0
+                                            ? `Terlambat ${Math.abs(days)} hr`
+                                            : `${days} hr lagi`}
+                                        </Badge>
+                                      )}
                                   </div>
-                                ))}
+                                  <p className="text-text-muted mt-0.5 text-xs">
+                                    Dibuat: {formatDate(debt.createdAt)}
+                                  </p>
+                                </div>
+                                <div className="shrink-0 text-right">
+                                  <p className="text-text-primary text-sm font-bold">
+                                    {formatCurrency(debt.amount)}
+                                  </p>
+                                  <p className="text-text-muted text-[10px]">
+                                    Sisa: {formatCurrency(remaining)}
+                                  </p>
+                                </div>
                               </div>
-                              <Pagination {...installmentPager} label="cicilan" />
-                              </>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
+
+                              <div className="mt-2 space-y-1">
+                                <div className="text-text-muted flex justify-between text-xs">
+                                  <span>
+                                    Dibayar: {formatCurrency(debt.paidAmount)}
+                                  </span>
+                                  <span>{debtPct}%</span>
+                                </div>
+                                <ProgressBar
+                                  value={debt.paidAmount}
+                                  max={debt.amount}
+                                  color={
+                                    activeTab === "owe" ? "#ef4444" : "#22c55e"
+                                  }
+                                  size="sm"
+                                />
+                              </div>
+
+                              {!debt.isSettled && (
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      setEditingInstallmentId(null);
+                                      setInstallmentWalletId("");
+                                      setInstallmentForm({
+                                        amount: "",
+                                        date: "",
+                                        note: "",
+                                      });
+                                      setShowInstallmentModal(debt.id);
+                                    }}
+                                  >
+                                    <Plus className="h-3.5 w-3.5" />
+                                    Catat Cicilan
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="success"
+                                    onClick={() => {
+                                      setEditingInstallmentId(null);
+                                      setInstallmentWalletId("");
+                                      setInstallmentForm({
+                                        amount: String(
+                                          Math.max(
+                                            0,
+                                            debt.amount - debt.paidAmount,
+                                          ),
+                                        ),
+                                        date: "",
+                                        note: "Pelunasan",
+                                      });
+                                      setShowInstallmentModal(debt.id);
+                                    }}
+                                  >
+                                    <Check className="h-3.5 w-3.5" />
+                                    Lunas
+                                  </Button>
+                                  <button
+                                    onClick={async () => {
+                                      if (
+                                        await confirm({
+                                          title: "Hapus transaksi utang?",
+                                          message:
+                                            "Transaksi ini beserta seluruh catatan cicilannya akan dihapus.",
+                                          variant: "danger",
+                                          confirmText: "Hapus utang",
+                                        })
+                                      )
+                                        deleteDebt(debt.id);
+                                    }}
+                                    className="text-text-muted hover:bg-danger/10 hover:text-danger flex h-8 w-8 items-center justify-center rounded-lg transition-colors"
+                                    aria-label="Hapus transaksi utang"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              )}
+
+                              {debt.installmentCount > 0 && (
+                                <button
+                                  onClick={() =>
+                                    setExpandedDebtId(
+                                      debtExpanded ? null : debt.id,
+                                    )
+                                  }
+                                  className="text-text-muted hover:text-text-secondary mt-3 flex items-center gap-1.5 text-xs transition-colors"
+                                >
+                                  {debtExpanded ? (
+                                    <ChevronUp className="h-3.5 w-3.5" />
+                                  ) : (
+                                    <ChevronDown className="h-3.5 w-3.5" />
+                                  )}
+                                  {debt.installmentCount} catatan cicilan
+                                </button>
+                              )}
+
+                              {debtExpanded && (
+                                <>
+                                  <ServerListStatus {...installmentPager} />
+                                  {!installmentPager.loading &&
+                                    !installmentPager.error &&
+                                    installmentPager.total === 0 && (
+                                      <p className="text-text-muted mt-3 text-sm">
+                                        Belum ada catatan cicilan.
+                                      </p>
+                                    )}
+                                  <div className="border-border mt-3 space-y-2 border-l-2 pl-4">
+                                    {installmentPager.items.map((inst) => (
+                                      <div
+                                        key={inst.id}
+                                        className="flex flex-wrap items-center justify-between gap-2 text-xs"
+                                      >
+                                        <div>
+                                          <p className="text-text-secondary">
+                                            {inst.note || "Pembayaran"}
+                                          </p>
+                                          <p className="text-text-muted">
+                                            {formatDate(inst.date)}
+                                          </p>
+                                        </div>
+                                        <span className="text-success font-semibold">
+                                          +{formatCurrency(inst.amount)}
+                                        </span>
+                                        <div className="flex shrink-0 gap-1">
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => {
+                                              setEditingInstallmentId(inst.id);
+                                              setInstallmentWalletId(
+                                                inst.walletId ?? "",
+                                              );
+                                              setInstallmentForm({
+                                                amount: String(inst.amount),
+                                                date: inst.date.slice(0, 10),
+                                                note: inst.note ?? "",
+                                              });
+                                              setShowInstallmentModal(debt.id);
+                                            }}
+                                          >
+                                            Edit
+                                          </Button>
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={async () => {
+                                              if (
+                                                await confirm({
+                                                  title: "Hapus cicilan?",
+                                                  message: `Cicilan ${formatCurrency(inst.amount)} akan dihapus dan sisa utang dihitung ulang.`,
+                                                  variant: "danger",
+                                                  confirmText: "Hapus cicilan",
+                                                })
+                                              )
+                                                deleteDebtInstallment(
+                                                  debt.id,
+                                                  inst.id,
+                                                );
+                                            }}
+                                          >
+                                            Hapus
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                  <Pagination
+                                    {...installmentPager}
+                                    label="cicilan"
+                                  />
+                                </>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
                       <Pagination {...debtPager} label="utang/piutang" />
                     </>
                   )}
@@ -859,60 +894,188 @@ export default function DebtsPage() {
           </div>
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <label className="text-text-secondary text-xs font-medium">
-                Pilih Kontak Tersimpan
+              <label
+                htmlFor="debt-contact-search"
+                className="text-text-secondary text-xs font-medium"
+              >
+                Kontak
               </label>
               <button
                 type="button"
                 onClick={() => {
+                  setContactPickerOpen(false);
                   setShowDebtModal(false);
                   setShowContactModal(true);
                 }}
-                className="text-primary hover:text-primary/80 flex items-center gap-1 text-xs font-medium"
+                className="text-primary hover:text-primary/80 flex min-h-11 items-center gap-1 text-xs font-medium"
               >
                 <UserPlus className="h-3.5 w-3.5" />
-                Kelola Kontak
+                Kelola kontak
               </button>
             </div>
-              <Input
-                placeholder="Cari kontak untuk dipilih..."
-                value={contactSearchQuery}
-                onChange={(event) => setContactSearchQuery(event.target.value)}
-              />
-              <ServerListStatus {...contactPager} />
-            <select
-              required
-              value={selectedContactId}
-              onChange={(e) => {
-                const id = e.target.value;
-                setSelectedContactId(id);
-                if (!id) {
-                  df("personName", "");
-                  df("contact", "");
-                  return;
-                }
-                const found = allContacts.find((c) => c.id === id);
-                if (found) {
-                  df("personName", found.name);
-                  df("contact", found.phone || "");
-                }
+            <div
+              className="relative"
+              onBlur={(event) => {
+                if (
+                  !(event.relatedTarget instanceof Node) ||
+                  !event.currentTarget.contains(event.relatedTarget)
+                )
+                  setContactPickerOpen(false);
               }}
-              className="bg-bg-surface border-border text-text-primary focus:ring-primary/50 w-full rounded-lg border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
             >
-              <option value="">Pilih kontak</option>
-              {selectedContactId && !allContacts.some((contact) => contact.id === selectedContactId) && (
-                <option value={selectedContactId}>{debtForm.personName}</option>
+              <div className="relative">
+                <Search
+                  aria-hidden
+                  className="text-text-muted pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2"
+                />
+                <input
+                  id="debt-contact-search"
+                  type="search"
+                  role="combobox"
+                  aria-autocomplete="list"
+                  aria-expanded={contactPickerOpen}
+                  aria-controls="debt-contact-options"
+                  aria-label="Cari kontak tersimpan"
+                  placeholder="Cari nama atau nomor telepon..."
+                  value={contactPickerQuery}
+                  onFocus={() => setContactPickerOpen(true)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      event.preventDefault();
+                      setContactPickerOpen(false);
+                    }
+                    if (event.key === "ArrowDown" && contactPickerOpen) {
+                      event.preventDefault();
+                      document
+                        .querySelector<HTMLButtonElement>(
+                          '#debt-contact-options [role="option"]',
+                        )
+                        ?.focus();
+                    }
+                    if (event.key === "Enter" && contactPickerOpen) {
+                      event.preventDefault();
+                      if (contactPickerPager.items.length === 1) {
+                        const contact = contactPickerPager.items[0];
+                        if (contact) {
+                          setSelectedContactId(contact.id);
+                          df("personName", contact.name);
+                          df("contact", contact.phone || "");
+                          setContactPickerQuery(contact.name);
+                          setContactPickerOpen(false);
+                        }
+                      } else {
+                        document
+                          .querySelector<HTMLButtonElement>(
+                            '#debt-contact-options [role="option"]',
+                          )
+                          ?.focus();
+                      }
+                    }
+                  }}
+                  onChange={(event) => {
+                    setContactPickerQuery(event.target.value);
+                    setContactPickerOpen(true);
+                    setSelectedContactId("");
+                    df("personName", "");
+                    df("contact", "");
+                  }}
+                  className="bg-bg-surface border-text-muted text-text-primary placeholder:text-text-muted focus-visible:ring-primary h-11 w-full rounded-lg border pr-3 pl-10 text-sm focus-visible:ring-2 focus-visible:outline-none"
+                />
+              </div>
+              {contactPickerOpen && (
+                <div className="bg-bg-surface border-text-muted mt-1 max-h-56 overflow-y-auto rounded-lg border p-1 shadow-md">
+                  <ServerListStatus {...contactPickerPager} />
+                  <div
+                    id="debt-contact-options"
+                    role="listbox"
+                    aria-label="Hasil pencarian kontak"
+                  >
+                    {!contactPickerPager.loading &&
+                      !contactPickerPager.error &&
+                      contactPickerPager.items.map((contact) => (
+                        <button
+                          key={contact.id}
+                          type="button"
+                          role="option"
+                          aria-selected={selectedContactId === contact.id}
+                          onKeyDown={(event) => {
+                            if (event.key === "ArrowDown") {
+                              event.preventDefault();
+                              const next =
+                                event.currentTarget.nextElementSibling;
+                              if (next instanceof HTMLButtonElement)
+                                next.focus();
+                            }
+                            if (event.key === "ArrowUp") {
+                              event.preventDefault();
+                              const previous =
+                                event.currentTarget.previousElementSibling;
+                              if (previous instanceof HTMLButtonElement)
+                                previous.focus();
+                              else
+                                document
+                                  .getElementById("debt-contact-search")
+                                  ?.focus();
+                            }
+                          }}
+                          onClick={() => {
+                            setSelectedContactId(contact.id);
+                            df("personName", contact.name);
+                            df("contact", contact.phone || "");
+                            setContactPickerQuery(contact.name);
+                            setContactPickerOpen(false);
+                          }}
+                          className="hover:bg-bg-elevated focus-visible:bg-bg-elevated focus-visible:outline-primary flex min-h-11 w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-sm outline-none focus-visible:outline-2"
+                        >
+                          <span className="min-w-0">
+                            <span className="text-text-primary block truncate font-medium">
+                              {contact.name}
+                            </span>
+                            {(contact.phone || contact.note) && (
+                              <span className="text-text-muted block truncate text-xs">
+                                {[contact.phone, contact.note]
+                                  .filter(Boolean)
+                                  .join(" · ")}
+                              </span>
+                            )}
+                          </span>
+                          {selectedContactId === contact.id && (
+                            <Check
+                              aria-hidden
+                              className="text-primary h-4 w-4 shrink-0"
+                            />
+                          )}
+                        </button>
+                      ))}
+                  </div>
+                  {!contactPickerPager.loading &&
+                    !contactPickerPager.error &&
+                    contactPickerPager.total === 0 && (
+                      <p className="text-text-secondary px-3 py-3 text-sm">
+                        {contactPickerQuery.trim()
+                          ? "Kontak tidak ditemukan. Kelola kontak untuk menambahkan nama baru."
+                          : "Belum ada kontak tersimpan. Tambahkan melalui Kelola kontak."}
+                      </p>
+                    )}
+                  {contactPickerPager.totalPages > 1 && (
+                    <Pagination {...contactPickerPager} label="hasil kontak" />
+                  )}
+                </div>
               )}
-              {allContacts.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name} {c.phone ? `(${c.phone})` : ""}{" "}
-                  {c.note ? `(${c.note})` : ""}
-                </option>
-              ))}
-            </select>
-            <Pagination {...contactPager} label="kontak pilihan" />
+              {!selectedContactId && contactPickerQuery.trim() && (
+                <p className="text-text-secondary mt-1 text-xs">
+                  Pilih kontak dari hasil pencarian.
+                </p>
+              )}
+            </div>
+            {selectedContactId && (
+              <p className="text-text-secondary text-xs">
+                Kontak dipilih: {debtForm.personName}
+                {debtForm.contact ? ` · ${debtForm.contact}` : ""}
+              </p>
+            )}
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Input
               label="Jumlah Transaksi (Rp)"
               currency
@@ -1269,16 +1432,18 @@ export default function DebtsPage() {
                 );
               })}
 
-              {!contactPager.loading && !contactPager.error && contactPager.total === 0 && (
-                <div className="border-border bg-bg-elevated/30 rounded-xl border border-dashed py-8 text-center">
-                  <Users className="text-text-muted mx-auto mb-2 h-8 w-8" />
-                  <p className="text-text-muted text-xs">
-                    {contactSearchQuery
-                      ? "Tidak ada kontak yang cocok dengan pencarian"
-                      : "Belum ada kontak tersimpan. Gunakan formulir di atas untuk menambah kontak baru."}
-                  </p>
-                </div>
-              )}
+              {!contactPager.loading &&
+                !contactPager.error &&
+                contactPager.total === 0 && (
+                  <div className="border-border bg-bg-elevated/30 rounded-xl border border-dashed py-8 text-center">
+                    <Users className="text-text-muted mx-auto mb-2 h-8 w-8" />
+                    <p className="text-text-muted text-xs">
+                      {contactSearchQuery
+                        ? "Tidak ada kontak yang cocok dengan pencarian"
+                        : "Belum ada kontak tersimpan. Gunakan formulir di atas untuk menambah kontak baru."}
+                    </p>
+                  </div>
+                )}
             </div>
             <Pagination {...contactPager} label="kontak" />
           </div>
