@@ -49,7 +49,7 @@ import { ServerListStatus } from "~/components/ui/server-paginated-list";
 import { QrisImageUpload } from "~/components/qris/qris-image-upload";
 import { useFinanceStore } from "~/store/useFinanceStore";
 import { useAppConfigStore } from "~/store/useAppConfigStore";
-import { api, getApiBaseUrl } from "~/lib/api";
+import { api, getApiBaseUrl, type QrisGatewaySettings } from "~/lib/api";
 import { invalidateServerLists } from "~/lib/page-records";
 import type { PageResult } from "~/lib/pagination";
 import { useServerPagination } from "~/lib/use-server-pagination";
@@ -144,10 +144,16 @@ function FormRow({
 }
 
 function StyledSelect({
+  id,
+  required,
+  disabled,
   value,
   onChange,
   options,
 }: {
+  id?: string;
+  required?: boolean;
+  disabled?: boolean;
   value: string;
   onChange: (v: string) => void;
   options: { value: string; label: string }[];
@@ -155,6 +161,9 @@ function StyledSelect({
   return (
     <div className="relative">
       <select
+        id={id}
+        required={required}
+        disabled={disabled}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className={cn(
@@ -2848,9 +2857,9 @@ function QrisTab() {
         <CardBody className="space-y-4">
           <p className="text-text-muted text-sm">
             Paste string QRIS statis dari e-wallet kamu (GoPay, OVO, DANA,
-            ShopeePay, dll), atau cukup upload screenshot QR-nya: string akan
-            otomatis ke-ekstrak. String ini akan dipakai untuk men-generate QRIS
-            dinamis sesuai nominal tagihan saat kamu menagih peserta split bill.
+            ShopeePay, dll), atau upload screenshot QR untuk mengekstrak
+            string. Pengaturan ini tetap tersedia untuk penggunaan QRIS statis
+            dan terpisah dari invoice QRIS Gateway di bawah.
           </p>
 
           <QrisImageUpload
@@ -2980,15 +2989,17 @@ function QrisTab() {
         </CardBody>
       </Card>
 
+      <QrisGatewaySettingsCard />
+
       <Card className="border-warning/30 bg-warning/5">
         <div className="flex gap-3">
           <Shield className="text-warning h-5 w-5 shrink-0" />
           <div className="text-xs">
             <p className="text-text-primary font-semibold">Catatan Keamanan</p>
             <p className="text-text-muted mt-1">
-              String QRIS disimpan lokal di browser dan disinkronkan ke database{" "}
-              {config.appName}. Jangan share string ini ke publik karena siapa
-              pun yang punya string bisa menerima pembayaran atas nama kamu.
+              String QRIS statis disimpan lokal dan disinkronkan ke {config.appName}.
+              API key gateway hanya dikirim saat form gateway disimpan, tidak
+              dimasukkan ke penyimpanan browser.
             </p>
           </div>
         </div>
@@ -3002,6 +3013,257 @@ function isValidQrisShapeLocal(input: string): boolean {
   if (!input.startsWith("00")) return false;
   if (!input.slice(-8).startsWith("63")) return false;
   return true;
+}
+
+type GatewayForm = {
+  baseUrl: string;
+  apiKey: string;
+  environment: QrisGatewaySettings["environment"];
+  provider: "" | NonNullable<QrisGatewaySettings["provider"]>;
+  connectionId: string;
+};
+
+function QrisGatewaySettingsCard() {
+  const token = useAuthStore((state) => state.token);
+  const [settings, setSettings] = useState<QrisGatewaySettings | null>(null);
+  const [form, setForm] = useState<GatewayForm>({
+    baseUrl: "",
+    apiKey: "",
+    environment: "sandbox",
+    provider: "",
+    connectionId: "",
+  });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
+
+  async function load() {
+    if (!token) {
+      setLoading(false);
+      setError("Sesi masuk tidak tersedia. Muat ulang halaman lalu coba lagi.");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      const result = await api.get<QrisGatewaySettings>(
+        "/user/qris-gateway-settings",
+        token,
+      );
+      setSettings(result);
+      setForm({
+        baseUrl: result.baseUrl,
+        apiKey: "",
+        environment: result.environment,
+        provider: result.provider ?? "",
+        connectionId: result.connectionId ?? "",
+      });
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Pengaturan gateway gagal dimuat.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void load();
+    // Only the auth token determines which user's settings are loaded.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
+
+  async function saveGateway(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!token || saving) return;
+    setSaving(true);
+    setSaved(false);
+    setError("");
+    try {
+      const result = await api.put<QrisGatewaySettings>(
+        "/user/qris-gateway-settings",
+        token,
+        {
+          baseUrl: form.baseUrl.trim(),
+          ...(form.apiKey.trim() ? { apiKey: form.apiKey.trim() } : {}),
+          environment: form.environment,
+          provider: form.provider || null,
+          connectionId: form.connectionId.trim() || null,
+        },
+      );
+      setSettings(result);
+      setForm((current) => ({ ...current, apiKey: "" }));
+      setSaved(true);
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Pengaturan gateway gagal disimpan.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex min-w-0 items-center gap-2">
+          <Key className="text-text-muted h-4 w-4 shrink-0" />
+          <div className="min-w-0">
+            <p className="text-text-primary font-semibold">QRIS Gateway</p>
+            <p className="text-text-muted mt-0.5 text-xs">
+              Invoice pembayaran dibuat lewat gateway milik akun kamu.
+            </p>
+          </div>
+        </div>
+        {settings && (
+          <Badge variant={settings.configured ? "success" : "default"}>
+            {settings.configured ? "Terhubung" : "Belum lengkap"}
+          </Badge>
+        )}
+      </CardHeader>
+      <CardBody>
+        {loading ? (
+          <div role="status" className="text-text-muted flex items-center gap-2 py-6 text-sm">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Memuat pengaturan gateway...
+          </div>
+        ) : error && !settings ? (
+          <div role="alert" className="border-danger/30 bg-danger/5 rounded-lg border p-4">
+            <p className="text-text-primary text-sm">{error}</p>
+            <Button className="mt-3 min-h-11" variant="outline" onClick={() => void load()}>
+              Muat ulang
+            </Button>
+          </div>
+        ) : (
+          <form className="space-y-4" onSubmit={saveGateway} aria-busy={saving}>
+            <div className="grid gap-4 md:grid-cols-2">
+              <Input
+                type="url"
+                required
+                disabled={saving}
+                label="Alamat gateway"
+                placeholder="https://pay.example.com"
+                value={form.baseUrl}
+                onChange={(event) => {
+                  setSaved(false);
+                  setError("");
+                  setForm((current) => ({ ...current, baseUrl: event.target.value }));
+                }}
+                hint="Gunakan origin gateway tanpa path tambahan."
+              />
+              <Input
+                type="password"
+                required={!settings?.apiKeyMasked}
+                disabled={saving}
+                label="API key"
+                autoComplete="new-password"
+                placeholder={settings?.apiKeyMasked ?? "Masukkan API key"}
+                value={form.apiKey}
+                onChange={(event) => {
+                  setSaved(false);
+                  setError("");
+                  setForm((current) => ({ ...current, apiKey: event.target.value }));
+                }}
+                hint={
+                  settings?.apiKeyMasked
+                    ? `Tersimpan sebagai ${settings.apiKeyMasked}. Kosongkan untuk mempertahankan key.`
+                    : "Key hanya dikirim saat disimpan dan tidak disimpan di browser."
+                }
+              />
+              <div className="space-y-1.5">
+                <label htmlFor="qris-gateway-environment" className="text-text-secondary text-sm font-medium">
+                  Environment
+                </label>
+                <StyledSelect
+                  id="qris-gateway-environment"
+                  disabled={saving}
+                  value={form.environment}
+                  onChange={(value) => {
+                    setSaved(false);
+                    setError("");
+                    setForm((current) => ({
+                      ...current,
+                      environment: value as GatewayForm["environment"],
+                      ...(value === "sandbox" ? { connectionId: "" } : {}),
+                    }));
+                  }}
+                  options={[
+                    { value: "sandbox", label: "Sandbox" },
+                    { value: "production", label: "Production" },
+                  ]}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label htmlFor="qris-gateway-provider" className="text-text-secondary text-sm font-medium">
+                  Provider
+                </label>
+                <StyledSelect
+                  id="qris-gateway-provider"
+                  required
+                  disabled={saving}
+                  value={form.provider}
+                  onChange={(value) => {
+                    setSaved(false);
+                    setError("");
+                    setForm((current) => ({
+                      ...current,
+                      provider: value as GatewayForm["provider"],
+                    }));
+                  }}
+                  options={[
+                    { value: "", label: "Pilih provider" },
+                    { value: "gopay", label: "GoPay" },
+                    { value: "shopeepay", label: "ShopeePay" },
+                  ]}
+                />
+              </div>
+            </div>
+            <Input
+              label="Connection ID"
+              placeholder="ID koneksi dari gateway"
+              required={form.environment === "production"}
+              disabled={saving}
+              value={form.connectionId}
+              onChange={(event) => {
+                setSaved(false);
+                setError("");
+                setForm((current) => ({
+                  ...current,
+                  connectionId: event.target.value,
+                }));
+              }}
+              hint={
+                form.environment === "production"
+                  ? "Wajib untuk invoice production."
+                  : "Boleh dikosongkan saat memakai sandbox."
+              }
+            />
+            <div className="border-border flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
+              <div aria-live="polite" className="min-h-5 text-sm">
+                {error ? (
+                  <span role="alert" className="text-danger">{error}</span>
+                ) : saved ? (
+                  <span className="text-success inline-flex items-center gap-1.5">
+                    <Check className="h-4 w-4" /> Pengaturan gateway tersimpan
+                  </span>
+                ) : (
+                  <span className="text-text-muted">API key tidak pernah ditampilkan kembali.</span>
+                )}
+              </div>
+              <Button type="submit" loading={saving} className="min-h-11 sm:min-w-32">
+                Simpan Gateway
+              </Button>
+            </div>
+          </form>
+        )}
+      </CardBody>
+    </Card>
+  );
 }
 
 // ─── Page ───────────────────────────────────────────────────────────────────

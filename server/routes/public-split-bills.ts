@@ -1,4 +1,5 @@
 import { toggleSplitWalletPayment } from "../services/split-wallet-payments.js";
+import { publicSplitBillQrisPayment } from "../services/split-bill-qris.js";
 /**
  * Public split-bill routes.
  *
@@ -59,14 +60,13 @@ interface PublicBillData {
     participantCount: number;
     paidCount: number;
   };
-  /**
-   * The merchant's static QRIS string. Exposed here so the public pay
-   * page can render a per-participant dynamic QR code without requiring
-   * the participant to log in. This is the same string the merchant
-   * pasted into Settings; it is by design shareable (the participant
-   * needs it to be able to pay).
-   */
-  staticQris?: string;
+  /** Active QRIS Gateway invoice for this participant, if one exists. */
+  qrisPayment?: {
+    amount: number;
+    qrisCode: string | null;
+    checkoutUrl: string | null;
+    expiresAt: Date;
+  };
 }
 
 async function loadPublicBill(
@@ -91,34 +91,23 @@ async function loadPublicBill(
     return { error: "Link tidak valid atau sudah tidak berlaku", status: 404 };
   }
 
-  // Look up the merchant's static QRIS so the pay page can render a QR
-  // without requiring the participant to log in. The string is the
-  // merchant's payment receiver, so it is inherently public.
-  //
-  // Fallback chain:
-  //  1. AppSetting table (the canonical store when DB is configured).
-  //  2. In-memory `appConfig` (used by the no-DB / dev-fallback path).
-  //  3. undefined → pay page will show "QRIS belum tersedia".
-  let staticQris: string | undefined;
   let appName: string | undefined;
   try {
     const setting = await db.appSetting.findFirst();
-    staticQris = setting?.qrisStatic ?? undefined;
     appName = setting?.appName ?? undefined;
-  } catch (e) {
-    console.warn("[public-bill] appSetting read failed", e);
-  }
-  if (!staticQris) {
-    const mem = (appConfig as { qrisStatic?: string | null }).qrisStatic;
-    if (mem) staticQris = mem;
+  } catch (error) {
+    console.warn("[public-bill] appSetting read failed", error);
   }
   if (!appName) {
     const mem = (appConfig as { appName?: string | null }).appName;
     if (mem) appName = mem;
   }
-  console.log(
-    `[public-bill] bill=${billId} staticQris.length=${staticQris?.length ?? 0} appName=${appName ?? "<none>"}`,
-  );
+  let qrisPayment: Awaited<ReturnType<typeof publicSplitBillQrisPayment>>;
+  try {
+    qrisPayment = await publicSplitBillQrisPayment(bill.id, me.id);
+  } catch (error) {
+    console.warn("[public-bill] QRIS invoice read failed", error);
+  }
 
   return {
     billId: bill.id,
@@ -145,7 +134,7 @@ async function loadPublicBill(
       participantCount: (bill.participants ?? []).length,
       paidCount: (bill.participants ?? []).filter((p: any) => p.paid).length,
     },
-    staticQris,
+    qrisPayment,
   };
 }
 

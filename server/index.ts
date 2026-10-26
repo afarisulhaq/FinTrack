@@ -18,6 +18,7 @@ import { stockScreeningRoutes } from "./routes/stock-screening.js";
 import { marketWatchlistRoutes } from "./routes/market-watchlist.js";
 import { publicMarketRoutes } from "./routes/public-market.js";
 import { publicSplitBillRoutes } from "./routes/public-split-bills.js";
+import { qrisGatewayRoutes } from "./routes/qris-gateway.js";
 import { pushRoutes } from "./routes/push.js";
 import { analyticsRoutes } from "./routes/analytics.js";
 import { pagedPeopleRoutes } from "./routes/paged-people.js";
@@ -66,6 +67,7 @@ const app = new Elysia({ adapter: node() })
   .use(marketWatchlistRoutes)
   .use(stockScreeningRoutes)
   .use(publicSplitBillRoutes)
+  .use(qrisGatewayRoutes)
   .use(pushRoutes)
   .onError(({ code, set }) => {
     if (code === "NOT_FOUND") {

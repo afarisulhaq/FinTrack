@@ -1,40 +1,40 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import {
   Plus,
   Users,
-  X,
   Trash2,
   Check,
   QrCode,
   Receipt,
-  ArrowLeft,
-  Copy,
   Share2,
   MessageCircle,
   CheckCircle2,
   Link as LinkIcon,
   AlertTriangle,
+  Loader2,
+  ExternalLink,
 } from "lucide-react";
 import { PageWrapper } from "~/components/layout/page-wrapper";
-import { Card, CardBody, CardHeader } from "~/components/ui/card";
-import { Button } from "~/components/ui/button";
+import { Card } from "~/components/ui/card";
+import { Button, buttonVariants } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { DatePicker } from "~/components/ui/date-picker";
 import { Modal } from "~/components/ui/modal";
 import { WalletSelect } from "~/components/ui/wallet-select";
 import { Badge } from "~/components/ui/badge";
-import { QrisModal } from "~/components/qris/qris-modal";
 import { useFinanceStore } from "~/store/useFinanceStore";
-import { useAppConfigStore } from "~/store/useAppConfigStore";
-import { formatCurrency } from "~/lib/utils";
+import { useAuthStore } from "~/store/useAuthStore";
+import { cn, formatCurrency } from "~/lib/utils";
 import { buildPayUrl, buildShareText, normalizePhone } from "~/lib/share-utils";
 import type { SplitBill, SplitBillParticipant, SplitMethod } from "~/lib/types";
 import type { SplitBillListRow, SplitSummary } from "~/lib/people-pages";
 import { Pagination } from "~/components/ui/pagination";
 import { ServerListStatus } from "~/components/ui/server-paginated-list";
 import { useServerPagination } from "~/lib/use-server-pagination";
+import { api, type QrisPayment } from "~/lib/api";
 
 interface DraftParticipant {
   name: string;
@@ -49,13 +49,16 @@ export default function SplitBillsPage() {
   const addSplitBill = useFinanceStore((s) => s.addSplitBill);
   const toggleParticipantPaid = useFinanceStore((s) => s.toggleParticipantPaid);
   const deleteSplitBill = useFinanceStore((s) => s.deleteSplitBill);
-  const qrisStatic = useAppConfigStore((s) => s.config.qrisStatic) ?? "";
+  const token = useAuthStore((state) => state.token);
 
   const [showCreate, setShowCreate] = useState(false);
   const [selected, setSelected] = useState<SplitBillListRow | null>(null);
-  const [qrisFor, setQrisFor] = useState<{
+  const [invoiceFor, setInvoiceFor] = useState<{
     bill: SplitBillListRow;
     participant: SplitBillParticipant;
+    payment: QrisPayment | null;
+    loading: boolean;
+    error: string;
   } | null>(null);
 
   const activePager = useServerPagination<SplitBillListRow, SplitSummary>(
@@ -65,6 +68,55 @@ export default function SplitBillsPage() {
     "/splitBills", { status: "settled" }, { resource: "splitBills" },
   );
   const { totalCollected = 0, totalOutstanding = 0, activeCount = 0 } = activePager.summary ?? {};
+
+  function requestInvoice(
+    bill: SplitBillListRow,
+    participant: SplitBillParticipant,
+  ) {
+    const request = { bill, participant };
+    setInvoiceFor({
+      ...request,
+      payment: null,
+      loading: true,
+      error: "",
+    });
+    if (!token) {
+      setInvoiceFor({
+        ...request,
+        payment: null,
+        loading: false,
+        error: "Sesi masuk tidak tersedia. Muat ulang halaman lalu coba lagi.",
+      });
+      return;
+    }
+    void api
+      .post<QrisPayment>(
+        `/split-bills/${encodeURIComponent(bill.id)}/participants/${encodeURIComponent(participant.id)}/qris-invoice`,
+        token,
+        {},
+      )
+      .then((payment) =>
+        setInvoiceFor((current) =>
+          current?.bill.id === bill.id && current.participant.id === participant.id
+            ? { ...current, payment, loading: false }
+            : current,
+        ),
+      )
+      .catch((cause: unknown) =>
+        setInvoiceFor((current) =>
+          current?.bill.id === bill.id && current.participant.id === participant.id
+            ? {
+                ...current,
+                loading: false,
+                error:
+                  cause instanceof Error
+                    ? cause.message
+                    : "Invoice QRIS gagal dibuat.",
+              }
+            : current,
+        ),
+      );
+  }
 
   return (
     <PageWrapper
@@ -162,7 +214,6 @@ export default function SplitBillsPage() {
       {selected && (
         <SplitBillDetailModal
           bill={selected}
-          qrisStatic={qrisStatic}
           onClose={() => setSelected(null)}
           onTogglePaid={async (participantId, paid, walletId) => {
             await toggleParticipantPaid(
@@ -178,26 +229,19 @@ export default function SplitBillsPage() {
             await deleteSplitBill(selected.id);
             setSelected(null);
           }}
-          onShowQris={(participant) =>
-            setQrisFor({ bill: selected, participant })
-          }
+          onShowQris={(participant) => requestInvoice(selected, participant)}
         />
       )}
 
-      {qrisFor && (
-        <QrisModal
-          amount={qrisFor.participant.amount}
-          staticQris={qrisStatic}
-          refId={`SPLIT-${qrisFor.bill.id.slice(-6).toUpperCase()}`}
-          participantName={qrisFor.participant.name}
-          billTitle={qrisFor.bill.title}
-          shareUrl={
-            qrisFor.participant.payToken
-              ? buildPayUrl(qrisFor.bill.id, qrisFor.participant.payToken)
-              : undefined
-          }
-          whatsappPhone={normalizePhone(qrisFor.participant.contact)}
-          onClose={() => setQrisFor(null)}
+      {invoiceFor && (
+        <QrisInvoiceModal
+          bill={invoiceFor.bill}
+          participant={invoiceFor.participant}
+          payment={invoiceFor.payment}
+          loading={invoiceFor.loading}
+          error={invoiceFor.error}
+          onClose={() => setInvoiceFor(null)}
+          onRetry={() => requestInvoice(invoiceFor.bill, invoiceFor.participant)}
         />
       )}
     </PageWrapper>
@@ -516,14 +560,12 @@ function CreateSplitBillModal({
 
 function SplitBillDetailModal({
   bill,
-  qrisStatic,
   onClose,
   onTogglePaid,
   onDelete,
   onShowQris,
 }: {
   bill: SplitBillListRow;
-  qrisStatic: string;
   onClose: () => void;
   onTogglePaid: (
     participantId: string,
@@ -618,7 +660,7 @@ function SplitBillDetailModal({
                     }
                   }}
                   className={
-                    "flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors " +
+                    "flex h-11 w-11 shrink-0 items-center justify-center rounded-md border-2 transition-colors focus-visible:ring-2 focus-visible:ring-primary " +
                     (p.paid
                       ? "border-success bg-success"
                       : "border-border hover:border-primary")
@@ -662,29 +704,17 @@ function SplitBillDetailModal({
                     type="button"
                     variant="outline"
                     size="sm"
+                    className="min-h-11"
                     onClick={() => onShowQris(p)}
-                    disabled={!qrisStatic}
                     leftIcon={<QrCode className="h-3.5 w-3.5" />}
-                    title={
-                      qrisStatic
-                        ? "Tagih via QRIS"
-                        : "Atur QRIS statis di Pengaturan dulu"
-                    }
                   >
-                    Tagih
+                    Buat Invoice
                   </Button>
                 )}
               </div>
             ))}
           </div>
           <Pagination {...participantPager} label="peserta" />
-          {!qrisStatic && (
-            <p className="text-text-muted mt-2 text-xs">
-              💡 Atur QRIS statis kamu di{" "}
-              <span className="font-medium">Pengaturan → QRIS</span> untuk bisa
-              menagih via QR code.
-            </p>
-          )}
         </div>
 
         {receiptParticipantId && (
@@ -789,6 +819,163 @@ function SplitBillDetailModal({
         <ShareSplitBillModal bill={metadata} onClose={() => setShowShare(false)} />
       )}
     </Modal>
+  );
+}
+
+function QrisInvoiceModal({
+  bill,
+  participant,
+  payment,
+  loading,
+  error,
+  onClose,
+  onRetry,
+}: {
+  bill: SplitBillListRow;
+  participant: SplitBillParticipant;
+  payment: QrisPayment | null;
+  loading: boolean;
+  error: string;
+  onClose: () => void;
+  onRetry: () => void;
+}) {
+  const shareUrl = participant.payToken
+    ? buildPayUrl(bill.id, participant.payToken)
+    : undefined;
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={`Invoice untuk ${participant.name}`}
+      description={`${bill.title} · ${formatCurrency(participant.amount)}`}
+      size="md"
+    >
+      {loading ? (
+        <div role="status" className="text-text-muted flex flex-col items-center gap-3 py-12 text-sm">
+          <Loader2 className="text-primary h-7 w-7 animate-spin" />
+          Meminta invoice QRIS dari gateway...
+        </div>
+      ) : error ? (
+        <div role="alert" className="border-danger/30 bg-danger/5 rounded-lg border p-4">
+          <p className="text-text-primary font-semibold">Invoice tidak dapat dibuat</p>
+          <p className="text-text-muted mt-1 text-sm">{error}</p>
+          <p className="text-text-muted mt-2 text-xs">
+            Periksa pengaturan QRIS Gateway akun ini, lalu coba lagi.
+          </p>
+          <Button variant="outline" className="mt-4 min-h-11" onClick={onRetry}>
+            Coba lagi
+          </Button>
+        </div>
+      ) : payment ? (
+        <div className="space-y-4">
+          <div className="border-border bg-bg-elevated rounded-lg border p-4 text-center">
+            <p className="text-text-muted text-xs">Total dari gateway</p>
+            <p className="text-text-primary mt-1 text-3xl font-bold tabular-nums">
+              {formatCurrency(payment.amount)}
+            </p>
+            <p className="text-text-muted mt-1 text-xs">
+              Berlaku sampai {formatGatewayExpiry(payment.expiresAt)}
+            </p>
+          </div>
+
+          {payment.qrisCode ? (
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-full max-w-[272px] rounded-lg bg-white p-4">
+                <QRCodeSVG
+                  value={payment.qrisCode}
+                  size={240}
+                  marginSize={4}
+                  className="h-auto w-full"
+                  title={`QRIS pembayaran ${formatCurrency(payment.amount)}`}
+                />
+              </div>
+              <p className="text-text-muted max-w-xs text-center text-sm">
+                Scan dengan aplikasi bank atau e-wallet. Bayar tepat sesuai
+                total dari gateway.
+              </p>
+            </div>
+          ) : payment.checkoutUrl ? (
+            <p className="text-text-muted text-center text-sm">
+              Gateway menyediakan halaman checkout untuk pembayaran ini.
+            </p>
+          ) : (
+            <div role="status" className="border-warning/30 bg-warning/5 rounded-lg border p-4 text-sm">
+              <p className="text-text-primary font-medium">Instruksi pembayaran belum tersedia</p>
+              <p className="text-text-muted mt-1">
+                Gateway membuat invoice tanpa QR atau halaman checkout. Coba lagi sebelum masa invoice berakhir.
+              </p>
+            </div>
+          )}
+
+          <div className="flex flex-col gap-2 sm:flex-row">
+            {payment.checkoutUrl && (
+              <a
+                href={payment.checkoutUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={cn(
+                  buttonVariants({ variant: "outline", size: "md" }),
+                  "min-h-11 flex-1",
+                )}
+              >
+                <ExternalLink className="h-4 w-4" />
+                Buka Checkout
+              </a>
+            )}
+            {shareUrl && (
+              <CopyParticipantLinkButton shareUrl={shareUrl} />
+            )}
+          </div>
+        </div>
+      ) : null}
+    </Modal>
+  );
+}
+
+function formatGatewayExpiry(value: string) {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleString("id-ID", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function CopyParticipantLinkButton({ shareUrl }: { shareUrl: string }) {
+  const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState(false);
+
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setCopyError(false);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      setCopyError(true);
+    }
+  }
+
+  return (
+    <div className="flex-1">
+      <Button
+        variant="outline"
+        className="min-h-11 w-full"
+        onClick={() => void copyLink()}
+        leftIcon={copied ? <Check className="h-4 w-4" /> : <LinkIcon className="h-4 w-4" />}
+      >
+        {copied ? "Link Tersalin" : "Salin Link Peserta"}
+      </Button>
+      {copyError && (
+        <p role="alert" className="text-danger mt-1 text-xs">
+          Link gagal disalin. Salin dari kolom alamat browser.
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -913,8 +1100,8 @@ function ShareSplitBillModal({
         <Pagination {...reminderPager} label="pengingat peserta" />
 
         <p className="text-text-muted text-[11px]">
-          💡 Klik “Tagih” di daftar peserta untuk lihat QR + opsi kirim
-          individual.
+          Gunakan “Buat Invoice” pada peserta untuk menampilkan QR atau checkout
+          dari gateway.
         </p>
       </div>
     </Modal>

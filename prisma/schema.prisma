@@ -39,6 +39,8 @@ model User {
     marketWatchlist  MarketWatchlist?
     subscription     Subscription?
     subscriptionInvoices SubscriptionInvoice[]
+    qrisGatewaySetting QrisGatewaySetting?
+
     @@index([createdAt(sort: Desc), id])
 }
 
@@ -72,6 +74,19 @@ model SubscriptionInvoice {
 
     @@index([userId, createdAt])
 }
+model QrisGatewaySetting {
+    id               String   @id @default(cuid())
+    userId           String   @unique
+    user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+    baseUrl          String
+    environment      String
+    provider         String?
+    connectionId     String?
+    apiKeyCiphertext String
+    createdAt        DateTime @default(now())
+    updatedAt        DateTime @updatedAt
+}
+
 
 model AppSetting {
     id           String   @id @default(cuid())
@@ -395,6 +410,8 @@ model SplitBill {
     status      String   @default("active") // active | settled | cancelled
     userId      String?
     participants SplitBillParticipant[]
+    qrisInvoices QrisSplitInvoice[]
+
     createdAt   DateTime @default(now())
     updatedAt   DateTime @updatedAt
     @@index([userId, date(sort: Desc), id])
@@ -414,7 +431,31 @@ model SplitBillParticipant {
     /// Anyone with this URL can view the bill detail and mark the participant as paid.
     payToken    String?  @unique
     splitBill   SplitBill @relation(fields: [splitBillId], references: [id], onDelete: Cascade)
+    qrisInvoices QrisSplitInvoice[]
+
     @@index([splitBillId, name, id])
+    @@unique([id, splitBillId])
+}
+model QrisSplitInvoice {
+    id               String   @id @default(cuid())
+    splitBillId      String
+    splitBill        SplitBill @relation(fields: [splitBillId], references: [id], onDelete: Cascade)
+    participantId    String
+    participant      SplitBillParticipant @relation(fields: [participantId, splitBillId], references: [id, splitBillId], onDelete: Cascade)
+    ownerId          String
+    status           String   @default("creating")
+    baseAmount       Int
+    amount           Int
+    qrisCode         String?
+    checkoutUrl      String?
+    gatewayReference String?
+    gatewayAccount   String
+    expiresAt        DateTime
+    createdAt        DateTime @default(now())
+    updatedAt        DateTime @updatedAt
+
+    @@index([ownerId, participantId, createdAt])
+    @@index([splitBillId, participantId, status, expiresAt])
 }
 
 model Card {

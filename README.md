@@ -182,6 +182,8 @@ All endpoints are mounted under `/api` on port 4000 (or whatever `PORT` is set t
 - `POST /api/debts/:id/installments`: Add an installment (auth required)
 - `PUT` or `DELETE /api/debts/:id/installments/:installmentId`: Edit/delete one installment (auth required)
 - `GET  /api/splitBills?view=participants&billId=...`: Paged participants (auth required)
+- `GET` or `PUT /api/user/qris-gateway-settings`: Per-user Split Bills gateway settings; API keys are write-only and encrypted at rest (auth required)
+- `POST /api/split-bills/:id/participants/:participantId/qris-invoice`: Create or reuse the participant's pending QRIS invoice (bill owner only)
 - `GET  /api/app-config` — App settings
 - `PUT  /api/app-config` — Update app settings (admin only)
 - `GET  /api/:resource`: Paged wallets/transactions/budgets/... (auth required)

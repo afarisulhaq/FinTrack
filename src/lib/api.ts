@@ -117,6 +117,22 @@ export const api = {
   },
 };
 
+
+export interface QrisGatewaySettings {
+  configured: boolean;
+  baseUrl: string;
+  environment: "sandbox" | "production";
+  provider: "gopay" | "shopeepay" | null;
+  connectionId: string | null;
+  apiKeyMasked: string | null;
+}
+
+export interface QrisPayment {
+  amount: number;
+  qrisCode: string | null;
+  checkoutUrl: string | null;
+  expiresAt: string;
+}
 // ─── Public (no-auth) endpoints ──────────────────────────────────────────
 // Used by the /pay/:id/:token page. These do not require an auth header.
 
@@ -148,12 +164,7 @@ export interface PublicSplitBill {
     participantCount: number;
     paidCount: number;
   };
-  /**
-   * Merchant's static QRIS — used by the pay page to render a per-participant
-   * dynamic QR. Included in the public response because the participant
-   * needs it to pay.
-   */
-  staticQris?: string;
+  qrisPayment: QrisPayment | null;
 }
 
 /** Public toggle response from PUT /pay. */

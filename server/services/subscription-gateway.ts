@@ -30,47 +30,57 @@ const gatewayInvoiceSchema = z.object({
 
 export type GatewayInvoice = z.infer<typeof gatewayInvoiceSchema>;
 
-export interface BillingConfig {
+export interface GatewayConfig {
   url: string;
   key: string;
-  price: number;
-  days: number;
-  name: string;
   environment: "sandbox" | "production";
   provider: "gopay" | "shopeepay" | null;
   connectionId: string | null;
-  plan: string;
   account: string;
 }
 
-export function billingConfig(): BillingConfig | null {
-  if (process.env.SUBSCRIPTIONS_ENABLED !== "true") return null;
+export interface BillingConfig extends GatewayConfig {
+  price: number;
+  days: number;
+  name: string;
+  plan: string;
+}
+
+export interface GatewayConfigInput {
+  url: unknown;
+  key: unknown;
+  environment: unknown;
+  provider?: unknown;
+  connectionId?: unknown;
+}
+
+export function validateGatewayConfig(
+  input: GatewayConfigInput,
+  incompleteMessage = "Konfigurasi gateway belum lengkap",
+  errorStatus = 503,
+): GatewayConfig {
   const parsed = z
     .object({
       url: z.string().url(),
       key: z.string().min(16).max(200),
-      price: z.coerce.number().int().min(1).max(100_000_000),
-      days: z.coerce.number().int().min(1).max(366),
-      name: z.string().trim().min(1).max(80),
       environment: z.enum(["sandbox", "production"]),
       provider: z.enum(["gopay", "shopeepay"]).optional(),
       connectionId: z.string().trim().min(1).max(100).optional(),
     })
     .safeParse({
-      url: process.env.QRIS_BASE_URL,
-      key: process.env.QRIS_API_KEY,
-      price: process.env.SUBSCRIPTION_PRICE_IDR,
-      days: process.env.SUBSCRIPTION_DURATION_DAYS,
-      name: process.env.SUBSCRIPTION_PLAN_NAME,
-      environment: process.env.QRIS_ENVIRONMENT,
-      provider: process.env.QRIS_PROVIDER?.trim() || undefined,
-      connectionId: process.env.QRIS_CONNECTION_ID?.trim() || undefined,
+      ...input,
+      provider:
+        typeof input.provider === "string"
+          ? input.provider.trim() || undefined
+          : input.provider,
+      connectionId:
+        typeof input.connectionId === "string"
+          ? input.connectionId.trim() || undefined
+          : input.connectionId,
     });
-  if (!parsed.success)
-    throw new BillingError("Konfigurasi langganan belum lengkap", 503);
-  // Production invoices require a managed wallet; sandbox keys carry none.
+  if (!parsed.success) throw new BillingError(incompleteMessage, errorStatus);
   if (parsed.data.environment === "production" && !parsed.data.connectionId)
-    throw new BillingError("Konfigurasi langganan belum lengkap", 503);
+    throw new BillingError(incompleteMessage, errorStatus);
   const url = new URL(parsed.data.url);
   if (
     url.username ||
@@ -79,32 +89,60 @@ export function billingConfig(): BillingConfig | null {
     url.hash ||
     !["http:", "https:"].includes(url.protocol)
   ) {
-    throw new BillingError("Konfigurasi gateway tidak valid", 503);
+    throw new BillingError("Konfigurasi gateway tidak valid", errorStatus);
   }
   if (
     url.protocol !== "https:" &&
     !["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)
   ) {
-    throw new BillingError("Gateway jarak jauh harus memakai HTTPS", 503);
+    throw new BillingError("Gateway jarak jauh harus memakai HTTPS", errorStatus);
   }
   const normalizedUrl = parsed.data.url.replace(/\/$/, "");
   return {
     url: normalizedUrl,
     key: parsed.data.key,
-    price: parsed.data.price,
-    days: parsed.data.days,
-    name: parsed.data.name,
     environment: parsed.data.environment,
     provider: parsed.data.provider ?? null,
     connectionId: parsed.data.connectionId ?? null,
-    plan: "subscription",
-    // Binds stored invoices to this gateway/environment/wallet so a config
-    // change stops verification of invoices created under the old one.
     account: createHash("sha256")
       .update(
         `${normalizedUrl}|${parsed.data.environment}|${parsed.data.connectionId ?? ""}`,
       )
       .digest("hex"),
+  };
+}
+
+export function billingConfig(): BillingConfig | null {
+  if (process.env.SUBSCRIPTIONS_ENABLED !== "true") return null;
+  const plan = z
+    .object({
+      price: z.coerce.number().int().min(1).max(100_000_000),
+      days: z.coerce.number().int().min(1).max(366),
+      name: z.string().trim().min(1).max(80),
+    })
+    .safeParse({
+      price: process.env.SUBSCRIPTION_PRICE_IDR,
+      days: process.env.SUBSCRIPTION_DURATION_DAYS,
+      name: process.env.SUBSCRIPTION_PLAN_NAME,
+    });
+  if (!plan.success)
+    throw new BillingError("Konfigurasi langganan belum lengkap", 503);
+  const gateway = validateGatewayConfig(
+    {
+      url: process.env.QRIS_BASE_URL,
+      key: process.env.QRIS_API_KEY,
+      environment: process.env.QRIS_ENVIRONMENT,
+      provider: process.env.QRIS_PROVIDER,
+      connectionId: process.env.QRIS_CONNECTION_ID,
+    },
+    "Konfigurasi langganan belum lengkap",
+  );
+  return {
+    ...gateway,
+    price: plan.data.price,
+    days: plan.data.days,
+    name: plan.data.name,
+    plan: "subscription",
   };
 }
 
@@ -142,7 +180,7 @@ export function validatePaymentQr(payload: string, amount: number): boolean {
 }
 
 async function gateway(
-  config: BillingConfig,
+  config: GatewayConfig,
   path: string,
   init: RequestInit = {},
 ): Promise<unknown> {
@@ -201,7 +239,7 @@ interface InvoiceExpectation {
 // retryable under the same external_id instead of failing it on data that
 // may only be transient.
 function assertInvoiceMatches(
-  config: BillingConfig,
+  config: GatewayConfig,
   invoice: GatewayInvoice,
   expected: InvoiceExpectation,
 ): void {
@@ -232,7 +270,7 @@ function assertInvoiceMatches(
 }
 
 export function externalIdFor(
-  config: BillingConfig,
+  config: GatewayConfig,
   invoiceId: string,
 ): string {
   return `fintrack:${config.environment}:${invoiceId}`;
@@ -241,7 +279,7 @@ export function externalIdFor(
 // Inverse of externalIdFor: extracts the FinTrack invoice id, or null when
 // the reference belongs to another environment or website.
 export function invoiceIdFromExternalId(
-  config: BillingConfig,
+  config: GatewayConfig,
   externalId: string,
 ): string | null {
   const prefix = `fintrack:${config.environment}:`;
@@ -251,7 +289,7 @@ export function invoiceIdFromExternalId(
 }
 
 export async function createGatewayInvoice(
-  config: BillingConfig,
+  config: GatewayConfig,
   order: { id: string; amount: number; description: string },
 ): Promise<GatewayInvoice> {
   const externalId = externalIdFor(config, order.id);
@@ -272,7 +310,7 @@ export async function createGatewayInvoice(
 }
 
 export async function checkGatewayInvoice(
-  config: BillingConfig,
+  config: GatewayConfig,
   order: { id: string; amount: number },
   invoiceId: string,
 ): Promise<GatewayInvoice> {

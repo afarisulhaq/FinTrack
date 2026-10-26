@@ -24,63 +24,81 @@ const gatewayInvoiceSchema = z.object({
     qr_url: z.string().url().nullable(),
     payment_warning: z.string().nullable().optional(),
 });
-export function billingConfig() {
-    if (process.env.SUBSCRIPTIONS_ENABLED !== "true")
-        return null;
+export function validateGatewayConfig(input, incompleteMessage = "Konfigurasi gateway belum lengkap", errorStatus = 503) {
     const parsed = z
         .object({
         url: z.string().url(),
         key: z.string().min(16).max(200),
-        price: z.coerce.number().int().min(1).max(100_000_000),
-        days: z.coerce.number().int().min(1).max(366),
-        name: z.string().trim().min(1).max(80),
         environment: z.enum(["sandbox", "production"]),
         provider: z.enum(["gopay", "shopeepay"]).optional(),
         connectionId: z.string().trim().min(1).max(100).optional(),
     })
         .safeParse({
-        url: process.env.QRIS_BASE_URL,
-        key: process.env.QRIS_API_KEY,
-        price: process.env.SUBSCRIPTION_PRICE_IDR,
-        days: process.env.SUBSCRIPTION_DURATION_DAYS,
-        name: process.env.SUBSCRIPTION_PLAN_NAME,
-        environment: process.env.QRIS_ENVIRONMENT,
-        provider: process.env.QRIS_PROVIDER?.trim() || undefined,
-        connectionId: process.env.QRIS_CONNECTION_ID?.trim() || undefined,
+        ...input,
+        provider: typeof input.provider === "string"
+            ? input.provider.trim() || undefined
+            : input.provider,
+        connectionId: typeof input.connectionId === "string"
+            ? input.connectionId.trim() || undefined
+            : input.connectionId,
     });
     if (!parsed.success)
-        throw new BillingError("Konfigurasi langganan belum lengkap", 503);
-    // Production invoices require a managed wallet; sandbox keys carry none.
+        throw new BillingError(incompleteMessage, errorStatus);
     if (parsed.data.environment === "production" && !parsed.data.connectionId)
-        throw new BillingError("Konfigurasi langganan belum lengkap", 503);
+        throw new BillingError(incompleteMessage, errorStatus);
     const url = new URL(parsed.data.url);
     if (url.username ||
         url.password ||
         url.search ||
         url.hash ||
         !["http:", "https:"].includes(url.protocol)) {
-        throw new BillingError("Konfigurasi gateway tidak valid", 503);
+        throw new BillingError("Konfigurasi gateway tidak valid", errorStatus);
     }
     if (url.protocol !== "https:" &&
         !["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)) {
-        throw new BillingError("Gateway jarak jauh harus memakai HTTPS", 503);
+        throw new BillingError("Gateway jarak jauh harus memakai HTTPS", errorStatus);
     }
     const normalizedUrl = parsed.data.url.replace(/\/$/, "");
     return {
         url: normalizedUrl,
         key: parsed.data.key,
-        price: parsed.data.price,
-        days: parsed.data.days,
-        name: parsed.data.name,
         environment: parsed.data.environment,
         provider: parsed.data.provider ?? null,
         connectionId: parsed.data.connectionId ?? null,
-        plan: "subscription",
-        // Binds stored invoices to this gateway/environment/wallet so a config
-        // change stops verification of invoices created under the old one.
         account: createHash("sha256")
             .update(`${normalizedUrl}|${parsed.data.environment}|${parsed.data.connectionId ?? ""}`)
             .digest("hex"),
+    };
+}
+export function billingConfig() {
+    if (process.env.SUBSCRIPTIONS_ENABLED !== "true")
+        return null;
+    const plan = z
+        .object({
+        price: z.coerce.number().int().min(1).max(100_000_000),
+        days: z.coerce.number().int().min(1).max(366),
+        name: z.string().trim().min(1).max(80),
+    })
+        .safeParse({
+        price: process.env.SUBSCRIPTION_PRICE_IDR,
+        days: process.env.SUBSCRIPTION_DURATION_DAYS,
+        name: process.env.SUBSCRIPTION_PLAN_NAME,
+    });
+    if (!plan.success)
+        throw new BillingError("Konfigurasi langganan belum lengkap", 503);
+    const gateway = validateGatewayConfig({
+        url: process.env.QRIS_BASE_URL,
+        key: process.env.QRIS_API_KEY,
+        environment: process.env.QRIS_ENVIRONMENT,
+        provider: process.env.QRIS_PROVIDER,
+        connectionId: process.env.QRIS_CONNECTION_ID,
+    }, "Konfigurasi langganan belum lengkap");
+    return {
+        ...gateway,
+        price: plan.data.price,
+        days: plan.data.days,
+        name: plan.data.name,
+        plan: "subscription",
     };
 }
 export function validatePaymentQr(payload, amount) {
@@ -231,7 +249,7 @@ export function verifyWebhookSignature(rawBody, signature) {
     const received = Buffer.from(signature.slice(7), "hex");
     return webhookSecrets().some((secret) => {
         const expected = createHmac("sha256", secret).update(rawBody).digest();
-        return received.length === expected.length && timingSafeEqual(received, expected);
+        return (received.length === expected.length && timingSafeEqual(received, expected));
     });
 }
 export const webhookEventSchema = z.object({

@@ -25,10 +25,15 @@ export async function billingOverview(userId) {
     const [subscription, latestInvoice, openInvoice] = await Promise.all([
         db.subscription.findUnique({ where: { userId } }),
         db.subscriptionInvoice.findFirst({
-            where: { userId }, orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+            where: { userId },
+            orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         }),
         db.subscriptionInvoice.findFirst({
-            where: { userId, status: { in: ["creating", "pending"] }, expiresAt: { gt: new Date() } },
+            where: {
+                userId,
+                status: { in: ["creating", "pending"] },
+                expiresAt: { gt: new Date() },
+            },
             select: { id: true, expiresAt: true },
         }),
     ]);
@@ -47,9 +52,19 @@ export async function billingOverview(userId) {
 export async function listInvoices(userId, input) {
     const where = { userId };
     const page = await databasePage(input, () => db.subscriptionInvoice.count({ where }), (skip, take) => db.subscriptionInvoice.findMany({
-        where, skip, take, orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        where,
+        skip,
+        take,
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     }));
-    return { ...page, items: page.items.map((row) => ({ ...publicInvoice(row), qrisCode: null, checkoutUrl: null })) };
+    return {
+        ...page,
+        items: page.items.map((row) => ({
+            ...publicInvoice(row),
+            qrisCode: null,
+            checkoutUrl: null,
+        })),
+    };
 }
 export async function invoiceById(userId, id) {
     const row = await db.subscriptionInvoice.findFirst({ where: { userId, id } });
@@ -222,5 +237,7 @@ export async function verifyInvoice(userId, invoiceId) {
     }
     // "expired" stays pending locally: the gateway can still settle an on-time
     // payment that was verified late.
-    return publicInvoice(await db.subscriptionInvoice.findUniqueOrThrow({ where: { id: invoice.id } }));
+    return publicInvoice(await db.subscriptionInvoice.findUniqueOrThrow({
+        where: { id: invoice.id },
+    }));
 }

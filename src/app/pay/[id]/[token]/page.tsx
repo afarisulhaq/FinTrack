@@ -1,7 +1,6 @@
 "use client";
 
-import { Suspense, use, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { Suspense, use, useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import {
   AlertCircle,
@@ -12,28 +11,15 @@ import {
   QrCode,
   Receipt,
   RefreshCw,
-  ShieldCheck,
   Wallet,
+  ExternalLink,
 } from "lucide-react";
 import { publicApi, type PublicSplitBill } from "~/lib/api";
-import { isValidQrisShape, toDynamicQris } from "~/lib/qris-utils";
 import { formatCurrency } from "~/lib/utils";
 
 /**
- * Public pay page — no auth required.
- *
- * Route: /pay/{billId}/{participantToken}
- *
- * Flow:
- *  1. Page loads, fetches the public bill context.
- *  2. Renders a dynamic QRIS code with the bill title as merchant name.
- *  3. User scans with their e-wallet, pays, then taps "Tandai Sudah Bayar".
- *  4. The PUT to /public/split-bills/:id/:token/pay flips the paid flag.
- *
- * Designed mobile-first since 90% of recipients open it on a phone.
- *
- * Add `?debug=1` to the URL to see the raw `staticQris` payload coming
- * from the server — useful when the QR doesn't render.
+ * Public participant payment page. Payment instructions come from the
+ * owner's gateway invoice and are rendered without handling gateway secrets.
  */
 export default function PayPage({
   params,
@@ -59,8 +45,6 @@ function PayPageInner({
   params: Promise<{ id: string; token: string }>;
 }) {
   const { id, token } = use(params);
-  const searchParams = useSearchParams();
-  const debug = searchParams.get("debug") === "1";
 
   const [data, setData] = useState<PublicSplitBill | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -71,6 +55,11 @@ function PayPageInner({
   const [localPaid, setLocalPaid] = useState<boolean | null>(null);
   const [toggling, setToggling] = useState(false);
   const [toggleError, setToggleError] = useState<string | null>(null);
+
+  const payment = data?.qrisPayment ?? null;
+  const paymentExpired = payment
+    ? Date.parse(payment.expiresAt) <= Date.now()
+    : false;
 
   async function load(opts?: { silent?: boolean }) {
     if (opts?.silent) setRefreshing(true);
@@ -93,38 +82,7 @@ function PayPageInner({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, token]);
 
-  const dynamicQris = useMemo(() => {
-    if (!data?.staticQris) return null;
-    if (!isValidQrisShape(data.staticQris)) return null;
-    try {
-      return toDynamicQris(
-        data.staticQris,
-        data.participant.amount,
-        `SPLIT-${data.billId.slice(-6).toUpperCase()}`,
-        { merchantName: data.title },
-      ).payload;
-    } catch {
-      return null;
-    }
-  }, [data]);
 
-  // Diagnostic: why is the QR not available?
-  const qrisDiagnostic = useMemo(() => {
-    if (!data) return null;
-    if (!data.staticQris) {
-      return {
-        reason: "Server tidak mengembalikan staticQris",
-        detail: "AppSetting.qrisStatic kosong di database & in-memory store.",
-      } as const;
-    }
-    if (!isValidQrisShape(data.staticQris)) {
-      return {
-        reason: "Format QRIS tidak valid",
-        detail: `Panjang ${data.staticQris.length}, harus ≥20, mulai dengan "00", diakhiri "...63" dalam 8 karakter terakhir.`,
-      } as const;
-    }
-    return null;
-  }, [data]);
 
   const isPaid = localPaid ?? data?.participant.paid ?? false;
 
@@ -166,7 +124,7 @@ function PayPageInner({
             type="button"
             onClick={() => void load({ silent: true })}
             disabled={refreshing || loading}
-            className="text-text-muted hover:text-text-primary flex items-center gap-1 rounded-md p-1.5 text-xs transition disabled:opacity-40"
+            className="text-text-muted hover:text-text-primary focus-visible:ring-primary flex min-h-11 min-w-11 items-center justify-center gap-1 rounded-md p-1.5 text-xs transition focus-visible:ring-2 focus-visible:outline-none disabled:opacity-40"
             aria-label="Refresh"
           >
             <RefreshCw
@@ -234,66 +192,77 @@ function PayPageInner({
 
             {/* ─── QR code card ──────────────────────────────────────────── */}
             <section className="border-border bg-bg-surface rounded-2xl border p-5">
-              {dynamicQris ? (
-                <>
-                  <div className="flex justify-center">
-                    <div className="rounded-xl bg-white p-4">
-                      <QRCodeSVG
-                        value={dynamicQris}
-                        size={220}
-                        level="M"
-                        includeMargin={false}
-                      />
-                    </div>
+              {payment ? (
+                <div className="space-y-4">
+                  <div className="text-center">
+                    <p className="text-text-muted text-xs">Total pembayaran</p>
+                    <p className="text-text-primary mt-1 text-3xl font-bold tabular-nums">
+                      {formatCurrency(payment.amount)}
+                    </p>
+                    <p className={paymentExpired ? "text-danger mt-1 text-xs" : "text-text-muted mt-1 text-xs"}>
+                      {paymentExpired ? "Invoice ini sudah kedaluwarsa" : `Berlaku sampai ${formatDateTime(payment.expiresAt)}`}
+                    </p>
                   </div>
-                  <p className="text-text-secondary mt-4 text-center text-sm font-medium">
-                    Scan QR di atas dengan e-wallet kamu
-                  </p>
-                  <p className="text-text-muted mt-1 text-center text-xs">
-                    Nominal sudah terisi otomatis, tinggal konfirmasi di
-                    e-wallet.
-                  </p>
-                </>
-              ) : (
-                <div className="space-y-3">
-                  <div className="border-warning/30 bg-warning/5 flex items-start gap-3 rounded-lg border p-3 text-left">
-                    <AlertCircle className="text-warning h-5 w-5 shrink-0" />
-                    <div className="text-xs">
-                      <p className="text-text-primary font-semibold">
-                        QRIS belum tersedia
+                  {payment.qrisCode && !paymentExpired && (
+                    <>
+                      <div className="flex justify-center">
+                        <div className="w-full max-w-[252px] rounded-xl bg-white p-4">
+                          <QRCodeSVG
+                            value={payment.qrisCode}
+                            size={220}
+                            marginSize={4}
+                            className="h-auto w-full"
+                            title={`QRIS pembayaran ${formatCurrency(payment.amount)}`}
+                          />
+                        </div>
+                      </div>
+                      <p className="text-text-muted text-center text-xs">
+                        Scan dengan aplikasi bank atau e-wallet. Pastikan total
+                        yang tampil sama sebelum membayar.
                       </p>
-                      <p className="text-text-muted mt-1">
-                        Pihak yang menagih belum mengatur QRIS statis di
-                        {data.appName}. Minta mereka untuk setup di Pengaturan →
-                        QRIS agar QR otomatis tersedia di sini.
-                      </p>
-                      {qrisDiagnostic && (
-                        <p className="text-text-muted mt-1 italic">
-                          ({qrisDiagnostic.reason})
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  {debug && (
-                    <pre className="border-border bg-bg-elevated text-text-muted overflow-x-auto rounded-lg border p-3 font-mono text-[10px]">
-                      {JSON.stringify(
-                        {
-                          billId: data.billId,
-                          hasStaticQris: Boolean(data.staticQris),
-                          staticQrisLength: data.staticQris?.length ?? 0,
-                          staticQrisPreview: data.staticQris
-                            ? `${data.staticQris.slice(0, 16)}…${data.staticQris.slice(-12)}`
-                            : null,
-                          isValidShape: data.staticQris
-                            ? isValidQrisShape(data.staticQris)
-                            : false,
-                          diagnostic: qrisDiagnostic,
-                        },
-                        null,
-                        2,
-                      )}
-                    </pre>
+                    </>
                   )}
+                  {payment.checkoutUrl && !paymentExpired && (
+                    <a
+                      href={payment.checkoutUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="border-border bg-bg-surface text-text-primary hover:bg-bg-elevated focus-visible:ring-primary flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-semibold transition focus-visible:ring-2 focus-visible:outline-none"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                      Buka Halaman Pembayaran
+                    </a>
+                  )}
+                  {paymentExpired ? (
+                    <div role="alert" className="border-danger/30 bg-danger/5 rounded-lg border p-3 text-sm">
+                      <p className="text-text-primary font-semibold">Jangan bayar invoice ini</p>
+                      <p className="text-text-muted mt-1 text-xs">
+                        Minta pihak yang menagih membuat invoice QRIS baru.
+                      </p>
+                    </div>
+                  ) : !payment.qrisCode && !payment.checkoutUrl ? (
+                    <div role="status" className="border-warning/30 bg-warning/5 rounded-lg border p-3 text-sm">
+                      <p className="text-text-primary font-semibold">
+                        Instruksi pembayaran belum tersedia
+                      </p>
+                      <p className="text-text-muted mt-1 text-xs">
+                        Minta pihak yang menagih membuat ulang invoice QRIS.
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <div role="status" className="border-warning/30 bg-warning/5 flex items-start gap-3 rounded-lg border p-3 text-left">
+                  <AlertCircle className="text-warning h-5 w-5 shrink-0" />
+                  <div className="text-xs">
+                    <p className="text-text-primary font-semibold">
+                      Invoice QRIS belum tersedia
+                    </p>
+                    <p className="text-text-muted mt-1">
+                      Pihak yang menagih perlu membuat invoice dari daftar
+                      peserta sebelum pembayaran dapat dilakukan.
+                    </p>
+                  </div>
                 </div>
               )}
             </section>
@@ -333,7 +302,7 @@ function PayPageInner({
                 type="button"
                 onClick={handleTogglePaid}
                 disabled={toggling}
-                className={`mt-3 flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition disabled:opacity-60 ${
+                className={`mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none disabled:opacity-60 ${
                   isPaid
                     ? "bg-bg-elevated text-text-secondary hover:bg-bg-elevated/70"
                     : "bg-success hover:bg-success/90 text-white"
@@ -355,10 +324,8 @@ function PayPageInner({
               )}
             </section>
 
-            {/* ─── Trust footer ──────────────────────────────────────────── */}
-            <footer className="text-text-muted flex items-center justify-center gap-1.5 pt-2 text-[11px]">
-              <ShieldCheck className="h-3 w-3" />
-              Link ini aman dan hanya bisa dilihat oleh kamu.
+            <footer className="text-text-muted pt-2 text-center text-[11px]">
+              Periksa judul tagihan dan total dari gateway sebelum membayar.
             </footer>
           </div>
         )}
@@ -371,7 +338,7 @@ function LoadingState() {
   return (
     <div className="flex flex-col items-center gap-3 py-16">
       <Loader2 className="text-primary h-7 w-7 animate-spin" />
-      <p className="text-text-muted text-sm">Memuat tagihan…</p>
+      <p role="status" className="text-text-muted text-sm">Memuat tagihan...</p>
     </div>
   );
 }
@@ -395,12 +362,24 @@ function ErrorState({
       <button
         type="button"
         onClick={onRetry}
-        className="bg-bg-elevated text-text-primary hover:bg-bg-elevated/70 rounded-lg px-4 py-2 text-sm font-medium transition"
+        className="bg-bg-elevated text-text-primary hover:bg-bg-elevated/70 focus-visible:ring-primary min-h-11 rounded-lg px-4 py-2 text-sm font-medium transition focus-visible:ring-2 focus-visible:outline-none"
       >
         Coba Lagi
       </button>
     </div>
   );
+}
+
+function formatDateTime(iso: string): string {
+  const parsed = new Date(iso);
+  if (Number.isNaN(parsed.getTime())) return iso;
+  return parsed.toLocaleString("id-ID", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function formatDate(iso: string): string {

@@ -1,4 +1,5 @@
 import { toggleSplitWalletPayment } from "../services/split-wallet-payments.js";
+import { publicSplitBillQrisPayment } from "../services/split-bill-qris.js";
 /**
  * Public split-bill routes.
  *
@@ -35,35 +36,26 @@ async function loadPublicBill(billId, token) {
         // Don't reveal whether the bill exists vs. the token being wrong.
         return { error: "Link tidak valid atau sudah tidak berlaku", status: 404 };
     }
-    // Look up the merchant's static QRIS so the pay page can render a QR
-    // without requiring the participant to log in. The string is the
-    // merchant's payment receiver, so it is inherently public.
-    //
-    // Fallback chain:
-    //  1. AppSetting table (the canonical store when DB is configured).
-    //  2. In-memory `appConfig` (used by the no-DB / dev-fallback path).
-    //  3. undefined → pay page will show "QRIS belum tersedia".
-    let staticQris;
     let appName;
     try {
         const setting = await db.appSetting.findFirst();
-        staticQris = setting?.qrisStatic ?? undefined;
         appName = setting?.appName ?? undefined;
     }
-    catch (e) {
-        console.warn("[public-bill] appSetting read failed", e);
-    }
-    if (!staticQris) {
-        const mem = appConfig.qrisStatic;
-        if (mem)
-            staticQris = mem;
+    catch (error) {
+        console.warn("[public-bill] appSetting read failed", error);
     }
     if (!appName) {
         const mem = appConfig.appName;
         if (mem)
             appName = mem;
     }
-    console.log(`[public-bill] bill=${billId} staticQris.length=${staticQris?.length ?? 0} appName=${appName ?? "<none>"}`);
+    let qrisPayment;
+    try {
+        qrisPayment = await publicSplitBillQrisPayment(bill.id, me.id);
+    }
+    catch (error) {
+        console.warn("[public-bill] QRIS invoice read failed", error);
+    }
     return {
         billId: bill.id,
         title: bill.title,
@@ -89,7 +81,7 @@ async function loadPublicBill(billId, token) {
             participantCount: (bill.participants ?? []).length,
             paidCount: (bill.participants ?? []).filter((p) => p.paid).length,
         },
-        staticQris,
+        qrisPayment,
     };
 }
 export const publicSplitBillRoutes = new Elysia({

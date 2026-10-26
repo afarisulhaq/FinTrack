@@ -33,17 +33,56 @@ SUBSCRIPTION_DURATION_DAYS=<jumlah hari, 1 sampai 366>
 ```
 
 - `QRIS_BASE_URL` harus origin yang sama dengan `APP_URL` gateway agar
-  `checkout_url` tervalidasi. Produksi wajib HTTPS; hanya `localhost` dan
-  `127.0.0.1` yang boleh HTTP untuk pengujian lokal.
+  `checkout_url` tervalidasi. Produksi wajib HTTPS; hanya `localhost`,
+  `127.0.0.1`, dan `[::1]` yang boleh HTTP untuk pengujian lokal.
 - `QRIS_ENVIRONMENT` harus sama dengan environment API key; key sandbox tidak
   dapat membaca invoice produksi dan sebaliknya.
 - `QRIS_CONNECTION_ID` wajib diisi pada produksi (ambil lewat
   `GET /v1/connections`) dan dikosongkan pada sandbox.
+- Validasi URL, environment, provider, API key, dan kewajiban connection ID
+  produksi dipakai bersama oleh konfigurasi langganan dan Split Bills agar
+  kedua alur menolak konfigurasi berbahaya dengan aturan yang sama.
 - `QRIS_WEBHOOK_SECRETS` berbeda dari API key. Saat secret dirotasi di
   dashboard gateway, pertahankan secret lama di daftar sampai antrean event
   lama selesai.
 - Tanpa webhook, pembayaran tetap terkonfirmasi lewat pemeriksaan manual;
   webhook hanya mempercepat status lunas tanpa klik pengguna.
+
+## Split Bills memakai gateway per pengguna
+
+Langganan tetap memakai variabel `QRIS_BASE_URL`, `QRIS_API_KEY`,
+`QRIS_ENVIRONMENT`, `QRIS_PROVIDER`, dan `QRIS_CONNECTION_ID` di backend.
+Split Bills tidak memakai kredensial langganan tersebut. Setiap pemilik akun
+menyimpan konfigurasi gateway sendiri melalui API berikut:
+
+- `GET /api/user/qris-gateway-settings` membaca konfigurasi pengguna aktif.
+- `PUT /api/user/qris-gateway-settings` menerima `baseUrl`, `environment`,
+  `provider`, `connectionId`, dan `apiKey` opsional. Jika `apiKey` tidak dikirim
+  saat pembaruan, key tersimpan tetap digunakan.
+- Kedua respons hanya berisi `configured`, `baseUrl`, `environment`, `provider`,
+  `connectionId`, dan `apiKeyMasked`. Plaintext API key tidak pernah dikirim.
+
+`QRIS_SETTINGS_ENCRYPTION_KEY` wajib berisi 32 byte yang dikodekan sebagai
+base64 atau 64 karakter heksadesimal. FinTrack mengenkripsi API key pengguna
+dengan AES-256-GCM sebelum menyimpannya. Nilai key harus disimpan di secret
+manager, tidak memakai awalan `NEXT_PUBLIC_`, dan harus tetap sama selama data
+terenkripsi masih dipakai. Mengganti atau kehilangan key membuat kredensial
+lama tidak dapat dibuka; pengguna perlu menyimpan ulang API key setelah rotasi
+yang disengaja.
+
+Pemilik membuat invoice peserta lewat
+`POST /api/split-bills/:id/participants/:participantId/qris-invoice`. Backend
+memastikan tagihan dan peserta dimiliki pengguna yang sedang login, lalu
+mengembalikan `amount`, `qrisCode`, `checkoutUrl`, dan `expiresAt`. Invoice
+berstatus pending yang belum kedaluwarsa digunakan kembali agar klik berulang
+tidak membuka invoice kedua di gateway. Halaman pembayaran publik hanya
+menerima objek aman `qrisPayment` untuk peserta pada link tersebut. Endpoint
+publik tidak lagi mengirim `staticQris`.
+
+QRIS statis di Pengaturan App tetap disimpan dan ditampilkan oleh UI yang sudah
+ada, tetapi tidak lagi menjadi sumber pembayaran Split Bills. Terapkan
+`prisma/patches/20261026-split-bills-qris-gateway.sql` sebelum mengaktifkan alur
+gateway per pengguna.
 
 Sebelum membuka checkout, tentukan manfaat serta ketentuan paket, uji
 pembayaran nominal kecil pada sandbox, baru ubah `SUBSCRIPTIONS_ENABLED=true`.
