@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # ─────────────────────────────────────────────────────────
 # FinTrack — production image
 #
@@ -13,7 +14,7 @@
 # ─────────────────────────────────────────────────────────
 
 # 1. Deps — install everything we need to build
-FROM node:20-alpine AS deps
+FROM node:22-alpine AS deps
 RUN apk add --no-cache libc6-compat openssl
 WORKDIR /app
 COPY package.json package-lock.json* ./
@@ -23,8 +24,43 @@ RUN npm ci --no-audit --no-fund
 # Generate the Prisma client into node_modules so the build stage can pick it up
 RUN npx prisma generate
 
+FROM node:22-alpine AS runtime-deps
+RUN apk add --no-cache libc6-compat openssl
+WORKDIR /app
+COPY package.json package-lock.json ./
+COPY prisma ./prisma
+COPY scripts/runtime-package.mjs ./scripts/runtime-package.mjs
+RUN node scripts/runtime-package.mjs seed && \
+    npm install --package-lock-only --omit=dev --ignore-scripts --no-audit --no-fund && \
+    npm ci --omit=dev --ignore-scripts --no-audit --no-fund && \
+    ./node_modules/.bin/prisma generate
+
+FROM node:22-alpine AS app-deps
+RUN apk add --no-cache libc6-compat openssl
+WORKDIR /app
+COPY package.json package-lock.json ./
+COPY prisma ./prisma
+COPY scripts/runtime-package.mjs ./scripts/runtime-package.mjs
+RUN node scripts/runtime-package.mjs app && \
+    npm install --package-lock-only --omit=dev --ignore-scripts --no-audit --no-fund && \
+    npm ci --omit=dev --ignore-scripts --no-audit --no-fund && \
+    rm -rf node_modules/prisma node_modules/tsx node_modules/typescript \
+      node_modules/@prisma/config node_modules/@prisma/engines \
+      node_modules/@prisma/engines-version && \
+    find node_modules/tesseract.js-core -maxdepth 1 -type f \
+      ! -name '*-lstm*' ! -name 'index.js' ! -name 'package.json' -delete
+COPY --from=runtime-deps /app/node_modules/.prisma ./node_modules/.prisma
+
+FROM runtime-deps AS db-setup
+COPY prisma ./prisma
+COPY server/services/default-categories.ts ./server/services/default-categories.ts
+COPY src/lib/default-categories.ts ./src/lib/default-categories.ts
+COPY scripts/db-setup.sh /usr/local/bin/db-setup.sh
+RUN chmod +x /usr/local/bin/db-setup.sh
+ENTRYPOINT ["/usr/local/bin/db-setup.sh"]
+
 # 2. Build — compile the Next.js frontend and the Elysia backend
-FROM node:20-alpine AS build
+FROM node:22-alpine AS build
 RUN apk add --no-cache libc6-compat openssl
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -41,7 +77,7 @@ RUN npm run build:server
 RUN npm run build:web
 
 # 3. Runtime — slim image with only the artifacts we need to run
-FROM node:20-alpine AS runtime
+FROM node:22-alpine AS runtime
 RUN apk add --no-cache openssl tini
 WORKDIR /app
 ENV NODE_ENV=production
@@ -57,31 +93,17 @@ COPY --from=build /app/public ./public
 # Elysia backend (compiled by tsc to server/dist)
 COPY --from=build /app/server/dist ./server/dist
 
-# Backend runtime deps (Prisma, bcryptjs, Elysia, etc.). The Next.js
-# bundle has its own node_modules inside .next/standalone, so this copy
-# is only for the backend — they don't conflict.
-COPY --from=build /app/node_modules ./node_modules
+COPY --from=app-deps /app/node_modules ./node_modules
 COPY --from=build /app/prisma ./prisma
-COPY --from=build /app/server/services/default-categories.ts ./server/services/default-categories.ts
-COPY --from=build /app/src/lib/default-categories.ts ./src/lib/default-categories.ts
-COPY --from=build /app/scripts/load-env.mjs ./scripts/load-env.mjs
 COPY --from=build /app/package.json ./package.json
 
 # Entrypoint script that runs both processes
 COPY --from=build /app/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-# WhatsApp bot session (Baileys) lives outside the image so re-builds
-# don't wipe the pairing creds. Mount a volume here in compose.
-RUN mkdir -p /app/.baileys-session
-# Disk-backed Yahoo Finance cache (see server/services/market-price.ts).
-# Compose mounts a named volume on top of this so the JSON file
-# survives `docker compose up --build`.
-RUN mkdir -p /app/data
+# WhatsApp session and Yahoo Finance cache persist across image rebuilds.
+RUN mkdir -p /app/.baileys-session /app/data
 
 EXPOSE 3000
-
-# tini reaps zombies and forwards signals so the child Node processes
-# shut down cleanly when `docker stop` is run.
 ENTRYPOINT ["/sbin/tini", "--", "docker-entrypoint.sh"]
 CMD ["node", "server.js"]

@@ -55,3 +55,11 @@ fix-orphans.mjs
 test-*.mjs
 .baileys-session/
 
+data/
+.agents/
+.codex/
+.aws/
+tests/
+coverage/
+prisma-err.txt
+prisma-out.txt

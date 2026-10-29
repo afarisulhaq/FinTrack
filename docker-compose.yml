@@ -1,4 +1,16 @@
 services:
+  db-setup:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: db-setup
+    image: fintrack-db-setup:latest
+    restart: "no"
+    env_file:
+      - .env.production
+    networks:
+      - web
+
   app:
     build:
       context: .
@@ -10,6 +22,9 @@ services:
     image: fintrack:latest
     container_name: fintrack
     restart: unless-stopped
+    depends_on:
+      db-setup:
+        condition: service_completed_successfully
     env_file:
       - .env.production
     networks:

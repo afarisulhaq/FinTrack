@@ -260,6 +260,12 @@ docker compose --env-file .env.production up -d --build
 docker compose logs -f app     # watch the first boot
 ```
 
+Compose builds a separate one-shot `db-setup` image. It syncs the Prisma
+schema and runs the idempotent seed before starting the app, so the application
+image does not need Prisma CLI or `tsx`. Set `SKIP_PRISMA_PUSH=1` when schema
+and seed management is handled externally. If you start the application image
+outside Compose, run the `db-setup` service first.
+
 To show Cloudflare Turnstile on login and register, set
 `NEXT_PUBLIC_TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` in
 `.env.production` before building. Use the site key and secret from the same

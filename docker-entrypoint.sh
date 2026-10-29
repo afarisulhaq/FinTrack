@@ -15,36 +15,6 @@ cleanup() {
 }
 trap cleanup TERM INT
 
-# ── Auto-sync DB schema ──────────────────────────────────────────────────────
-# `prisma db push` is additive: it creates missing tables/columns but
-# never drops data. Running it on every boot means a fresh deploy with
-# a new schema version still comes up cleanly without a manual
-# `prisma db push` step. Set SKIP_PRISMA_PUSH=1 to opt out (e.g. when
-# the operator manages schema with `prisma migrate` instead).
-if [ -n "$DATABASE_URL" ] && [ "$SKIP_PRISMA_PUSH" != "1" ]; then
-  echo "[entrypoint] syncing database schema (prisma db push)..."
-  if npx prisma db push --skip-generate --accept-data-loss 2>&1; then
-    echo "[entrypoint] schema sync ok"
-  else
-    echo "[entrypoint] WARN: prisma db push failed, continuing — backend will retry on first request"
-  fi
-
-  # ── Seed (admin user + sample data) ──────────────────────────────
-  # The seed is idempotent (uses upsert), so running it on every boot
-  # is safe and ensures the env-var admin user actually exists in the
-  # DB. Without this, a fresh deploy ends up with an empty User table
-  # and login returns "Email atau password salah" because prisma db
-  # push only syncs the schema, it does not run the seed.
-  echo "[entrypoint] seeding database (admin user + sample data)..."
-  if npx prisma db seed 2>&1; then
-    echo "[entrypoint] seed ok"
-  else
-    echo "[entrypoint] WARN: prisma db seed failed, continuing — admin user may be missing"
-  fi
-else
-  echo "[entrypoint] skipping prisma db push (no DATABASE_URL or SKIP_PRISMA_PUSH=1)"
-fi
-
 echo "[entrypoint] starting Elysia backend on :${PORT:-4000}..."
 node server/dist/server/index.js &
 BACKEND_PID=$!
