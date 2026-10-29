@@ -1,7 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import { api, getApiBaseUrl } from "~/lib/api";
+import { api, authenticatedFetch, getApiBaseUrl } from "~/lib/api";
 import { createFinanceSync } from "~/lib/finance-sync";
 import { genId } from "~/lib/utils";
 import {
@@ -238,7 +238,7 @@ async function executePersistResource<T = unknown>(
   }
   let response: Response;
   try {
-    response = await fetch(`${getApiBaseUrl()}${path}`, {
+    response = await authenticatedFetch(`${getApiBaseUrl()}${path}`, {
       method,
       headers: {
         "Content-Type": "application/json",

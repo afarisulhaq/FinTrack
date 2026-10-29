@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { getApiBaseUrl } from "~/lib/api";
+import { authenticatedFetch, getApiBaseUrl } from "~/lib/api";
 import { useAuthStore } from "~/store/useAuthStore";
 import { DEFAULT_PAGE_SIZE, type PageQuery, type PageResult } from "~/lib/pagination";
 import { removePageRecords, setPageRecords, subscribeServerListInvalidation } from "~/lib/page-records";
@@ -46,7 +46,7 @@ export function useServerPagination<T, S = Record<string, unknown>>(
     if (!token || !path || !enabled || current.current?.key === key) return;
     const controller = new AbortController();
     setStatus({ key, loading: true, error: "" });
-    void fetch(`${getApiBaseUrl()}${url}`, {
+    void authenticatedFetch(`${getApiBaseUrl()}${url}`, {
       signal: controller.signal,
       headers: { Authorization: `Bearer ${token}` },
       cache: "no-store",

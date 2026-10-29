@@ -1,4 +1,4 @@
-import type { AuthUser } from "~/store/useAuthStore";
+import { useAuthStore, type AuthUser } from "~/store/useAuthStore";
 import type { PageQuery } from "./pagination";
 import { parsePage } from "./page-schema";
 
@@ -30,8 +30,20 @@ export function getApiBaseUrl() {
   return "http://localhost:4000/api";
 }
 
+export async function authenticatedFetch(url: string, options: RequestInit = {}) {
+  const authorization = new Headers(options.headers).get("Authorization");
+  const token = authorization?.startsWith("Bearer ")
+    ? authorization.slice(7)
+    : null;
+  const response = await fetch(url, options);
+  if (response.status === 401 && token && useAuthStore.getState().token === token) {
+    useAuthStore.getState().logout();
+  }
+  return response;
+}
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const response = await fetch(`${getApiBaseUrl()}${path}`, {
+  const response = await authenticatedFetch(`${getApiBaseUrl()}${path}`, {
     cache: "no-store",
     ...options,
     headers: {
