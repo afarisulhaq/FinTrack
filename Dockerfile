@@ -70,7 +70,7 @@ ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY
 ENV NEXT_PUBLIC_TURNSTILE_SITE_KEY=$NEXT_PUBLIC_TURNSTILE_SITE_KEY
 
 RUN npm run build:server
-RUN node scripts/build-seed.mjs /app/seed-dist
+RUN node scripts/build-seed.mjs /tmp/seed-dist
 RUN npm run build:web
 
 # 3. Runtime — slim image with only the artifacts we need to run
@@ -89,9 +89,9 @@ COPY --from=build /app/public ./public
 
 # Elysia backend (compiled by tsc to server/dist)
 COPY --from=build /app/server/dist ./server/dist
-COPY --from=build /app/seed-dist/prisma/seed.js ./prisma/seed.js
-COPY --from=build /app/seed-dist/server/services/default-categories.js ./server/services/default-categories.js
-COPY --from=build /app/seed-dist/src/lib/default-categories.js ./src/lib/default-categories.js
+COPY --from=build /tmp/seed-dist/prisma/seed.js ./prisma/seed.js
+COPY --from=build /tmp/seed-dist/server/services/default-categories.js ./server/services/default-categories.js
+COPY --from=build /tmp/seed-dist/src/lib/default-categories.js ./src/lib/default-categories.js
 
 COPY --from=app-deps /app/node_modules ./node_modules
 COPY --from=build /app/prisma ./prisma
