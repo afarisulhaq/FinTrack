@@ -260,9 +260,9 @@ docker compose --env-file .env.production up -d --build
 docker compose logs -f app     # watch the first boot
 ```
 
-Compose builds a separate one-shot `db-setup` image. It syncs the Prisma
-schema and runs the idempotent seed before starting the app, so the application
-image does not need Prisma CLI or `tsx`. Set `SKIP_PRISMA_PUSH=1` when schema
+Compose builds a separate one-shot `db-setup` image that syncs the Prisma
+schema before starting the app. The app runs the idempotent seed from compiled
+JavaScript, so neither image needs `tsx`. Set `SKIP_PRISMA_PUSH=1` when schema
 and seed management is handled externally. If you start the application image
 outside Compose, run the `db-setup` service first.
 

@@ -15,6 +15,17 @@ cleanup() {
 }
 trap cleanup TERM INT
 
+if [ -n "$DATABASE_URL" ] && [ "$SKIP_PRISMA_PUSH" != "1" ]; then
+  echo "[entrypoint] seeding database..."
+  if node prisma/seed.js; then
+    echo "[entrypoint] seed ok"
+  else
+    echo "[entrypoint] WARN: seed failed, continuing startup"
+  fi
+else
+  echo "[entrypoint] skipping seed (no DATABASE_URL or SKIP_PRISMA_PUSH=1)"
+fi
+
 echo "[entrypoint] starting Elysia backend on :${PORT:-4000}..."
 node server/dist/server/index.js &
 BACKEND_PID=$!

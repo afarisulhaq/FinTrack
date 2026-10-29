@@ -12,12 +12,5 @@ echo "[db-setup] syncing database schema (prisma db push)..."
 if prisma db push --skip-generate --accept-data-loss; then
   echo "[db-setup] schema sync ok"
 else
-  echo "[db-setup] WARN: schema sync failed; continuing with seed attempt"
-fi
-
-echo "[db-setup] seeding database..."
-if prisma db seed; then
-  echo "[db-setup] seed ok"
-else
-  echo "[db-setup] WARN: seed failed; application will still start"
+  echo "[db-setup] WARN: schema sync failed; application will still start"
 fi

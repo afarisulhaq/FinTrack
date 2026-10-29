@@ -30,10 +30,9 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 COPY prisma ./prisma
 COPY scripts/runtime-package.mjs ./scripts/runtime-package.mjs
-RUN node scripts/runtime-package.mjs seed && \
+RUN node scripts/runtime-package.mjs db && \
     npm install --package-lock-only --omit=dev --ignore-scripts --no-audit --no-fund && \
-    npm ci --omit=dev --ignore-scripts --no-audit --no-fund && \
-    ./node_modules/.bin/prisma generate
+    npm ci --omit=dev --ignore-scripts --no-audit --no-fund
 
 FROM node:22-alpine AS app-deps
 RUN apk add --no-cache libc6-compat openssl
@@ -44,17 +43,14 @@ COPY scripts/runtime-package.mjs ./scripts/runtime-package.mjs
 RUN node scripts/runtime-package.mjs app && \
     npm install --package-lock-only --omit=dev --ignore-scripts --no-audit --no-fund && \
     npm ci --omit=dev --ignore-scripts --no-audit --no-fund && \
+    ./node_modules/.bin/prisma generate && \
     rm -rf node_modules/prisma node_modules/tsx node_modules/typescript \
       node_modules/@prisma/config node_modules/@prisma/engines \
       node_modules/@prisma/engines-version && \
     find node_modules/tesseract.js-core -maxdepth 1 -type f \
       ! -name '*-lstm*' ! -name 'index.js' ! -name 'package.json' -delete
-COPY --from=runtime-deps /app/node_modules/.prisma ./node_modules/.prisma
-
 FROM runtime-deps AS db-setup
 COPY prisma ./prisma
-COPY server/services/default-categories.ts ./server/services/default-categories.ts
-COPY src/lib/default-categories.ts ./src/lib/default-categories.ts
 COPY scripts/db-setup.sh /usr/local/bin/db-setup.sh
 RUN chmod +x /usr/local/bin/db-setup.sh
 ENTRYPOINT ["/usr/local/bin/db-setup.sh"]
@@ -74,6 +70,7 @@ ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY
 ENV NEXT_PUBLIC_TURNSTILE_SITE_KEY=$NEXT_PUBLIC_TURNSTILE_SITE_KEY
 
 RUN npm run build:server
+RUN node scripts/build-seed.mjs /app/seed-dist
 RUN npm run build:web
 
 # 3. Runtime — slim image with only the artifacts we need to run
@@ -92,6 +89,9 @@ COPY --from=build /app/public ./public
 
 # Elysia backend (compiled by tsc to server/dist)
 COPY --from=build /app/server/dist ./server/dist
+COPY --from=build /app/seed-dist/prisma/seed.js ./prisma/seed.js
+COPY --from=build /app/seed-dist/server/services/default-categories.js ./server/services/default-categories.js
+COPY --from=build /app/seed-dist/src/lib/default-categories.js ./src/lib/default-categories.js
 
 COPY --from=app-deps /app/node_modules ./node_modules
 COPY --from=build /app/prisma ./prisma

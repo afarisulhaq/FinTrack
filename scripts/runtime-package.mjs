@@ -3,10 +3,10 @@ import fs from "node:fs";
 const manifest = JSON.parse(fs.readFileSync("package.json", "utf8"));
 const lock = JSON.parse(fs.readFileSync("package-lock.json", "utf8"));
 const appRuntime = process.argv[2] === "app";
-const seedRuntime = process.argv[2] === "seed";
+const dbRuntime = process.argv[2] === "db";
 const packages = [
-  ...(seedRuntime
-    ? ["@prisma/client", "bcryptjs", "prisma", "tsx"]
+  ...(dbRuntime
+    ? ["prisma"]
     : [
         "@elysia/node", "@elysiajs/cors", "@prisma/client",
         "@whiskeysockets/baileys", "bcryptjs", "elysia", "jsonwebtoken",
@@ -24,6 +24,6 @@ fs.writeFileSync("package.json", JSON.stringify({
   version: manifest.version,
   private: true,
   type: "module",
-  ...(appRuntime ? {} : { prisma: manifest.prisma }),
+  ...(!appRuntime && !dbRuntime ? { prisma: manifest.prisma } : {}),
   dependencies,
 }, null, 2) + "\n");
