@@ -7,6 +7,7 @@ function authFromRequest(request: Request) {
 }
 
 export const requireAuth = new Elysia({ name: "require-auth" }).onBeforeHandle(
+  { as: "scoped" },
   ({ request, set }) => {
     if (!authFromRequest(request)) {
       set.status = 401;
@@ -17,7 +18,7 @@ export const requireAuth = new Elysia({ name: "require-auth" }).onBeforeHandle(
 
 export const requireAdmin = new Elysia({
   name: "require-admin",
-}).onBeforeHandle(({ request, set }) => {
+}).onBeforeHandle({ as: "scoped" }, ({ request, set }) => {
   const auth = authFromRequest(request);
   if (!auth) {
     set.status = 401;

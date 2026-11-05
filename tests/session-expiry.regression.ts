@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { Elysia } from "elysia";
+import { financeRoutes } from "../server/routes/finance";
 
 const storage = new Map<string, string>();
 const localStorage = {
@@ -20,7 +22,8 @@ const login = (token = "expired-token") => useAuthStore.setState({
 });
 try {
   login();
-  globalThis.fetch = async () => Response.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  const app = new Elysia().use(financeRoutes);
+  globalThis.fetch = async (input, init) => app.handle(new Request(input, init));
   assert.equal(await useFinanceStore.getState().refreshAll({ silent: true }), false);
   assert.equal(useAuthStore.getState().isAuthenticated, false, "bootstrap 401 must end the stale session");
   assert.equal(useAuthStore.getState().token, null);

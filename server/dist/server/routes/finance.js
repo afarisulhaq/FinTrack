@@ -543,12 +543,6 @@ async function changeTransactionBalances(client, transaction, sign) {
             data: { balance: { increment: toNumber(transaction.amount) * sign } },
         });
     }
-    if (transaction.type === "expense" && transaction.category) {
-        await client.budget.updateMany({
-            where: { category: transaction.category, userId: transaction.userId },
-            data: { spent: { increment: toNumber(transaction.amount) * sign } },
-        });
-    }
 }
 function serializeSplitBill(b) {
     return {

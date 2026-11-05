@@ -4,7 +4,7 @@ function authFromRequest(request) {
     const token = extractToken(request.headers.get("authorization") ?? undefined);
     return token ? verifyToken(token) : null;
 }
-export const requireAuth = new Elysia({ name: "require-auth" }).onBeforeHandle(({ request, set }) => {
+export const requireAuth = new Elysia({ name: "require-auth" }).onBeforeHandle({ as: "scoped" }, ({ request, set }) => {
     if (!authFromRequest(request)) {
         set.status = 401;
         return { success: false, error: "Unauthorized" };
@@ -12,7 +12,7 @@ export const requireAuth = new Elysia({ name: "require-auth" }).onBeforeHandle((
 });
 export const requireAdmin = new Elysia({
     name: "require-admin",
-}).onBeforeHandle(({ request, set }) => {
+}).onBeforeHandle({ as: "scoped" }, ({ request, set }) => {
     const auth = authFromRequest(request);
     if (!auth) {
         set.status = 401;

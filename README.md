@@ -61,6 +61,17 @@ clear message if port 3000 or 4000 is already occupied. Stop the old server
 before restarting. Without `DATABASE_URL`, data uses the temporary development
 store and does not survive backend restarts.
 
+### API authentication
+
+Protected API routes return `401 Unauthorized` for missing, invalid, or expired
+tokens. The frontend clears the matching session on 401. A valid non-admin token
+receives 403 on admin routes and remains signed in; server outages also preserve
+the session. Auth middleware uses Elysia's scoped hooks so guards apply to the
+routes consuming each plugin without protecting sibling public routes.
+
+Run `node --import tsx tests/auth-guards.regression.ts` and
+`node --import tsx tests/session-expiry.regression.ts` to check these boundaries.
+
 ## Deployment (Docker)
 
 A single-container image is provided. See [Deployment](#deployment-1) below for the full walkthrough, including how to bootstrap the first admin user and lock down the login page.

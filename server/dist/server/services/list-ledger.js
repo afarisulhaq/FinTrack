@@ -4,6 +4,34 @@ import { db as memory } from "../data.js";
 import { databasePage, pageArray, pageMeta, ownership, memoryRows, PaginationError } from "./pagination.js";
 const supported = { transactions: true, bills: true, budgets: true, recurringTransactions: true, reimbursements: true, notes: true };
 const factors = { daily: 30, weekly: 4.33, monthly: 1, yearly: 1 / 12 };
+function budgetPeriodRange(period, now) {
+    const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    if (period === "weekly") {
+        start.setUTCDate(start.getUTCDate() - start.getUTCDay());
+    }
+    else if (period === "monthly") {
+        start.setUTCDate(1);
+    }
+    const end = new Date(start);
+    if (period === "daily")
+        end.setUTCDate(end.getUTCDate() + 1);
+    else if (period === "weekly")
+        end.setUTCDate(end.getUTCDate() + 7);
+    else
+        end.setUTCMonth(end.getUTCMonth() + 1);
+    return { gte: start, lt: end };
+}
+function currentBudgetSpent(budget, expenses) {
+    return expenses.reduce((sum, transaction) => {
+        const categoryMatches = budget.subCategoryId
+            ? transaction.subCategoryId === budget.subCategoryId
+            : budget.categoryId
+                ? transaction.categoryId === budget.categoryId || (!transaction.categoryId && transaction.category === budget.category)
+                : transaction.category === budget.category;
+        const walletMatches = !budget.walletId || transaction.walletId === budget.walletId;
+        return sum + (categoryMatches && walletMatches ? transaction.amount : 0);
+    }, 0);
+}
 export async function listLedger(resource, scope, query, input, serialize) {
     if (!supported[resource])
         return null;
@@ -85,15 +113,62 @@ export async function listLedger(resource, scope, query, input, serialize) {
             throw new PaginationError("Periode anggaran tidak valid");
         const where = { ...own, ...(period ? { period } : {}) };
         if (connected) {
-            const [page, totals, counts] = await Promise.all([
+            const [page, allBudgets, dailyExpenses, weeklyExpenses, monthlyExpenses, counts] = await Promise.all([
                 databasePage(input, () => prisma.budget.count({ where }), (skip, take) => prisma.budget.findMany({ where, skip, take, orderBy: query.view === "breakdown" ? [{ limit: "desc" }, { id: "asc" }] : [{ category: "asc" }, { id: "asc" }] })),
-                prisma.$queryRaw(Prisma.sql `SELECT SUM("limit") AS "totalLimit", SUM("spent") AS "totalSpent", COUNT(*) FILTER (WHERE "spent" > "limit") AS "overspentCount" FROM "Budget" WHERE ${tenant}${period ? Prisma.sql ` AND "period" = ${period}` : Prisma.empty}`),
+                prisma.budget.findMany({ where, orderBy: { id: "asc" } }),
+                prisma.transaction.groupBy({
+                    by: ["category", "categoryId", "subCategoryId", "walletId"],
+                    where: { ...own, type: "expense", date: budgetPeriodRange("daily", now) },
+                    _sum: { amount: true },
+                }),
+                prisma.transaction.groupBy({
+                    by: ["category", "categoryId", "subCategoryId", "walletId"],
+                    where: { ...own, type: "expense", date: budgetPeriodRange("weekly", now) },
+                    _sum: { amount: true },
+                }),
+                prisma.transaction.groupBy({
+                    by: ["category", "categoryId", "subCategoryId", "walletId"],
+                    where: { ...own, type: "expense", date: budgetPeriodRange("monthly", now) },
+                    _sum: { amount: true },
+                }),
                 prisma.budget.groupBy({ by: ["period"], where: own, _count: true }),
             ]);
-            return { ...page, items: page.items.map((row) => serialize(resource, row)), summary: { totalLimit: Number(totals[0]?.totalLimit ?? 0), totalSpent: Number(totals[0]?.totalSpent ?? 0), overspentCount: Number(totals[0]?.overspentCount ?? 0), counts: Object.fromEntries(counts.map((row) => [row.period, row._count])) } };
+            const mapExpenses = (rows) => rows.map((row) => ({
+                category: row.category,
+                categoryId: row.categoryId,
+                subCategoryId: row.subCategoryId,
+                walletId: row.walletId,
+                amount: Number(row._sum.amount ?? 0),
+            }));
+            const expensesByPeriod = {
+                daily: mapExpenses(dailyExpenses),
+                weekly: mapExpenses(weeklyExpenses),
+                monthly: mapExpenses(monthlyExpenses),
+            };
+            const rows = page.items.map((row) => ({
+                ...row,
+                spent: currentBudgetSpent(row, expensesByPeriod[row.period] ?? []),
+            }));
+            const totalLimit = allBudgets.reduce((sum, row) => sum + Number(row.limit), 0);
+            const totalSpent = allBudgets.reduce((sum, row) => sum + currentBudgetSpent(row, expensesByPeriod[row.period] ?? []), 0);
+            const overspentCount = allBudgets.filter((row) => currentBudgetSpent(row, expensesByPeriod[row.period] ?? []) > Number(row.limit)).length;
+            return { ...page, items: rows.map((row) => serialize(resource, row)), summary: { totalLimit, totalSpent, overspentCount, counts: Object.fromEntries(counts.map((row) => [row.period, row._count])) } };
         }
         const all = memoryRows(memory.budgets, scope);
-        const rows = all.filter((row) => !period || row.period === period).sort((a, b) => query.view === "breakdown" ? b.limit - a.limit || a.id.localeCompare(b.id) : a.category.localeCompare(b.category) || a.id.localeCompare(b.id));
+        const selected = all.filter((row) => !period || row.period === period);
+        const expenses = memoryRows(memory.transactions, scope).filter((row) => row.type === "expense");
+        const currentSpent = (budget) => {
+            const range = budgetPeriodRange(budget.period, now);
+            return currentBudgetSpent(budget, expenses.filter((row) => new Date(row.date) >= range.gte && new Date(row.date) < range.lt).map((row) => ({
+                category: row.category,
+                categoryId: row.categoryId ?? null,
+                subCategoryId: row.subCategoryId ?? null,
+                walletId: row.walletId ?? null,
+                amount: Number(row.amount),
+            })));
+        };
+        const rows = selected.map((row) => ({ ...row, spent: currentSpent(row) }))
+            .sort((a, b) => query.view === "breakdown" ? b.limit - a.limit || a.id.localeCompare(b.id) : a.category.localeCompare(b.category) || a.id.localeCompare(b.id));
         return pageArray(rows, input, { totalLimit: rows.reduce((sum, row) => sum + row.limit, 0), totalSpent: rows.reduce((sum, row) => sum + row.spent, 0), overspentCount: rows.filter((row) => row.spent > row.limit).length, counts: Object.fromEntries(["daily", "weekly", "monthly"].map((key) => [key, all.filter((row) => row.period === key).length])) });
     }
     if (resource === "recurringTransactions") {
