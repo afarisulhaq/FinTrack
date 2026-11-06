@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
 
-const CACHE_NAME = "fintrack-v3";
+const CACHE_NAME = "fintrack-v4";
 const STATIC_ASSETS = ["/favicon.ico"];
 
 // Install: pre-cache essential assets
@@ -57,8 +57,8 @@ self.addEventListener("push", (event) => {
 
   const options = {
     body: data.body,
-    icon: "/icons/icon-192.svg",
-    badge: "/icons/icon-192.svg",
+    icon: "/icons/icon-192.png",
+    badge: "/icons/icon-192.png",
     tag: data.tag || "fintrack-notification",
     data: { url: data.url || "/dashboard" },
     vibrate: [100, 50, 100],

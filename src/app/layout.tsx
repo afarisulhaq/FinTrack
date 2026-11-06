@@ -48,8 +48,11 @@ export const metadata: Metadata = {
     siteName: APP_NAME,
   },
   icons: {
-    icon: "/favicon.ico",
-    apple: "/icons/icon-192.svg",
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/favicon.ico", sizes: "16x16 32x32 48x48" },
+    ],
+    apple: "/icons/apple-touch-icon.png",
   },
   manifest: "/manifest.json",
   appleWebApp: {
@@ -59,12 +62,15 @@ export const metadata: Metadata = {
   },
 };
 
-export const viewport: Viewport = {
-  width: "device-width",
-  initialScale: 1,
-  maximumScale: 1,
-  themeColor: "#FFD147",
-};
+export async function generateViewport(): Promise<Viewport> {
+  const theme = resolveInitialTheme((await cookies()).get(THEME_COOKIE)?.value);
+  return {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 1,
+    themeColor: theme === "dark" ? "#101114" : "#f8f7f4",
+  };
+}
 
 const THEME_COOKIE = "fintrack_theme";
 
@@ -87,7 +93,8 @@ export default async function RootLayout({
   // toggle so SSR and the very first paint agree.
   const storedTheme = (await cookies()).get(THEME_COOKIE)?.value;
   const initialTheme = resolveInitialTheme(storedTheme);
-  const htmlClass = `${inter.variable}${initialTheme === "dark" ? " dark" : ""}`.trim();
+  const htmlClass =
+    `${inter.variable}${initialTheme === "dark" ? " dark" : ""}`.trim();
   return (
     <html lang="id" className={htmlClass} suppressHydrationWarning>
       <head>
@@ -108,6 +115,23 @@ export default async function RootLayout({
               } catch (e) {
                 document.documentElement.classList.add('dark');
               }
+
+              var syncBrowserTheme = function () {
+                var root = document.documentElement;
+                var color = getComputedStyle(root).getPropertyValue('--bg-base').trim();
+                var meta = document.querySelector('meta[name="theme-color"]');
+                if (!meta) {
+                  meta = document.createElement('meta');
+                  meta.name = 'theme-color';
+                  document.head.appendChild(meta);
+                }
+                meta.content = color || (root.classList.contains('dark') ? '#101114' : '#f8f7f4');
+              };
+              syncBrowserTheme();
+              new MutationObserver(syncBrowserTheme).observe(document.documentElement, {
+                attributes: true, attributeFilter: ['class', 'style']
+              });
+              document.addEventListener('DOMContentLoaded', syncBrowserTheme, { once: true });
 
               try {
                 var storedConfig = window.localStorage.getItem('fintrack_app_config');

@@ -1,4 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="76" fill="#6366f1"/>
-  <text x="256" y="288" text-anchor="middle" dominant-baseline="middle" fill="white" font-family="Arial,sans-serif" font-weight="bold" font-size="192">FT</text>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><rect width="512" height="512" rx="104" fill="#101114"/><path d="M156 186v-23c0-13 9-24 22-27l154-31v81" fill="none" stroke="#F59E0B" stroke-width="25" stroke-linejoin="round"/><rect x="129" y="182" width="254" height="192" rx="34" fill="#F59E0B"/><path d="M329 248h54v62h-54a31 31 0 0 1 0-62Z" fill="#101114"/><circle cx="337" cy="279" r="10" fill="#F59E0B"/></svg>
