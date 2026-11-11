@@ -40,8 +40,8 @@ function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
   return (
     <div
       style={{
-        backgroundColor: "#22263a",
-        border: "1px solid #2d3148",
+        backgroundColor: "var(--bg-surface)",
+        border: "1px solid var(--border)",
         borderRadius: "10px",
         padding: "10px 14px",
         boxShadow: "0 4px 20px rgb(0 0 0 / 0.4)",
@@ -51,7 +51,7 @@ function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
         style={{
           fontSize: 11,
           fontWeight: 600,
-          color: "#f1f5f9",
+          color: "var(--text-primary)",
           marginBottom: 6,
           textTransform: "uppercase",
           letterSpacing: "0.04em",
@@ -74,10 +74,10 @@ function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
               flexShrink: 0,
             }}
           />
-          <span style={{ fontSize: 12, color: "#94a3b8", textTransform: "capitalize" }}>
+          <span style={{ fontSize: 12, color: "var(--text-muted)", textTransform: "capitalize" }}>
             {entry.name}:
           </span>
-          <span style={{ fontSize: 12, color: "#f1f5f9", fontWeight: 600 }}>
+          <span style={{ fontSize: 12, color: "var(--text-primary)", fontWeight: 600 }}>
             {entry.value.toLocaleString()}
           </span>
         </div>
@@ -111,7 +111,7 @@ function CustomLegend({ payload }: CustomLegendProps) {
               backgroundColor: entry.color,
             }}
           />
-          <span style={{ fontSize: 12, color: "#94a3b8", textTransform: "capitalize" }}>
+          <span style={{ fontSize: 12, color: "var(--text-muted)", textTransform: "capitalize" }}>
             {entry.value}
           </span>
         </div>
@@ -132,19 +132,19 @@ function IncomeExpenseChart({ data, height = 300 }: IncomeExpenseChartProps) {
       >
         <CartesianGrid
           strokeDasharray="3 3"
-          stroke="#2d3148"
+          stroke="var(--border)"
           vertical={false}
           opacity={0.6}
         />
         <XAxis
           dataKey="month"
-          tick={{ fill: "#94a3b8", fontSize: 11 }}
+          tick={{ fill: "var(--text-muted)", fontSize: 11 }}
           axisLine={false}
           tickLine={false}
           dy={6}
         />
         <YAxis
-          tick={{ fill: "#94a3b8", fontSize: 11 }}
+          tick={{ fill: "var(--text-muted)", fontSize: 11 }}
           axisLine={false}
           tickLine={false}
           tickFormatter={(v: number) =>
@@ -164,14 +164,14 @@ function IncomeExpenseChart({ data, height = 300 }: IncomeExpenseChartProps) {
         <Bar
           dataKey="income"
           name="income"
-          fill="#22c55e"
+          fill="var(--success)"
           radius={[5, 5, 0, 0]}
           maxBarSize={36}
         />
         <Bar
           dataKey="expense"
           name="expense"
-          fill="#ef4444"
+          fill="var(--danger)"
           radius={[5, 5, 0, 0]}
           maxBarSize={36}
         />

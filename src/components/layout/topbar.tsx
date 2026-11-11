@@ -101,10 +101,10 @@ function Topbar({ title, subtitle }: TopbarProps) {
   }
 
   return (
-    <header className="bg-bg-surface/85 border-border sticky top-0 z-30 flex h-16 items-center gap-3 border-b px-4 backdrop-blur-xl sm:px-6 lg:px-8">
+    <header className="glass bg-overlay backdrop-blur-xl backdrop-saturate-150 border-border/60 sticky top-0 z-30 flex h-16 items-center gap-3 border-b px-4 sm:px-6 lg:px-8">
       <button
         onClick={toggleMobile}
-        className="text-text-muted hover:bg-bg-elevated hover:text-text-primary flex h-10 w-10 items-center justify-center rounded-lg transition-colors md:hidden"
+        className="text-text-muted hover:bg-bg-elevated hover:text-text-primary flex h-11 w-11 items-center justify-center rounded-md transition-colors md:hidden"
         aria-label="Buka menu"
       >
         <Menu className="h-5 w-5" />
@@ -121,7 +121,7 @@ function Topbar({ title, subtitle }: TopbarProps) {
         )}
       </div>
 
-      <div className="bg-bg-base border-border group focus-within:border-primary/50 focus-within:bg-bg-surface hidden h-9 w-64 items-center gap-2 rounded-lg border px-3 shadow-subtle transition-all md:flex">
+      <div className="bg-bg-base/60 border-border group focus-within:border-primary/50 hidden h-9 w-64 items-center gap-2 rounded-md border px-3 transition-all md:flex">
         <Search className="text-text-muted h-3.5 w-3.5 shrink-0" />
         <input
           type="text"
@@ -151,7 +151,7 @@ function Topbar({ title, subtitle }: TopbarProps) {
           onClick={handleSync}
           disabled={isSyncing}
           className={cn(
-            "flex h-9 w-9 items-center justify-center rounded-lg transition-colors",
+            "flex h-11 w-11 items-center justify-center rounded-md transition-colors md:h-9 md:w-9",
             isSyncing
               ? "text-primary bg-primary/10 cursor-wait"
               : "text-text-muted hover:bg-bg-elevated hover:text-text-primary",
@@ -166,7 +166,7 @@ function Topbar({ title, subtitle }: TopbarProps) {
           )}
         </button>
         <button
-          className="text-text-muted hover:bg-bg-elevated hover:text-text-primary relative flex h-9 w-9 items-center justify-center rounded-lg transition-colors"
+          className="text-text-muted hover:bg-bg-elevated hover:text-text-primary relative flex h-11 w-11 items-center justify-center rounded-md transition-colors md:h-9 md:w-9"
           aria-label="Notifications"
         >
           <Bell className="h-4 w-4" />
@@ -176,7 +176,7 @@ function Topbar({ title, subtitle }: TopbarProps) {
         </button>
         <button
           onClick={toggleTheme}
-          className="text-text-muted hover:bg-bg-elevated hover:text-text-primary flex h-9 w-9 items-center justify-center rounded-xl transition-colors"
+          className="text-text-muted hover:bg-bg-elevated hover:text-text-primary flex h-11 w-11 items-center justify-center rounded-md transition-colors md:h-9 md:w-9"
           aria-label="Toggle theme"
         >
           <Sun className="h-4 w-4 dark:hidden" />
@@ -185,7 +185,7 @@ function Topbar({ title, subtitle }: TopbarProps) {
 
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>
-            <button className="hover:bg-bg-elevated focus-visible:ring-primary/50 ml-1 flex h-9 items-center gap-2 rounded-xl pr-2 pl-1.5 transition-colors focus-visible:ring-2 focus-visible:outline-none">
+            <button className="hover:bg-bg-elevated focus-visible:ring-primary/50 ml-1 flex h-11 items-center gap-2 rounded-md pr-2 pl-1.5 transition-colors focus-visible:ring-2 focus-visible:outline-none md:h-9">
               <div className="bg-primary/20 border-primary/30 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border">
                 <span className="text-primary text-xs font-bold">
                   {initials(user?.name)}
@@ -201,7 +201,7 @@ function Topbar({ title, subtitle }: TopbarProps) {
             <DropdownMenu.Content
               align="end"
               sideOffset={8}
-              className="bg-bg-surface border-border z-50 min-w-[220px] rounded-xl border p-1.5 shadow-elevated"
+              className="bg-bg-surface/95 border-border z-50 min-w-[220px] rounded-xl border p-1.5 shadow-elevated backdrop-blur-xl"
             >
               <div className="border-border mb-1 border-b px-3 py-2.5">
                 <div className="flex items-center gap-2.5">
@@ -223,7 +223,7 @@ function Topbar({ title, subtitle }: TopbarProps) {
               <DropdownMenu.Item asChild>
                 <Link
                   href="/settings"
-                  className="text-text-secondary hover:bg-bg-elevated hover:text-text-primary flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors outline-none"
+                  className="text-text-secondary hover:bg-bg-elevated hover:text-text-primary flex cursor-pointer items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors outline-none"
                 >
                   <User className="h-3.5 w-3.5 shrink-0" />
                   Profile
@@ -232,7 +232,7 @@ function Topbar({ title, subtitle }: TopbarProps) {
               <DropdownMenu.Item asChild>
                 <Link
                   href="/settings"
-                  className="text-text-secondary hover:bg-bg-elevated hover:text-text-primary flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors outline-none"
+                  className="text-text-secondary hover:bg-bg-elevated hover:text-text-primary flex cursor-pointer items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors outline-none"
                 >
                   <Settings className="h-3.5 w-3.5 shrink-0" />
                   Settings
@@ -242,7 +242,7 @@ function Topbar({ title, subtitle }: TopbarProps) {
                 <DropdownMenu.Item asChild>
                   <Link
                     href="/admin"
-                    className="text-warning hover:bg-warning/10 flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors outline-none"
+                    className="text-warning hover:bg-warning/10 flex cursor-pointer items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors outline-none"
                   >
                     <Shield className="h-3.5 w-3.5 shrink-0" />
                     Admin Panel
@@ -252,7 +252,7 @@ function Topbar({ title, subtitle }: TopbarProps) {
               <DropdownMenu.Separator className="border-border my-1.5 border-t" />
               <DropdownMenu.Item
                 onSelect={signOut}
-                className="text-danger hover:bg-danger/10 flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors outline-none"
+                className="text-danger hover:bg-danger/10 flex cursor-pointer items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors outline-none"
               >
                 <LogOut className="h-3.5 w-3.5 shrink-0" />
                 Sign out

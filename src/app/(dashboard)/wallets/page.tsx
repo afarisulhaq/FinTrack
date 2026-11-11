@@ -395,10 +395,7 @@ export default function WalletsPage() {
                           </span>
                         </div>
                         <div className="ml-2 flex shrink-0 items-center gap-2">
-                          <span
-                            className="font-semibold tabular-nums"
-                            style={{ color: wallet.color }}
-                          >
+                          <span className="text-text-primary font-semibold tabular-nums">
                             {pct}%
                           </span>
                           <span className="text-text-muted tabular-nums">

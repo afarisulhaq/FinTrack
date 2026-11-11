@@ -495,12 +495,12 @@ export default function LandingPage() {
                 {/* Mock top bar */}
                 <div className="mb-4 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className="h-2.5 w-2.5 rounded-full bg-[#22c55e]" />
+                    <div className="h-2.5 w-2.5 rounded-full bg-[var(--success)]" />
                     <span className="text-xs font-medium text-[var(--text-muted)]">
                       Net Worth
                     </span>
                   </div>
-                  <div className="text-xs font-bold text-[#22c55e]">
+                  <div className="text-xs font-bold text-[var(--success)]">
                     +Rp 2,4jt
                   </div>
                 </div>
@@ -533,12 +533,12 @@ export default function LandingPage() {
                     {
                       name: "Kantong Jajan",
                       balance: "Rp 850.000",
-                      color: "#22c55e",
+                      color: "var(--success)",
                     },
                     {
                       name: "Investasi Saham",
                       balance: "Rp 8.320.000",
-                      color: "#f59e0b",
+                      color: "var(--warning)",
                     },
                   ].map(({ name, balance, color }) => (
                     <div

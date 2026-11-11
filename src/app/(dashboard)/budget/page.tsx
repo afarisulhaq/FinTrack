@@ -432,17 +432,17 @@ export default function BudgetPage() {
                   </div>
                 </div>
 
-                <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                <div className="flex shrink-0 items-center gap-1 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 max-sm:[&>button]:inline-flex max-sm:[&>button]:min-h-11 max-sm:[&>button]:min-w-11 max-sm:[&>button]:items-center max-sm:[&>button]:justify-center">
                   <button
                     onClick={() => openEdit(budget)}
-                    className="bg-bg-elevated text-text-secondary hover:text-primary hover:bg-primary/10 flex h-7 w-7 items-center justify-center rounded-lg transition-colors"
+                    className="bg-bg-elevated text-text-secondary hover:text-primary hover:bg-primary/10 flex max-sm:h-11 max-sm:w-11 h-7 w-7 items-center justify-center rounded-lg transition-colors"
                     title="Edit anggaran"
                   >
                     <Pencil className="h-3 w-3" />
                   </button>
                   <button
                     onClick={() => deleteBudget(budget.id)}
-                    className="bg-bg-elevated text-text-secondary hover:text-danger hover:bg-danger/10 flex h-7 w-7 items-center justify-center rounded-lg transition-colors"
+                    className="bg-bg-elevated text-text-secondary hover:text-danger hover:bg-danger/10 flex max-sm:h-11 max-sm:w-11 h-7 w-7 items-center justify-center rounded-lg transition-colors"
                     title="Hapus anggaran"
                   >
                     <Trash2 className="h-3 w-3" />
@@ -587,16 +587,13 @@ export default function BudgetPage() {
                           <span className="text-text-muted tabular-nums">
                             {formatCurrency(budget.limit, true)}
                           </span>
-                          <span
-                            className="font-semibold tabular-nums"
-                            style={{ color: budget.color }}
-                          >
+                          <span className="text-text-primary font-semibold tabular-nums">
                             {sharePct}%
                           </span>
                           <span
                             className="rounded-full px-1.5 py-0.5 text-[10px] font-medium"
                             style={{
-                              backgroundColor: `${getBudgetColor(spentPct)}22`,
+                              backgroundColor: `color-mix(in oklab, ${getBudgetColor(spentPct)} 14%, transparent)`,
                               color: getBudgetColor(spentPct),
                             }}
                           >
@@ -675,7 +672,7 @@ export default function BudgetPage() {
                           fld("categoryIcon", c.icon);
                           fld("color", c.color);
                         }}
-                        className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all`}
+                        className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium max-sm:min-h-11 transition-all`}
                         style={
                           active
                             ? {
@@ -743,7 +740,7 @@ export default function BudgetPage() {
                               fld("categoryIcon", s.icon);
                               fld("color", s.color);
                             }}
-                            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all"
+                            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium max-sm:min-h-11 transition-all"
                             style={
                               active
                                 ? {

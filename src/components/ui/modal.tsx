@@ -64,8 +64,8 @@ function Modal({
                       "pointer-events-auto w-full",
                       sizeMap[size],
                       "max-h-[calc(100dvh-2rem)] overflow-hidden rounded-2xl",
-                      "border border-border bg-bg-surface shadow-[0_28px_90px_-20px_rgba(0,0,0,0.95)]",
-                      "ring-1 ring-white/5 flex flex-col",
+                      "glass bg-bg-surface/95 backdrop-blur-xl backdrop-saturate-150 shadow-modal",
+                      "flex flex-col",
                     )}
                     initial={{ opacity: 0, scale: 0.96, y: 16 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}

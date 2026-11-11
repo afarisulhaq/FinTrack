@@ -1,37 +1,52 @@
 # FinTrack Design System & Direction
 
-> **Identity:** Modern Warm Fintech
-> **Dial:** ENERGY 2 / RHYTHM 2 / MOTION 1
+> **Identity:** Smoked Glass Fintech
+> **Dial:** ENERGY 2 / RHYTHM 2 / MOTION 2
 > **Audience:** Personal, family, and power users managing multi-wallet finances, budgeting, bills, and investments.
+> **Reference direction:** Verdelo-style household money app: smoked glass, botanical calm, mint accent.
 
 ---
 
 ## 1. Aesthetic & Mood
-- **Core feel:** Tactile, trustworthy, editorial, warm yet mathematically precise.
-- **Canvas:** Warm stone & paper tones in light mode (`#FBFBF9`, `#F4F2EC`, `#EAE7E0`), deep slate & rich charcoal in dark mode (`#141517`, `#1C1E22`, `#26292E`).
-- **Accent:** Warm Gold / Amber (`#F59E0B` / `#D97706` / `#EAB308`) used deliberately at key focal points (primary CTA, active navigation accent, milestone highlights), not sprayed everywhere.
+
+- **Core feel:** Calm, organic, quietly premium. A glass panel resting on a dim green room. Money as something tended, not traded.
+- **Canvas:** Deep green-charcoal in dark mode (`#0C1210` base, panels `#111916`), sage mist in light mode (`#DFE6E1` base, panels `#F6F9F7`). All neutrals lean green, never pure grey.
+- **Glass:** Cards are translucent tints over a shared dim backdrop veil, with a hairline green-tinted rim (`inset 0 0 0 1px`). Heavy `backdrop-filter` is reserved for exactly two surfaces: the topbar and floating panels (menus, modals). Everything else earns depth from translucency, not blur.
+- **Accent:** Mint (`#0F6B45` light / `#6EE0A1` dark) at key focal points only: primary CTA, active navigation, progress fills, the one live metric. Never sprayed.
 - **Functional Semantics:**
-  - Income / Surplus / Profit: Forest Green (`#16A34A`, bg `rgba(22, 163, 74, 0.08)`)
-  - Expense / Debt / Loss: Crimson Rose (`#E11D48`, bg `rgba(225, 29, 72, 0.08)`)
-  - Warning / Due soon: Amber Gold (`#D97706`, bg `rgba(217, 119, 6, 0.08)`)
-  - Informational / Transfer: Slate Blue (`#2563EB`, bg `rgba(37, 99, 235, 0.08)`)
+  - Income / Surplus / Profit: `#11703F` light, `#8EE9B7` dark
+  - Expense / Debt / Loss: `#B13B22` light, `#F6A38E` dark
+  - Warning / Due soon: `#85560A` light, `#F2C770` dark
+  - Nearly-over-budget: `#A85A1F` light, `#F2A86F` dark
+  - Informational / Transfer: `#23609A` light, `#A3CBF0` dark
+  - Each has a soft tinted background variant at ~12% alpha.
+  - Filled pills pair with their own ink token (`--on-success`, `--on-danger`, `--on-primary`) instead of hard-coded white: the dark-mode greens and reds are light, so white-on-fill would be unreadable there.
+- **Content colours stay content.** Category, wallet, note, and asset-class colours are user data. They colour dots, bars, and card tints — never small text, because a colour the user picked cannot be guaranteed to pass contrast in both themes.
 
 ## 2. Typography & Numbers
-- **Body & Headlines:** Clean grotesque (`Inter`, system fallback).
-- **Numbers & Currencies:** Strict tabular numerals (`tabular-nums`, `font-mono` where appropriate) to ensure ledger alignment and effortless visual scanning.
-- **Hierarchy:** Strong contrast between primary KPI values (`text-2xl font-bold tracking-tight`) and supporting metadata (`text-xs font-medium text-muted`).
+
+- **Body & Headlines:** Urbanist, a geometric-humanist sans with soft terminals. Chosen because its rounded warmth matches the botanical-glass mood; system sans feels institutional next to it.
+- **Numbers & Currencies:** Strict tabular numerals (`font-variant-numeric: tabular-nums`) so ledgers align and scan.
+- **Scale:** Compact app scale (14px base, 34px display max). Hierarchy comes from weight and ink levels (`--text-primary` vs `--text-muted`), not size jumps.
 
 ## 3. Surface & Elevation
-- **Cards & Surfaces:** Flat to subtle elevation with crisp hairline borders (`1px solid var(--border)`).
-- **Radius:** Consistent hierarchy:
-  - Small tags / badges: `rounded-md` (6px)
-  - Buttons & Inputs: `rounded-lg` (8px)
-  - Cards & Panels: `rounded-xl` (12px)
-  - Modals & Floating sheets: `rounded-2xl` (16px)
-- **Shadows:** Minimal, purposeful elevation markers (`shadow-sm`, `shadow-md` for modals), never floating or hazy.
+
+- **Cards:** Translucent glass tint + 1px inset rim + one soft green-black shadow. Cards sit _in_ the room, not on top of it.
+- **Radius hierarchy:**
+  - Small tags / badges: `10px` (`rounded-sm`)
+  - Buttons, inputs, nav rows, dropdown items: `14px` (`rounded-md`)
+  - Cards & panels: `22px` (`rounded-xl`)
+  - Modals & floating sheets: `28px` (`rounded-2xl`)
+  - Never `rounded-lg` for controls: the scale maps it to `20px`, which CSS clamps to half a 34–44px control's height, turning every button and nav row into an accidental pill.
+- **Shadows:** Deep, soft, greenish-black, used as elevation markers only. Most surfaces stay flat; modals and dropdowns lift.
+- **Brand slots:** A tenant's brand colour is written as two raw values (`--brand` for light, `--brand-dark` for a lifted dark variant). Every accent token (`--primary`, `--primary-hover`, `--primary-deep`, `--primary-glow`, `--gradient-primary`) is derived from those in CSS, so switching theme never needs a re-run of `applyBrand` and the two modes cannot drift apart.
 
 ## 4. Layout & Rhythm
-- **Top Shell:** Refined topbar with clear search/filter access, real wallet balance indicator, notifications, and theme switch.
-- **Sidebar:** Categorized, collapsible, distinct active states with warm amber indicators, clear iconography without clutter.
-- **Content Pages:** Header with concise action bar, primary summary card / focal point, followed by structured data tables or interactive cards with robust empty and loading states.
-- **Responsive:** Fluid reflow from 360px mobile viewports (with bottom navigation / drawer) to widescreen 1440px+ displays.
+
+- **Top Shell:** Frosted topbar (the one allowed blur in the shell) with search, sync state, notifications, theme switch.
+- **Sidebar:** Translucent rail over the backdrop veil; active item is a mint-tinted field with a mint dot, not a colored stripe.
+- **Backdrop:** A fixed, CSS-only ambient veil (soft mint and sage radial glows over the base) sits behind the whole app so glass has something to refract. No photos, no grids, no patterns.
+- **Content Pages:** Page header with actions, one focal summary card, then structured tables or cards. Robust empty, loading, and error states everywhere.
+- **Motion:** MOTION 2: transitions on interaction (hover, open, tab switch), 150–300ms, `cubic-bezier(0.22, 1, 0.36, 1)`. No perpetual loops; the sync spinner and skeleton shimmer are the only loading motions. `prefers-reduced-motion: reduce` collapses CSS transitions to near-zero and `MotionConfig reducedMotion="user"` does the same for Framer springs — nothing here carries information in movement alone.
+- **Touch:** 44px is the floor for anything tappable on a phone. Buttons, nav rows, header controls, filter chips, and row actions all reach it below the `sm` breakpoint; row actions that only appear on hover are always visible on touch.
+- **Responsive:** Fluid reflow from 360px (bottom-safe drawer nav) to 1640px+ widescreen. No horizontal scroll at any width; wide tables scroll inside their own container.

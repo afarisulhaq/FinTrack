@@ -37,8 +37,8 @@ function CustomTooltip({ active, payload }: CustomTooltipProps) {
   return (
     <div
       style={{
-        backgroundColor: "#22263a",
-        border: "1px solid #2d3148",
+        backgroundColor: "var(--bg-surface)",
+        border: "1px solid var(--border)",
         borderRadius: 10,
         padding: "10px 14px",
         boxShadow: "0 4px 20px rgb(0 0 0 / 0.4)",
@@ -56,11 +56,11 @@ function CustomTooltip({ active, payload }: CustomTooltipProps) {
             flexShrink: 0,
           }}
         />
-        <span style={{ fontSize: 13, fontWeight: 600, color: "#f1f5f9" }}>
+        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>
           {item.name}
         </span>
       </div>
-      <p style={{ fontSize: 15, fontWeight: 700, color: "#f1f5f9", margin: 0 }}>
+      <p style={{ fontSize: 15, fontWeight: 700, color: "var(--text-primary)", margin: 0 }}>
         {item.value.toLocaleString()}
       </p>
     </div>
@@ -109,7 +109,7 @@ function PortfolioPieChart({ data, height = 280 }: PortfolioPieChartProps) {
             style={{
               fontSize: 18,
               fontWeight: 700,
-              color: "#f1f5f9",
+              color: "var(--text-primary)",
               margin: 0,
               lineHeight: 1.1,
             }}
@@ -123,7 +123,7 @@ function PortfolioPieChart({ data, height = 280 }: PortfolioPieChartProps) {
           <p
             style={{
               fontSize: 11,
-              color: "#475569",
+              color: "var(--text-muted)",
               margin: "3px 0 0",
               letterSpacing: "0.04em",
               textTransform: "uppercase",
@@ -158,10 +158,10 @@ function PortfolioPieChart({ data, height = 280 }: PortfolioPieChartProps) {
                   flexShrink: 0,
                 }}
               />
-              <span style={{ fontSize: 12, color: "#94a3b8" }}>
+              <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
                 {entry.name}
               </span>
-              <span style={{ fontSize: 12, color: "#475569" }}>{pct}%</span>
+              <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{pct}%</span>
             </div>
           );
         })}

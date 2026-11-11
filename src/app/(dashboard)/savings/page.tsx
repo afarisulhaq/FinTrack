@@ -208,7 +208,7 @@ export default function SavingsPage() {
                     )}
                   </div>
                 </div>
-                <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                <div className="flex gap-1 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 max-sm:[&>button]:inline-flex max-sm:[&>button]:min-h-11 max-sm:[&>button]:min-w-11 max-sm:[&>button]:items-center max-sm:[&>button]:justify-center">
                   <button
                     onClick={async () => {
                       if (
@@ -222,7 +222,7 @@ export default function SavingsPage() {
                       )
                         deleteSavingGoal(goal.id);
                     }}
-                    className="text-text-muted hover:text-danger hover:bg-danger/10 flex h-7 w-7 items-center justify-center rounded-lg transition-colors"
+                    className="text-text-muted hover:text-danger hover:bg-danger/10 flex max-sm:h-11 max-sm:w-11 h-7 w-7 items-center justify-center rounded-lg transition-colors"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
@@ -245,10 +245,7 @@ export default function SavingsPage() {
                   color={goal.color}
                 />
                 <div className="flex items-center justify-between">
-                  <span
-                    className="text-xs font-semibold"
-                    style={{ color: goal.color }}
-                  >
+                  <span className="text-text-primary text-xs font-semibold tabular-nums">
                     {pct}% tercapai
                   </span>
                   <span className="text-text-muted text-xs tabular-nums">
@@ -469,10 +466,7 @@ export default function SavingsPage() {
                     max={goal.targetAmount}
                     color={goal.color}
                   />
-                  <p
-                    className="mt-1 text-right font-medium"
-                    style={{ color: goal.color }}
-                  >
+                  <p className="text-text-primary mt-1 text-right font-medium tabular-nums">
                     {newPct}%
                   </p>
                 </div>

@@ -73,11 +73,13 @@ function HeatmapCalendar({ data, className }: HeatmapCalendarProps) {
   }, [data]);
 
   function getCellStyle(cell: NonNullable<CalendarCell>) {
-    if (cell.isFuture) return { backgroundColor: "#22263a", opacity: 0.3 };
-    if (cell.amount === 0) return { backgroundColor: "#22263a" };
+    if (cell.isFuture) return { backgroundColor: "var(--bg-elevated)", opacity: 0.3 };
+    if (cell.amount === 0) return { backgroundColor: "var(--bg-elevated)" };
     const t = cell.amount / maxAmount;
-    const alpha = 0.15 + t * 0.85;
-    return { backgroundColor: `rgba(99,102,241,${alpha.toFixed(2)})` };
+    const alpha = Math.round((0.15 + t * 0.85) * 100);
+    return {
+      backgroundColor: `color-mix(in oklab, var(--primary) ${alpha}%, transparent)`,
+    };
   }
 
   return (
@@ -132,7 +134,7 @@ function HeatmapCalendar({ data, className }: HeatmapCalendarProps) {
                 >
                   <span
                     className="text-[10px] font-medium"
-                    style={{ color: cell.isFuture ? "#475569" : "#94a3b8" }}
+                    style={{ color: "var(--text-muted)" }}
                   >
                     {cell.day}
                   </span>

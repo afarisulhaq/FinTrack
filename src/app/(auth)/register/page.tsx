@@ -38,10 +38,10 @@ function strength(password: string) {
   if (/[A-Z]/.test(password) && /[a-z]/.test(password)) score++;
   if (/\d/.test(password)) score++;
   if (/[^A-Za-z0-9]/.test(password)) score++;
-  if (!password) return { level: 0, label: "", color: "#475569" };
-  if (score <= 1) return { level: 1, label: "Lemah", color: "#ef4444" };
-  if (score === 2) return { level: 2, label: "Cukup", color: "#f59e0b" };
-  if (score === 3) return { level: 3, label: "Kuat", color: "#22c55e" };
+  if (!password) return { level: 0, label: "", color: "var(--text-muted)" };
+  if (score <= 1) return { level: 1, label: "Lemah", color: "var(--danger)" };
+  if (score === 2) return { level: 2, label: "Cukup", color: "var(--warning)" };
+  if (score === 3) return { level: 3, label: "Kuat", color: "var(--success)" };
   return { level: 4, label: "Sangat Kuat", color: "var(--primary)" };
 }
 

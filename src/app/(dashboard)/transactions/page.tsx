@@ -511,7 +511,7 @@ export default function TransactionsPage() {
               <button
                 key={t.key}
                 onClick={() => setTypeFilter(t.key)}
-                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                className={`rounded-lg px-3 py-1.5 text-xs font-medium max-sm:min-h-11 transition-colors ${
                   typeFilter === t.key
                     ? "bg-bg-surface text-text-primary shadow-sm"
                     : "text-text-muted hover:text-text-secondary"
@@ -716,7 +716,7 @@ export default function TransactionsPage() {
                   key={cat.id ?? cat.name}
                   type="button"
                   onClick={() => handleCategorySelect(cat)}
-                  className="bg-bg-elevated hover:bg-bg-elevated/70 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all"
+                  className="bg-bg-elevated hover:bg-bg-elevated/70 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium max-sm:min-h-11 transition-all"
                   style={
                     form.categoryId === cat.id ||
                     (form.category === cat.name && !form.categoryId)
@@ -789,7 +789,7 @@ export default function TransactionsPage() {
                   fld("newSubCategoryName", e.target.value);
                   fld("subCategoryId", "");
                 }}
-                className="h-8 text-xs"
+                className="max-sm:min-h-11 h-8 text-xs"
               />
             )}
 
@@ -802,7 +802,7 @@ export default function TransactionsPage() {
                   fld("category", e.target.value);
                   fld("categoryIcon", "Circle");
                 }}
-                className="h-8 text-xs"
+                className="max-sm:min-h-11 h-8 text-xs"
               />
             )}
 

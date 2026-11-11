@@ -11,7 +11,11 @@ async function main() {
   // AppSetting is a singleton row used by the admin Pengaturan App page.
   const settingCount = await prisma.appSetting.count();
   if (settingCount === 0) {
-    await prisma.appSetting.create({ data: {} });
+    // Colours are passed explicitly: Prisma resolves field defaults from the
+    // generated client, so a stale client would silently seed the old brand.
+    await prisma.appSetting.create({
+      data: { primaryColor: "#0f6b45", accentColor: "#2fb877" },
+    });
   }
 
   // Bot connection rows are also singletons (one per channel). The bot

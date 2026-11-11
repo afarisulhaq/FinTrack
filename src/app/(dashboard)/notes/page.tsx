@@ -131,22 +131,19 @@ export default function NotesPage() {
                 >
                   {/* Header */}
                   <div className="flex items-start justify-between gap-2">
-                    <h3
-                      className="font-semibold text-sm leading-snug"
-                      style={{ color: "#f1f5f9" }}
-                    >
+                    <h3 className="text-text-primary font-semibold text-sm leading-snug">
                       {note.title}
                     </h3>
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                    <div className="flex gap-1 transition-opacity shrink-0 sm:opacity-0 sm:group-hover:opacity-100">
                       <button
                         onClick={(e) => { e.stopPropagation(); openEditModal(note.id); }}
-                        className="h-6 w-6 rounded-lg flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-white/10 transition-colors"
+                        className="max-sm:h-11 max-sm:w-11 h-6 w-6 rounded-lg flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-bg-elevated transition-colors"
                       >
                         <Edit className="h-3.5 w-3.5" />
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); deleteNote(note.id); }}
-                        className="h-6 w-6 rounded-lg flex items-center justify-center text-text-muted hover:text-danger hover:bg-danger/10 transition-colors"
+                        className="max-sm:h-11 max-sm:w-11 h-6 w-6 rounded-lg flex items-center justify-center text-text-muted hover:text-danger hover:bg-danger/10 transition-colors"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -164,8 +161,8 @@ export default function NotesPage() {
                       {tags.slice(0, 3).map((tag) => (
                         <span
                           key={tag}
-                          className="text-[10px] px-2 py-0.5 rounded-full font-medium"
-                          style={{ backgroundColor: `${color}15`, color: color }}
+                          className="text-text-secondary text-[10px] px-2 py-0.5 rounded-full font-medium"
+                          style={{ backgroundColor: `${color}15` }}
                         >
                           {tag}
                         </span>

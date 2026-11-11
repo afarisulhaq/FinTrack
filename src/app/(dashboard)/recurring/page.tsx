@@ -347,9 +347,9 @@ export default function RecurringPage() {
             key={tab}
             onClick={() => setActiveFilter(tab)}
             className={cn(
-              "rounded-lg px-4 py-2 text-sm font-medium transition-all duration-150",
+              "rounded-lg px-4 py-2 text-sm font-medium transition-all duration-150 max-sm:min-h-11",
               activeFilter === tab
-                ? "bg-primary text-white shadow-sm"
+                ? "bg-primary text-on-primary shadow-sm"
                 : "bg-bg-surface border-border text-text-secondary hover:text-text-primary hover:border-primary/40 border",
             )}
           >
@@ -653,10 +653,10 @@ export default function RecurringPage() {
                     "flex-1 py-2 text-sm font-medium transition-colors duration-150",
                     form.type === key
                       ? key === "income"
-                        ? "bg-success text-white"
+                        ? "bg-success text-on-success"
                         : key === "expense"
-                          ? "bg-danger text-white"
-                          : "bg-primary text-white"
+                          ? "bg-danger text-on-danger"
+                          : "bg-primary text-on-primary"
                       : "bg-bg-elevated text-text-secondary hover:text-text-primary",
                   )}
                 >
@@ -690,7 +690,7 @@ export default function RecurringPage() {
                   type="button"
                   onClick={() => handleCategorySelect(cat)}
                   className={cn(
-                    "flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition-all duration-150",
+                    "flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm max-sm:min-h-11 max-sm:min-h-11 transition-all duration-150",
                     form.category === cat.name
                       ? "border-transparent text-white"
                       : "bg-bg-elevated border-border text-text-secondary hover:text-text-primary",

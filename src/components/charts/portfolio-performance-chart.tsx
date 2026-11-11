@@ -39,15 +39,15 @@ function CustomTooltip({ active, payload }: CustomTooltipProps) {
   return (
     <div
       style={{
-        backgroundColor: "#22263a",
-        border: "1px solid #2d3148",
+        backgroundColor: "var(--bg-surface)",
+        border: "1px solid var(--border)",
         borderRadius: 10,
         padding: "10px 14px",
         boxShadow: "0 4px 20px rgb(0 0 0 / 0.4)",
         minWidth: 150,
       }}
     >
-      <p style={{ fontSize: 13, fontWeight: 600, color: "#f1f5f9", margin: "0 0 4px" }}>
+      <p style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)", margin: "0 0 4px" }}>
         {item.name}
       </p>
       <p
@@ -55,7 +55,7 @@ function CustomTooltip({ active, payload }: CustomTooltipProps) {
           fontSize: 15,
           fontWeight: 700,
           margin: 0,
-          color: positive ? "#22c55e" : "#ef4444",
+          color: positive ? "var(--success)" : "var(--danger)",
         }}
       >
         {positive ? "+" : ""}
@@ -65,7 +65,7 @@ function CustomTooltip({ active, payload }: CustomTooltipProps) {
         style={{
           fontSize: 12,
           margin: "2px 0 0",
-          color: positive ? "#22c55e" : "#ef4444",
+          color: positive ? "var(--success)" : "var(--danger)",
         }}
       >
         {positive ? "+" : ""}
@@ -87,7 +87,7 @@ function PortfolioPerformanceChart({
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          color: "#475569",
+          color: "var(--text-muted)",
           fontSize: 13,
         }}
       >
@@ -118,7 +118,7 @@ function PortfolioPerformanceChart({
         >
           <XAxis
             type="number"
-            tick={{ fill: "#64748b", fontSize: 11 }}
+            tick={{ fill: "var(--text-muted)", fontSize: 11 }}
             tickFormatter={(v: number) => `${v}%`}
             axisLine={false}
             tickLine={false}
@@ -126,7 +126,7 @@ function PortfolioPerformanceChart({
           <YAxis
             type="category"
             dataKey="name"
-            tick={{ fill: "#94a3b8", fontSize: 11 }}
+            tick={{ fill: "var(--text-muted)", fontSize: 11 }}
             width={64}
             axisLine={false}
             tickLine={false}
@@ -134,7 +134,7 @@ function PortfolioPerformanceChart({
           <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(148,163,184,0.06)" }} />
           <Bar dataKey="value" radius={[0, 4, 4, 0]}>
             {sorted.map((entry, i) => (
-              <Cell key={i} fill={entry.value >= 0 ? "#22c55e" : "#ef4444"} />
+              <Cell key={i} fill={entry.value >= 0 ? "var(--success)" : "var(--danger)"} />
             ))}
           </Bar>
         </BarChart>

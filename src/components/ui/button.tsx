@@ -7,11 +7,14 @@ import { cn } from "~/lib/utils";
 
 const buttonVariants = cva(
   [
-    "inline-flex items-center justify-center gap-2 font-medium rounded-lg text-sm",
+    "inline-flex items-center justify-center gap-2 font-medium rounded-md text-sm",
+    // Fingers are not cursors: on phones every button clears the 44px
+    // minimum even when its desktop size is compact.
+    "max-sm:min-h-11",
     "transition-all duration-150 select-none cursor-pointer",
     "active:scale-[0.985]",
     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-    "focus-visible:ring-offset-bg-base disabled:opacity-50 disabled:pointer-events-none disabled:cursor-not-allowed",
+    "focus-visible:ring-offset-bg-base disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-bg-elevated disabled:text-text-muted disabled:shadow-none disabled:border-transparent",
   ],
   {
     variants: {
@@ -25,9 +28,9 @@ const buttonVariants = cva(
         outline:
           "border border-border text-text-primary bg-bg-surface hover:bg-bg-elevated hover:border-border-strong focus-visible:ring-primary shadow-subtle",
         danger:
-          "bg-danger text-white font-medium hover:bg-red-700 focus-visible:ring-danger shadow-sm",
+          "bg-danger text-on-danger font-medium hover:brightness-95 focus-visible:ring-danger shadow-sm",
         success:
-          "bg-success text-white font-medium hover:bg-green-700 focus-visible:ring-success shadow-sm",
+          "bg-success text-on-success font-medium hover:brightness-95 focus-visible:ring-success shadow-sm",
       },
       size: {
         xs: "h-7 px-2.5 text-xs rounded-md",

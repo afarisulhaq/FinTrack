@@ -17,28 +17,29 @@ export function getContrastTextColor(hexColor: string): "#ffffff" | "#121417" {
   return "#ffffff";
 }
 
+/**
+ * Writes the tenant brand as two raw values, one per theme, and leaves
+ * every derived token (`--primary`, `--primary-hover`, `--on-primary`,
+ * ...) to CSS in globals.css. Doing the derivation in CSS means a theme
+ * toggle needs no re-run of this function and can never leave the two
+ * modes disagreeing.
+ *
+ * A brand colour chosen against the light sage canvas is far too dark
+ * to read on the smoked-green one, so dark mode gets a lifted variant
+ * of the same hue instead of the raw value.
+ */
 export function applyBrand(primary: string, accent?: string) {
   if (!primary || typeof document === "undefined") return;
   const accentColor = accent || primary;
   const root = document.documentElement;
-  const onPrimary = getContrastTextColor(primary);
 
-  root.style.setProperty("--primary", primary);
-  root.style.setProperty("--accent-color", accentColor);
-  root.style.setProperty("--color-primary", primary);
-  root.style.setProperty("--on-primary", onPrimary);
+  root.style.setProperty("--brand", primary);
+  root.style.setProperty("--brand-accent", accentColor);
   root.style.setProperty(
-    "--primary-hover",
-    `color-mix(in oklab, ${primary} 85%, black)`,
+    "--brand-dark",
+    `color-mix(in oklab, ${primary} 55%, white)`,
   );
-  root.style.setProperty(
-    "--primary-deep",
-    `color-mix(in oklab, ${primary} 70%, black)`,
-  );
-  root.style.setProperty(
-    "--primary-glow",
-    `color-mix(in oklab, ${primary} 30%, transparent)`,
-  );
+  root.style.setProperty("--on-primary", getContrastTextColor(primary));
   root.style.setProperty(
     "--gradient-primary",
     `linear-gradient(135deg, ${primary} 0%, ${accentColor} 100%)`,

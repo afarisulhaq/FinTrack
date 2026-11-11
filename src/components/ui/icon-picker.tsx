@@ -45,7 +45,7 @@ export function IconPicker({
           if (showName) setOpen(false);
         }}
         className={cn(
-          "text-text-secondary hover:bg-bg-elevated focus-visible:ring-primary flex min-h-11 min-w-11 items-center justify-center rounded-lg border p-2 focus-visible:ring-2 focus-visible:outline-none",
+          "text-text-secondary hover:bg-bg-elevated focus-visible:ring-primary flex min-h-11 min-w-11 items-center justify-center rounded-md border p-2 focus-visible:ring-2 focus-visible:outline-none",
           showName ? "flex-col gap-1" : "h-11 w-11",
           value === name
             ? "bg-primary/10 border-primary text-text-primary"
@@ -72,7 +72,7 @@ export function IconPicker({
             setOpen(true);
           }}
           aria-haspopup="dialog"
-          className="border-border text-text-primary hover:bg-bg-elevated focus-visible:ring-primary min-h-11 rounded-lg border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
+          className="border-border text-text-primary hover:bg-bg-elevated focus-visible:ring-primary min-h-11 rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
         >
           Lihat lainnya
         </button>

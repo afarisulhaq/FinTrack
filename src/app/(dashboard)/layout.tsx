@@ -10,6 +10,7 @@ import { useAuthStore } from "~/store/useAuthStore";
 import { useFinanceStore } from "~/store/useFinanceStore";
 import { useAppConfigStore } from "~/store/useAppConfigStore";
 import { applyBrand } from "~/lib/brand";
+import { MotionConfig } from "framer-motion";
 
 export default function DashboardLayout({
   children,
@@ -60,57 +61,63 @@ export default function DashboardLayout({
   const sidebarWidth = collapsed ? 64 : 240;
 
   return (
-    <AuthGuard>
-      <div className="bg-bg-base min-h-screen overflow-hidden">
-        <Sidebar />
-        {mobileOpen && isMobile && (
-          <button
-            aria-label="Tutup menu"
-            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden"
-            onClick={closeMobile}
-          />
-        )}
-        <main
-          className="min-h-screen overflow-x-hidden overflow-y-auto transition-[margin-left] duration-300"
-          style={{ marginLeft: isMobile ? 0 : sidebarWidth }}
-        >
-          <div className="min-h-screen">
-            {syncError && (
-              <div
-                role="status"
-                className="border-border bg-bg-surface text-text-secondary mx-4 mt-4 flex flex-wrap items-center gap-3 rounded-lg border p-3 text-sm"
-              >
-                <p className="flex-1">
-                  {syncError} Data yang sudah dimuat tetap ditampilkan.
-                </p>
-                <button
-                  type="button"
-                  onClick={fetchData}
-                  className="text-text-primary border-border focus-visible:ring-primary rounded-lg border px-3 py-2 focus-visible:ring-2 focus-visible:outline-none"
+    <MotionConfig reducedMotion="user">
+      <AuthGuard>
+        <div className="bg-bg-base min-h-screen overflow-hidden">
+          {/* Ambient veil behind the app: the glass surfaces refract this. */}
+          <div aria-hidden className="backdrop-scene" />
+          <Sidebar />
+          {mobileOpen && isMobile && (
+            <button
+              aria-label="Tutup menu"
+              className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden"
+              onClick={closeMobile}
+            />
+          )}
+          <main
+            className="min-h-screen overflow-x-hidden overflow-y-auto transition-[margin-left] duration-300"
+            style={{ marginLeft: isMobile ? 0 : sidebarWidth }}
+          >
+            <div className="min-h-screen">
+              {syncError && (
+                <div
+                  role="status"
+                  className="bg-surface-card text-text-secondary shadow-card mx-4 mt-4 flex flex-wrap items-center gap-3 rounded-lg p-3 text-sm"
                 >
-                  Coba sinkronkan
-                </button>
-              </div>
-            )}
-            {dataToken !== token && token && token !== "dev-fallback-token" ? (
-              <div role="status" className="text-text-secondary p-6 text-sm">
-                {syncError
-                  ? "Data belum berhasil dimuat. Coba sinkronkan kembali."
-                  : "Memuat data keuangan..."}
-              </div>
-            ) : (
-              children
-            )}
-            {footerText && (
-              <footer className="text-text-muted border-border/60 mt-10 border-t pt-4 pb-6 text-center text-[11px]">
-                {footerText}
-              </footer>
-            )}
-          </div>
-        </main>
-      </div>
-      <ToastContainer />
-      <ConfirmDialog />
-    </AuthGuard>
+                  <p className="flex-1">
+                    {syncError} Data yang sudah dimuat tetap ditampilkan.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={fetchData}
+                    className="text-text-primary border-border focus-visible:ring-primary rounded-lg border px-3 py-2 focus-visible:ring-2 focus-visible:outline-none"
+                  >
+                    Coba sinkronkan
+                  </button>
+                </div>
+              )}
+              {dataToken !== token &&
+              token &&
+              token !== "dev-fallback-token" ? (
+                <div role="status" className="text-text-secondary p-6 text-sm">
+                  {syncError
+                    ? "Data belum berhasil dimuat. Coba sinkronkan kembali."
+                    : "Memuat data keuangan..."}
+                </div>
+              ) : (
+                children
+              )}
+              {footerText && (
+                <footer className="text-text-muted border-border/60 mt-10 border-t pt-4 pb-6 text-center text-[11px]">
+                  {footerText}
+                </footer>
+              )}
+            </div>
+          </main>
+        </div>
+        <ToastContainer />
+        <ConfirmDialog />
+      </AuthGuard>
+    </MotionConfig>
   );
 }

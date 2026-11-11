@@ -178,7 +178,7 @@ export function calculateActivityAggregate(data: ActivityAggregate) {
     description: rule.condition,
     condition: `${Math.min(rule.count, rule.target)} dari ${rule.target}. ${rule.condition}.`,
     icon: rule.icon,
-    color: "#92400e",
+    color: "var(--warning)",
     category: "milestone",
     isUnlocked: rule.count >= rule.target,
     progress: Math.min(100, Math.floor((rule.count / rule.target) * 100)),

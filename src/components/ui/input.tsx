@@ -59,10 +59,10 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             ref={ref}
             id={inputId}
             className={cn(
-              "w-full rounded-lg border text-sm",
-              "bg-bg-surface border-border text-text-primary placeholder:text-text-muted",
+              "w-full rounded-md border text-sm",
+              "bg-bg-base/40 border-border text-text-primary placeholder:text-text-muted",
               "h-10 px-3.5",
-              "shadow-subtle transition-all duration-150",
+              "transition-all duration-150",
               "focus:ring-primary/20 focus:border-primary focus:ring-2 focus:outline-none",
               "disabled:bg-bg-elevated/50 disabled:cursor-not-allowed disabled:opacity-50",
               "autofill:bg-bg-surface",

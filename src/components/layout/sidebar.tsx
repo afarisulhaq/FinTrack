@@ -68,7 +68,7 @@ const NAV_GROUPS: NavGroup[] = [
     title: "Investasi",
     items: [
       { label: "Portofolio", icon: TrendingUp, href: "/investments" },
-      { label: "Avg Down Calc", icon: Calculator, href: "/avg-calculator" },
+      { label: "Avg Down Calculator", icon: Calculator, href: "/avg-calculator" },
       { label: "Market Watch", icon: Eye, href: "/market-watch" },
     ],
   },
@@ -87,8 +87,8 @@ const NAV_GROUPS: NavGroup[] = [
   {
     title: "Lainnya",
     items: [
-      { label: "Berulang", icon: Repeat2, href: "/recurring" },
-      { label: "Reimburse", icon: RefreshCw, href: "/reimbursement" },
+      { label: "Transaksi Berulang", icon: Repeat2, href: "/recurring" },
+      { label: "Reimbursement", icon: RefreshCw, href: "/reimbursement" },
       { label: "Catatan", icon: StickyNote, href: "/notes" },
       { label: "Statistik", icon: BarChart3, href: "/statistics" },
       { label: "Langganan", icon: CreditCard, href: "/subscription" },
@@ -147,15 +147,15 @@ function NavLink({
       href={item.href}
       onClick={onNavigate}
       className={cn(
-        "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150",
+        "group relative flex min-h-11 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-all duration-150 md:min-h-0",
         collapsed && "justify-center px-2 py-2.5",
         isActive
-          ? "bg-primary/10 text-primary shadow-subtle font-semibold"
+          ? "bg-primary/12 text-primary font-semibold"
           : "text-text-secondary hover:bg-bg-elevated hover:text-text-primary",
       )}
     >
-      {isActive && (
-        <span className="bg-primary absolute top-1/2 left-0 h-4 w-1 -translate-y-1/2 rounded-r-full shadow-[0_0_8px_rgba(217,119,6,0.4)]" />
+      {isActive && !collapsed && (
+        <span className="bg-primary absolute top-1/2 left-1 h-1.5 w-1.5 -translate-y-1/2 rounded-full max-md:hidden" />
       )}
       <Icon
         className={cn(
@@ -169,7 +169,7 @@ function NavLink({
         <span className="truncate leading-none">{item.label}</span>
       )}
       {collapsed && (
-        <div className="bg-bg-surface border-border text-text-primary shadow-elevated pointer-events-none absolute left-full z-50 ml-3 translate-x-1 rounded-lg border px-2.5 py-1.5 text-xs font-semibold whitespace-nowrap opacity-0 transition-all duration-150 group-hover:translate-x-0 group-hover:opacity-100">
+        <div className="bg-bg-surface/95 text-text-primary pointer-events-none absolute left-full z-50 ml-3 translate-x-1 rounded-md px-2.5 py-1.5 text-xs font-semibold whitespace-nowrap opacity-0 backdrop-blur-xl transition-all duration-150 [box-shadow:inset_0_0_0_1px_var(--glass-rim),var(--shadow-elevated)] group-hover:translate-x-0 group-hover:opacity-100">
           {item.label}
         </div>
       )}
@@ -202,7 +202,8 @@ export function Sidebar() {
       initial={false}
       animate={{ x: mobileOpen ? 0 : undefined }}
       className={cn(
-        "bg-bg-surface border-border fixed top-0 left-0 z-50 flex h-screen flex-col border-r transition-[width,transform] duration-300 ease-in-out",
+        "text-text-primary fixed top-0 left-0 z-50 flex h-screen flex-col transition-[width,transform] duration-300 ease-in-out",
+        "bg-surface-card shadow-card [box-shadow:inset_-1px_0_0_var(--glass-rim),var(--shadow-card)]",
         widthClass,
         mobileOpen
           ? "w-72 translate-x-0"
@@ -211,12 +212,12 @@ export function Sidebar() {
     >
       <div
         className={cn(
-          "border-border flex h-16 shrink-0 items-center border-b px-4",
+          "flex h-16 shrink-0 items-center px-4",
           collapsed ? "md:justify-center" : "gap-2.5",
         )}
       >
         {config.logoType !== "text" && (
-          <div className="bg-primary/20 border-primary/25 flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border">
+          <div className="bg-primary/20 border-primary/25 flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-md border">
             {config.logoType === "image" && config.logoImageUrl ? (
               <img
                 src={config.logoImageUrl}
@@ -234,7 +235,7 @@ export function Sidebar() {
           </span>
         )}
         <button
-          className="hover:bg-bg-surface text-text-muted ml-auto flex h-8 w-8 items-center justify-center rounded-lg md:hidden"
+          className="hover:bg-bg-surface text-text-muted ml-auto flex h-11 w-11 items-center justify-center rounded-md md:hidden"
           onClick={closeMobile}
           aria-label="Tutup sidebar"
         >
@@ -265,9 +266,9 @@ export function Sidebar() {
         ))}
       </nav>
 
-      <div className="border-border shrink-0 space-y-0.5 border-t px-2.5 py-3">
+      <div className="shrink-0 space-y-0.5 px-2.5 py-3">
         <NavLink
-          item={{ label: "Settings", icon: Settings, href: "/settings" }}
+          item={{ label: "Pengaturan", icon: Settings, href: "/settings" }}
           isActive={isActive("/settings")}
           collapsed={collapsed}
           onNavigate={closeMobile}
@@ -275,7 +276,7 @@ export function Sidebar() {
         <button
           onClick={signOut}
           className={cn(
-            "hover:bg-bg-surface flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors",
+            "hover:bg-bg-surface flex min-h-11 w-full items-center gap-3 rounded-md px-3 py-2.5 text-left transition-colors md:min-h-0",
             collapsed && "md:justify-center",
           )}
         >
@@ -298,7 +299,7 @@ export function Sidebar() {
         <button
           onClick={toggleCollapsed}
           className={cn(
-            "text-text-muted hover:bg-bg-surface hover:text-text-secondary hidden w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs transition-colors md:flex",
+            "text-text-muted hover:bg-bg-surface hover:text-text-secondary hidden min-h-11 w-full items-center gap-2.5 rounded-md px-3 py-2 text-xs transition-colors md:flex md:min-h-0",
             collapsed && "justify-center",
           )}
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}

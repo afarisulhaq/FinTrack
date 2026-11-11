@@ -557,7 +557,7 @@ export default function DebtsPage() {
                     <ProgressBar
                       value={group.paidAmount}
                       max={group.amount}
-                      color={activeTab === "owe" ? "#ef4444" : "#22c55e"}
+                      color={activeTab === "owe" ? "var(--danger)" : "var(--success)"}
                     />
                   </div>
 
@@ -678,7 +678,7 @@ export default function DebtsPage() {
                                   value={debt.paidAmount}
                                   max={debt.amount}
                                   color={
-                                    activeTab === "owe" ? "#ef4444" : "#22c55e"
+                                    activeTab === "owe" ? "var(--danger)" : "var(--success)"
                                   }
                                   size="sm"
                                 />

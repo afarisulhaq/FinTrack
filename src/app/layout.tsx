@@ -1,12 +1,12 @@
 import "react-day-picker/style.css";
 import "~/styles/globals.css";
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Urbanist } from "next/font/google";
 import Script from "next/script";
 import { cookies } from "next/headers";
 import { env } from "~/env";
 import { SwRegister } from "~/components/pwa/sw-register";
-const inter = Inter({
+const urbanist = Urbanist({
   subsets: ["latin"],
   variable: "--font-sans",
   display: "swap",
@@ -68,7 +68,7 @@ export async function generateViewport(): Promise<Viewport> {
     width: "device-width",
     initialScale: 1,
     maximumScale: 1,
-    themeColor: theme === "dark" ? "#101114" : "#f8f7f4",
+    themeColor: theme === "dark" ? "#0C1210" : "#DFE6E1",
   };
 }
 
@@ -94,7 +94,7 @@ export default async function RootLayout({
   const storedTheme = (await cookies()).get(THEME_COOKIE)?.value;
   const initialTheme = resolveInitialTheme(storedTheme);
   const htmlClass =
-    `${inter.variable}${initialTheme === "dark" ? " dark" : ""}`.trim();
+    `${urbanist.variable}${initialTheme === "dark" ? " dark" : ""}`.trim();
   return (
     <html lang="id" className={htmlClass} suppressHydrationWarning>
       <head>
@@ -106,7 +106,14 @@ export default async function RootLayout({
               try {
                 var storedTheme = window.localStorage.getItem('fintrack_theme');
                 var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                if (!storedTheme) {
+                // The server can only see the theme cookie, so a visitor
+                // whose cookie expired but whose localStorage still says
+                // "light" would otherwise be pinned to the dark default
+                // for the whole session. Apply the stored value when it
+                // is one of the two explicit themes.
+                if (storedTheme === 'dark' || storedTheme === 'light') {
+                  document.documentElement.classList.toggle('dark', storedTheme === 'dark');
+                } else {
                   var hasCookie = document.cookie.indexOf('fintrack_theme=') !== -1;
                   if (!hasCookie) {
                     document.documentElement.classList.toggle('dark', prefersDark);
@@ -125,7 +132,7 @@ export default async function RootLayout({
                   meta.name = 'theme-color';
                   document.head.appendChild(meta);
                 }
-                meta.content = color || (root.classList.contains('dark') ? '#101114' : '#f8f7f4');
+                meta.content = color || (root.classList.contains('dark') ? '#0C1210' : '#DFE6E1');
               };
               syncBrowserTheme();
               new MutationObserver(syncBrowserTheme).observe(document.documentElement, {
@@ -151,13 +158,14 @@ export default async function RootLayout({
                       yiq = (r * 299 + g * 587 + b * 114) / 1000;
                     }
                     var onP = yiq >= 150 ? '#121417' : '#ffffff';
-                    root.style.setProperty('--primary', p);
-                    root.style.setProperty('--accent-color', a);
-                    root.style.setProperty('--color-primary', p);
+                    // Raw brand slots only: globals.css derives
+                    // --primary / --primary-hover / --on-primary per
+                    // theme from these, so a theme switch stays correct.
+                    root.style.setProperty('--brand', p);
+                    root.style.setProperty('--brand-accent', a);
+                    root.style.setProperty('--brand-dark', 'color-mix(in oklab, ' + p + ' 55%, white)');
                     root.style.setProperty('--on-primary', onP);
-                    root.style.setProperty('--primary-hover', 'color-mix(in oklab, ' + p + ' 85%, black)');
-                    root.style.setProperty('--primary-deep', 'color-mix(in oklab, ' + p + ' 70%, black)');
-                    root.style.setProperty('--primary-glow', 'color-mix(in oklab, ' + p + ' 30%, transparent)');
+                    root.style.setProperty('--accent-color', a);
                     root.style.setProperty('--gradient-primary', 'linear-gradient(135deg, ' + p + ' 0%, ' + a + ' 100%)');
                   }
                 }

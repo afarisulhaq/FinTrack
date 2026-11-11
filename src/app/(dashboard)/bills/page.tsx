@@ -184,7 +184,7 @@ export default function BillsPage() {
               <button
                 key={t.key}
                 onClick={() => setStatusFilter(t.key)}
-                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                className={`rounded-lg px-3 py-1.5 text-xs font-medium max-sm:min-h-11 transition-colors ${
                   statusFilter === t.key
                     ? "bg-bg-surface text-text-primary shadow-sm"
                     : "text-text-muted hover:text-text-secondary"
@@ -475,7 +475,7 @@ export default function BillsPage() {
                   onClick={() => fld("recurringPeriod", p)}
                   className={`flex-1 rounded-lg py-2 text-sm font-medium transition-colors ${
                     form.recurringPeriod === p
-                      ? "bg-primary text-white"
+                      ? "bg-primary text-on-primary"
                       : "bg-bg-elevated text-text-secondary"
                   }`}
                 >

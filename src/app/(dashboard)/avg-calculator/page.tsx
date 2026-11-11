@@ -137,7 +137,7 @@ export default function AvgCalculatorPage() {
                   key={key}
                   onClick={() => setBrokerKey(key as keyof typeof BROKERS)}
                   className={
-                    "rounded-lg border px-3 py-2 text-xs font-medium transition-colors " +
+                    "rounded-lg border px-3 py-2 text-xs font-medium transition-colors max-sm:min-h-11 " +
                     (brokerKey === key
                       ? "border-primary bg-primary/10 text-primary"
                       : "border-border text-text-muted hover:bg-bg-elevated")

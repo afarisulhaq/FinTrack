@@ -30,8 +30,8 @@ function StatCard({
   return (
     <div
       className={cn(
-        "bg-surface-card border-border rounded-xl border p-5",
-        "hover:border-border-strong hover:shadow-card transition-all duration-200 flex flex-col justify-between gap-4",
+        "bg-surface-card p-5",
+        "shadow-card rounded-xl [box-shadow:inset_0_0_0_1px_var(--glass-rim),var(--shadow-card)] hover:shadow-elevated transition-all duration-200 flex flex-col justify-between gap-4",
         className,
       )}
     >

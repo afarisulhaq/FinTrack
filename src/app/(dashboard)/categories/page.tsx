@@ -390,7 +390,7 @@ export default function CategoriesPage() {
               key={t.key}
               onClick={() => setTab(t.key)}
               className={cn(
-                "flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-sm font-medium transition-all",
+                "flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-sm font-medium transition-all max-sm:min-h-11",
                 tab === t.key
                   ? "bg-bg-surface text-text-primary shadow-sm"
                   : "text-text-muted hover:text-text-secondary",
@@ -454,7 +454,7 @@ export default function CategoriesPage() {
                     onClick={() =>
                       setExpanded((p) => ({ ...p, [c.id]: !(p[c.id] ?? true) }))
                     }
-                    className="text-text-muted hover:bg-bg-elevated flex h-7 w-7 items-center justify-center rounded-md"
+                    className="text-text-muted hover:bg-bg-elevated flex max-sm:h-11 max-sm:w-11 h-7 w-7 items-center justify-center rounded-md"
                     aria-label={isOpen ? "Tutup" : "Buka"}
                   >
                     {isOpen ? (
@@ -501,7 +501,7 @@ export default function CategoriesPage() {
                     </Button>
                     <button
                       onClick={() => openEditCategory(c)}
-                      className="bg-bg-elevated text-text-secondary hover:text-primary hover:bg-primary/10 flex h-7 w-7 items-center justify-center rounded-lg transition-colors"
+                      className="bg-bg-elevated text-text-secondary hover:text-primary hover:bg-primary/10 flex max-sm:h-11 max-sm:w-11 h-7 w-7 items-center justify-center rounded-lg transition-colors"
                       title="Edit kategori"
                     >
                       <Pencil className="h-3 w-3" />
@@ -514,7 +514,7 @@ export default function CategoriesPage() {
                           name: c.name,
                         })
                       }
-                      className="bg-bg-elevated text-text-secondary hover:text-danger hover:bg-danger/10 flex h-7 w-7 items-center justify-center rounded-lg transition-colors"
+                      className="bg-bg-elevated text-text-secondary hover:text-danger hover:bg-danger/10 flex max-sm:h-11 max-sm:w-11 h-7 w-7 items-center justify-center rounded-lg transition-colors"
                       title="Hapus kategori"
                     >
                       <Trash2 className="h-3 w-3" />
@@ -559,10 +559,10 @@ export default function CategoriesPage() {
                                   Sistem
                                 </Badge>
                               )}
-                              <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                              <div className="flex items-center gap-1 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 max-sm:[&>button]:inline-flex max-sm:[&>button]:min-h-11 max-sm:[&>button]:min-w-11 max-sm:[&>button]:items-center max-sm:[&>button]:justify-center">
                                 <button
                                   onClick={() => openEditSub(s)}
-                                  className="text-text-muted hover:text-primary hover:bg-primary/10 flex h-6 w-6 items-center justify-center rounded-md transition-colors"
+                                  className="text-text-muted hover:text-primary hover:bg-primary/10 flex max-sm:h-11 max-sm:w-11 h-6 w-6 items-center justify-center rounded-md transition-colors"
                                   title="Edit sub"
                                 >
                                   <Pencil className="h-3 w-3" />
@@ -576,7 +576,7 @@ export default function CategoriesPage() {
                                       parentName: c.name,
                                     })
                                   }
-                                  className="text-text-muted hover:text-danger hover:bg-danger/10 flex h-6 w-6 items-center justify-center rounded-md transition-colors"
+                                  className="text-text-muted hover:text-danger hover:bg-danger/10 flex max-sm:h-11 max-sm:w-11 h-6 w-6 items-center justify-center rounded-md transition-colors"
                                   title="Hapus sub"
                                 >
                                   <Trash2 className="h-3 w-3" />

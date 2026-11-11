@@ -182,10 +182,10 @@ export default function CardsPage() {
               showLabel
               color={
                 totalUsed / totalLimit > 0.7
-                  ? "#ef4444"
+                  ? "var(--danger)"
                   : totalUsed / totalLimit > 0.4
-                    ? "#f59e0b"
-                    : "#22c55e"
+                    ? "var(--warning)"
+                    : "var(--success)"
               }
             />
             <p className="text-text-muted mt-2 text-xs">
@@ -261,7 +261,7 @@ export default function CardsPage() {
             {/* Delete button */}
             <button
               onClick={() => deleteCard(card.id)}
-              className="absolute top-3 right-3 flex h-7 w-7 items-center justify-center rounded-lg bg-black/30 text-white/70 opacity-0 transition-all group-hover:opacity-100 hover:bg-black/50 hover:text-white"
+              className="absolute top-3 right-3 flex max-sm:h-11 max-sm:w-11 h-7 w-7 items-center justify-center rounded-lg bg-black/30 text-white/70 opacity-0 transition-all group-hover:opacity-100 hover:bg-black/50 hover:text-white"
             >
               <Trash2 className="h-3.5 w-3.5" />
             </button>

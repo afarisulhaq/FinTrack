@@ -178,10 +178,7 @@ export default function DashboardPage() {
                       <span className="text-text-primary flex-1 truncate text-sm font-medium">
                         {goal.name}
                       </span>
-                      <span
-                        className="text-xs font-semibold tabular-nums"
-                        style={{ color: goal.color }}
-                      >
+                      <span className="text-text-primary text-xs font-semibold tabular-nums">
                         {pct}%
                       </span>
                     </div>

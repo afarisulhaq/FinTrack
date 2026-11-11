@@ -17,10 +17,10 @@ interface ProgressBarProps {
 }
 
 function getAutoColor(pct: number): string {
-  if (pct > 100) return "#ef4444"; // over budget → red
-  if (pct >= 80) return "#f97316"; // 80-100 → orange
-  if (pct >= 60) return "#f59e0b"; // 60-80 → amber
-  return "#22c55e"; // < 60 → green
+  if (pct > 100) return "var(--danger)"; // over budget → red
+  if (pct >= 80) return "var(--alert)"; // 80-100 → orange
+  if (pct >= 60) return "var(--warning)"; // 60-80 → amber
+  return "var(--success)"; // < 60 → green
 }
 
 function ProgressBar({

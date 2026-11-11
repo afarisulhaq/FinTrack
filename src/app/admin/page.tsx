@@ -232,16 +232,16 @@ export default function AdminDashboardPage() {
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={last7}>
-                  <XAxis dataKey="day" stroke="#94a3b8" />
-                  <YAxis stroke="#94a3b8" allowDecimals={false} width={32} />
+                  <XAxis dataKey="day" stroke="var(--text-muted)" />
+                  <YAxis stroke="var(--text-muted)" allowDecimals={false} width={32} />
                   <Tooltip
                     contentStyle={{
                       background: "#1a1d27",
-                      border: "1px solid #2d3148",
+                      border: "1px solid var(--border)",
                       borderRadius: 12,
                     }}
                   />
-                  <Bar dataKey="users" fill="#f59e0b" radius={[8, 8, 0, 0]} />
+                  <Bar dataKey="users" fill="var(--primary)" radius={[8, 8, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

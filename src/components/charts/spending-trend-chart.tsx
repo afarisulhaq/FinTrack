@@ -51,9 +51,9 @@ function SpendingTrendChart({ data, height = 280 }: SpendingTrendChartProps) {
       <AreaChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#d97706" stopOpacity={0.3} />
-            <stop offset="70%" stopColor="#d97706" stopOpacity={0.04} />
-            <stop offset="100%" stopColor="#d97706" stopOpacity={0} />
+            <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.3} />
+            <stop offset="70%" stopColor="var(--primary)" stopOpacity={0.04} />
+            <stop offset="100%" stopColor="var(--primary)" stopOpacity={0} />
           </linearGradient>
         </defs>
 
@@ -87,18 +87,18 @@ function SpendingTrendChart({ data, height = 280 }: SpendingTrendChartProps) {
         />
         <Tooltip
           content={<CustomTooltip />}
-          cursor={{ stroke: "#d97706", strokeWidth: 1.5, strokeDasharray: "4 4" }}
+          cursor={{ stroke: "var(--primary)", strokeWidth: 1.5, strokeDasharray: "4 4" }}
         />
         <Area
           type="monotone"
           dataKey="amount"
-          stroke="#d97706"
+          stroke="var(--primary)"
           strokeWidth={2}
           fill={`url(#${gradientId})`}
           dot={false}
           activeDot={{
             r: 4.5,
-            fill: "#d97706",
+            fill: "var(--primary)",
             stroke: "var(--bg-surface)",
             strokeWidth: 2,
           }}

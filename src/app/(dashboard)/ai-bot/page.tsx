@@ -282,7 +282,7 @@ function ChatBubble({ msg, index }: { msg: ChatMessage; index: number }) {
             </div>
           ) : (
             <div className="bg-primary rounded-2xl rounded-tr-sm px-3.5 py-2.5">
-              <p className="text-sm text-white">{msg.content}</p>
+              <p className="text-on-primary text-sm">{msg.content}</p>
             </div>
           )}
           <p className="text-text-muted mt-1 pr-1 text-right text-[10px]">
@@ -906,7 +906,7 @@ export default function AiBotPage() {
                   {!waConnecting && (
                     <Button
                       className="w-full"
-                      style={{ background: "#16a34a" }}
+                      variant="success"
                       onClick={handleStartWhatsApp}
                     >
                       Hubungkan WhatsApp (QR)
@@ -973,14 +973,8 @@ export default function AiBotPage() {
           <Card>
             <CardHeader>
               <div className="flex items-center gap-3">
-                <div
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl select-none"
-                  style={{
-                    background: "rgba(34,158,217,0.15)",
-                    color: "#229ED9",
-                  }}
-                >
-                  ✈️
+                <div className="bg-info/12 text-info flex h-10 w-10 shrink-0 items-center justify-center rounded-md">
+                  <Send className="h-5 w-5" />
                 </div>
                 <div>
                   <h3 className="text-text-primary font-semibold">
@@ -1423,7 +1417,7 @@ export default function AiBotPage() {
           {/* Tab selector */}
           <div className="flex gap-1 rounded-lg bg-gray-100 p-1 dark:bg-gray-800">
             <button
-              className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+              className={`flex-1 rounded-md px-3 py-1.5 text-sm max-sm:min-h-11 font-medium transition-colors ${
                 permissionTab === "whatsapp"
                   ? "bg-white text-gray-900 shadow-sm dark:bg-gray-700 dark:text-white"
                   : "text-gray-500 hover:text-gray-700 dark:text-gray-400"
@@ -1433,7 +1427,7 @@ export default function AiBotPage() {
               WhatsApp
             </button>
             <button
-              className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+              className={`flex-1 rounded-md px-3 py-1.5 text-sm max-sm:min-h-11 font-medium transition-colors ${
                 permissionTab === "telegram"
                   ? "bg-white text-gray-900 shadow-sm dark:bg-gray-700 dark:text-white"
                   : "text-gray-500 hover:text-gray-700 dark:text-gray-400"

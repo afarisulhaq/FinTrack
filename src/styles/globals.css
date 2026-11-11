@@ -37,70 +37,101 @@
   --color-success: var(--success);
   --color-danger: var(--danger);
   --color-warning: var(--warning);
+  --color-alert: var(--alert);
+  --color-on-success: var(--on-success);
+  --color-on-danger: var(--on-danger);
   --color-info: var(--info);
 
-  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-sans:
+    "Urbanist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
   --radius-xs: 0.375rem;
-  --radius-sm: 0.5rem;
-  --radius-md: 0.75rem;
-  --radius-lg: 1rem;
-  --radius-xl: 1.25rem;
-  --radius-2xl: 1.5rem;
+  --radius-sm: 0.625rem;
+  --radius-md: 0.875rem;
+  --radius-lg: 1.25rem;
+  --radius-xl: 1.375rem;
+  --radius-2xl: 1.75rem;
 
-  --shadow-subtle: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
-  --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.06), 0 1px 2px -1px rgba(0, 0, 0, 0.04);
-  --shadow-elevated: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
-  --shadow-modal: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  --shadow-subtle: 0 1px 2px 0 rgba(12, 40, 28, 0.07);
+  --shadow-card:
+    0 1px 2px rgba(12, 40, 28, 0.06), 0 18px 40px -26px rgba(12, 40, 28, 0.38);
+  --shadow-elevated:
+    0 2px 6px rgba(12, 40, 28, 0.1), 0 34px 70px -28px rgba(12, 40, 28, 0.48);
+  --shadow-modal:
+    0 2px 6px rgba(0, 0, 0, 0.15), 0 34px 80px -26px rgba(0, 0, 0, 0.55);
 }
 
-/* ─── Light mode (default) ───────────────────────────────────── */
+/* ─── Light mode (default): sage mist ─────────────────────────── */
 :root {
-  --primary: #d97706;
-  --primary-hover: #b45309;
-  --primary-deep: #92400e;
-  --primary-glow: rgba(217, 119, 6, 0.2);
-  --on-primary: #ffffff;
+  /* Brand slots: the tenant writes --brand / --brand-dark from JS,
+     every other accent token is derived from them in CSS. */
+  --brand: #0f6b45;
+  --brand-dark: #6ee0a1;
+  --brand-accent: #2fb877;
 
-  --bg-base: #f8f7f4;
-  --bg-surface: #ffffff;
-  --bg-elevated: #f0eee8;
-  --bg-overlay: rgba(248, 247, 244, 0.85);
-  --surface-card: #ffffff;
-  --surface-dark: #1a1d20;
-  --surface-deep: #121417;
+  --primary: var(--brand);
+  --primary-hover: color-mix(in oklab, var(--primary) 85%, black);
+  --primary-deep: color-mix(in oklab, var(--primary) 70%, black);
+  --primary-glow: color-mix(in oklab, var(--primary) 22%, transparent);
+  --on-primary: #f2fbf6;
 
-  --text-primary: #17181c;
-  --text-secondary: #44474f;
-  --text-muted: #6e727d;
+  --bg-base: #dfe6e1;
+  --bg-surface: #f6f9f7;
+  --bg-elevated: #e9efeb;
+  --bg-overlay: rgba(223, 230, 225, 0.72);
+  --surface-card: rgba(255, 255, 255, 0.58);
+  --surface-dark: #16211c;
+  --surface-deep: #0d1713;
 
-  --border: #e6e3dc;
-  --border-subtle: #f0eee8;
-  --border-strong: #c8c4bc;
+  --glass-rim: rgba(255, 255, 255, 0.62);
+  --glass-edge: rgba(20, 50, 34, 0.1);
+  --backdrop-veil: linear-gradient(180deg, #ecf3ee2e, #e2eae552);
 
-  --success: #16a34a;
-  --success-bg: rgba(22, 163, 74, 0.08);
-  --danger: #dc2626;
-  --danger-bg: rgba(220, 38, 38, 0.08);
-  --warning: #d97706;
-  --warning-bg: rgba(217, 119, 6, 0.08);
-  --info: #2563eb;
-  --info-bg: rgba(37, 99, 235, 0.08);
+  --text-primary: #0f1d17;
+  --text-secondary: #26362e;
+  --text-muted: #4a5b52;
 
-  --gradient-primary: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-  --gradient-surface: linear-gradient(180deg, #ffffff 0%, #f8f7f4 100%);
+  --border: #0f281c1a;
+  --border-subtle: #0f281c12;
+  --border-strong: #0f281c2e;
+
+  --success: #11703f;
+  --success-bg: rgba(24, 140, 88, 0.1);
+  --on-success: #ffffff;
+  --danger: #b13b22;
+  --danger-bg: rgba(205, 70, 40, 0.1);
+  --on-danger: #ffffff;
+  --warning: #85560a;
+  --warning-bg: rgba(200, 132, 20, 0.12);
+  /* Budget "hampir habis" tier, one step past warning. */
+  --alert: #a85a1f;
+  --alert-bg: rgba(190, 100, 30, 0.12);
+  --info: #23609a;
+  --info-bg: rgba(40, 100, 170, 0.1);
+
+  --gradient-primary: linear-gradient(
+    135deg,
+    var(--brand) 0%,
+    var(--brand-accent) 100%
+  );
+  --gradient-surface: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.7) 0%,
+    rgba(255, 255, 255, 0.45) 100%
+  );
 
   --scrollbar-width: 6px;
-  --scrollbar-track: #f0eee8;
-  --scrollbar-thumb: #cac6bd;
-  --scrollbar-thumb-hover: #b45309;
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: rgba(19, 122, 80, 0.35);
+  --scrollbar-thumb-hover: rgba(19, 122, 80, 0.6);
   /* ── Auth layout light-mode palette ─────────────────────────── */
   --auth-panel-gradient: linear-gradient(
     135deg,
-    #f5f3ef 0%,
-    #ebe9e4 60%,
-    color-mix(in oklab, var(--primary) 12%, transparent) 100%
+    #e7eee9 0%,
+    #dde6e0 60%,
+    color-mix(in oklab, var(--primary) 10%, transparent) 100%
   );
   --auth-panel-divider: linear-gradient(
     to bottom,
@@ -109,75 +140,102 @@
     color-mix(in oklab, var(--primary) 25%, transparent) 70%,
     transparent 100%
   );
-  --auth-blob-1: color-mix(in oklab, var(--primary) 18%, transparent);
-  --auth-blob-2: color-mix(in oklab, var(--accent-color, var(--primary)) 14%, transparent);
-  --auth-blob-3: color-mix(in oklab, var(--primary) 10%, transparent);
-  --auth-blob-4: color-mix(in oklab, var(--accent-color, var(--primary)) 8%, transparent);
+  --auth-blob-1: color-mix(in oklab, var(--primary) 16%, transparent);
+  --auth-blob-2: color-mix(
+    in oklab,
+    var(--accent-color, var(--primary)) 12%,
+    transparent
+  );
+  --auth-blob-3: color-mix(in oklab, var(--primary) 9%, transparent);
+  --auth-blob-4: color-mix(
+    in oklab,
+    var(--accent-color, var(--primary)) 7%,
+    transparent
+  );
   --auth-tile-bg: color-mix(in oklab, var(--primary) 8%, transparent);
   --auth-tile-border: color-mix(in oklab, var(--primary) 20%, transparent);
   --auth-stat-bg: color-mix(in oklab, var(--primary) 6%, transparent);
   --auth-stat-border: color-mix(in oklab, var(--primary) 15%, transparent);
   --auth-icon-color: var(--primary);
-  --auth-card-shadow: 0 20px 60px -20px rgba(0, 0, 0, 0.12);
-  --auth-strength-meter-bg: #e5e2dc;
-  --auth-input-bg: #ffffff;
-  --auth-input-border: #e5e2dc;
-  --auth-input-color: #1a1d20;
-  --auth-input-placeholder: #6e7073;
-  --auth-divider-color: #e5e2dc;
+  --auth-card-shadow: 0 20px 60px -20px rgba(12, 40, 28, 0.18);
+  --auth-strength-meter-bg: #d3ddd6;
+  --auth-input-bg: rgba(255, 255, 255, 0.7);
+  --auth-input-border: #0f281c1f;
+  --auth-input-color: #0f1d17;
+  --auth-input-placeholder: #5c6d63;
+  --auth-divider-color: #0f281c1a;
 
   color-scheme: light;
 }
 
-/* ─── Dark mode ──────────────────────────────────────────────── */
+/* ─── Dark mode: smoked green-charcoal ───────────────────────── */
 :root.dark {
-  --primary: #fbbf24;
-  --primary-hover: #f59e0b;
-  --primary-deep: #d97706;
-  --primary-glow: rgba(251, 191, 36, 0.2);
-  --on-primary: #181a1f;
+  --primary: var(--brand-dark);
+  --primary-hover: color-mix(in oklab, var(--primary) 88%, white);
+  --primary-deep: color-mix(in oklab, var(--primary) 80%, black);
+  --primary-glow: color-mix(in oklab, var(--primary) 20%, transparent);
+  --on-primary: #062a16;
 
-  --bg-base: #101114;
-  --bg-surface: #17191e;
-  --bg-elevated: #20232a;
-  --bg-overlay: rgba(16, 17, 20, 0.85);
-  --surface-card: #17191e;
-  --surface-dark: #0b0c0e;
-  --surface-deep: #08090a;
+  --bg-base: #0c1210;
+  --bg-surface: #111916;
+  --bg-elevated: #1a2620;
+  --bg-overlay: rgba(12, 18, 16, 0.72);
+  --surface-card: rgba(6, 11, 9, 0.42);
+  --surface-dark: #060a08;
+  --surface-deep: #040806;
 
-  --text-primary: #f3f4f6;
-  --text-secondary: #9ca3af;
-  --text-muted: #6b7280;
+  --glass-rim: rgba(225, 255, 238, 0.1);
+  --glass-edge: rgba(0, 0, 0, 0.35);
+  --backdrop-veil: linear-gradient(180deg, #060a081a, #04080657);
 
-  --border: #282c35;
-  --border-subtle: #1e2128;
-  --border-strong: #3b404d;
+  --text-primary: #eef4ee;
+  --text-secondary: #d7e2da;
+  --text-muted: #a8b9af;
 
-  --success: #22c55e;
-  --success-bg: rgba(34, 197, 94, 0.12);
-  --danger: #ef4444;
-  --danger-bg: rgba(239, 68, 68, 0.12);
-  --warning: #f59e0b;
-  --warning-bg: rgba(245, 158, 11, 0.12);
-  --info: #3b82f6;
-  --info-bg: rgba(59, 130, 246, 0.12);
+  --border: #dcffec17;
+  --border-subtle: #dcffec10;
+  --border-strong: #dcffec2e;
 
-  --gradient-primary: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
-  --gradient-surface: linear-gradient(180deg, #17191e 0%, #101114 100%);
+  --success: #8ee9b7;
+  --success-bg: rgba(110, 224, 161, 0.12);
+  --on-success: #062a16;
+  --danger: #f6a38e;
+  --danger-bg: rgba(246, 163, 142, 0.12);
+  --on-danger: #2a0f08;
+  --warning: #f2c770;
+  --warning-bg: rgba(242, 199, 112, 0.12);
+  --alert: #f2a86f;
+  --alert-bg: rgba(242, 168, 111, 0.12);
+  --info: #a3cbf0;
+  --info-bg: rgba(163, 203, 240, 0.12);
 
-  --scrollbar-track: #17191e;
-  --scrollbar-thumb: #2d323c;
-  --scrollbar-thumb-hover: #fbbf24;
+  --gradient-primary: linear-gradient(
+    135deg,
+    var(--brand) 0%,
+    var(--brand-accent) 100%
+  );
+  --gradient-surface: linear-gradient(
+    180deg,
+    rgba(225, 255, 238, 0.05) 0%,
+    rgba(225, 255, 238, 0.02) 100%
+  );
 
-  --shadow-subtle: 0 1px 2px 0 rgba(0, 0, 0, 0.2);
-  --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.3), 0 1px 2px -1px rgba(0, 0, 0, 0.2);
-  --shadow-elevated: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
-  --shadow-modal: 0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: rgba(110, 224, 161, 0.25);
+  --scrollbar-thumb-hover: rgba(110, 224, 161, 0.45);
+
+  --shadow-subtle: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-card:
+    0 1px 2px rgba(0, 0, 0, 0.25), 0 22px 44px -26px rgba(0, 0, 0, 0.7);
+  --shadow-elevated:
+    0 2px 6px rgba(0, 0, 0, 0.3), 0 34px 80px -26px rgba(0, 0, 0, 0.75);
+  --shadow-modal:
+    0 2px 6px rgba(0, 0, 0, 0.4), 0 34px 80px -26px rgba(0, 0, 0, 0.85);
   /* ── Auth layout dark-mode palette ──────────────────────────── */
   --auth-panel-gradient: linear-gradient(
     135deg,
-    #1e1e1e 0%,
-    color-mix(in oklab, var(--primary) 8%, #121212) 100%
+    #101814 0%,
+    color-mix(in oklab, var(--primary) 6%, #0a0f0c) 100%
   );
   --auth-panel-divider: linear-gradient(
     to bottom,
@@ -186,22 +244,30 @@
     color-mix(in oklab, var(--primary) 20%, transparent) 70%,
     transparent 100%
   );
-  --auth-blob-1: color-mix(in oklab, var(--primary) 15%, transparent);
-  --auth-blob-2: color-mix(in oklab, var(--accent-color, var(--primary)) 12%, transparent);
-  --auth-blob-3: color-mix(in oklab, var(--primary) 8%, transparent);
-  --auth-blob-4: color-mix(in oklab, var(--accent-color, var(--primary)) 6%, transparent);
-  --auth-tile-bg: color-mix(in oklab, var(--primary) 10%, transparent);
-  --auth-tile-border: color-mix(in oklab, var(--primary) 20%, transparent);
+  --auth-blob-1: color-mix(in oklab, var(--primary) 14%, transparent);
+  --auth-blob-2: color-mix(
+    in oklab,
+    var(--accent-color, var(--primary)) 10%,
+    transparent
+  );
+  --auth-blob-3: color-mix(in oklab, var(--primary) 7%, transparent);
+  --auth-blob-4: color-mix(
+    in oklab,
+    var(--accent-color, var(--primary)) 5%,
+    transparent
+  );
+  --auth-tile-bg: color-mix(in oklab, var(--primary) 9%, transparent);
+  --auth-tile-border: color-mix(in oklab, var(--primary) 18%, transparent);
   --auth-stat-bg: color-mix(in oklab, var(--primary) 6%, transparent);
-  --auth-stat-border: color-mix(in oklab, var(--primary) 15%, transparent);
+  --auth-stat-border: color-mix(in oklab, var(--primary) 14%, transparent);
   --auth-icon-color: var(--primary);
   --auth-card-shadow: 0 20px 60px -20px rgba(0, 0, 0, 0.7);
-  --auth-strength-meter-bg: #2a2a2a;
-  --auth-input-bg: #121212;
-  --auth-input-border: #333333;
-  --auth-input-color: #e4e4e7;
-  --auth-input-placeholder: #909097;
-  --auth-divider-color: #333333;
+  --auth-strength-meter-bg: #22302a;
+  --auth-input-bg: rgba(6, 11, 9, 0.5);
+  --auth-input-border: #dcffec1f;
+  --auth-input-color: #eef4ee;
+  --auth-input-placeholder: #8a9a90;
+  --auth-divider-color: #dcffec17;
 
   color-scheme: dark;
 }
@@ -215,7 +281,6 @@
 
 html {
   -webkit-text-size-adjust: 100%;
-  font-feature-settings: "cv02", "cv03", "cv04", "cv11", "tnum";
   font-variant-numeric: tabular-nums;
   scroll-behavior: smooth;
 }
@@ -223,7 +288,14 @@ html {
 body {
   background-color: var(--bg-base);
   color: var(--text-primary);
-  font-family: var(--font-sans, "Inter", ui-sans-serif, system-ui, sans-serif);
+  font-family: var(
+    --font-sans,
+    "Urbanist",
+    ui-sans-serif,
+    system-ui,
+    sans-serif
+  );
+  font-weight: 500;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -232,12 +304,12 @@ body {
 
 /* ─── Selection ───────────────────────────────────────────────── */
 ::selection {
-  background-color: rgba(217, 119, 6, 0.2);
+  background-color: rgba(110, 224, 161, 0.25);
   color: inherit;
 }
 
 ::-moz-selection {
-  background-color: rgba(217, 119, 6, 0.2);
+  background-color: rgba(110, 224, 161, 0.25);
   color: inherit;
 }
 /* ─── Scrollbar ───────────────────────────────────────────────── */
@@ -280,32 +352,79 @@ body {
 
 /* ─── Utility Classes ─────────────────────────────────────────── */
 .card {
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
+  background: var(--surface-card);
+  box-shadow:
+    inset 0 0 0 1px var(--glass-rim),
+    var(--shadow-card);
+  border-radius: var(--radius-lg);
   padding: 1.25rem;
-  box-shadow: var(--shadow-card);
 }
 
 .card-elevated {
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-xl);
+  background: var(--surface-card);
+  box-shadow:
+    inset 0 0 0 1px var(--glass-rim),
+    var(--shadow-elevated);
+  border-radius: var(--radius-lg);
   padding: 1.25rem;
-  box-shadow: var(--shadow-elevated);
 }
 
+/* Tint + rim only. The blur itself comes from Tailwind's
+   `backdrop-blur-*` utilities on the few surfaces allowed to have one
+   (topbar, modal, floating panels) — declaring `backdrop-filter` here
+   gets its unprefixed form dropped by the CSS minifier, which silently
+   leaves the surface flat. */
 .glass {
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--border-subtle);
+  background: var(--surface-card);
+  box-shadow:
+    inset 0 0 0 1px var(--glass-rim),
+    0 0 0 1px var(--glass-edge);
 }
 
-:root.dark .glass {
-  background: rgba(23, 25, 30, 0.85);
-  border-color: var(--border-subtle);
+/* Ambient veil behind the whole app: gives the glass something to
+   refract. CSS-only on purpose, no photo assets. */
+.backdrop-scene {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(
+      52rem 32rem at 8% -6%,
+      rgba(110, 224, 161, 0.09),
+      transparent 60%
+    ),
+    radial-gradient(
+      46rem 30rem at 96% 12%,
+      rgba(47, 184, 119, 0.06),
+      transparent 60%
+    ),
+    radial-gradient(
+      40rem 34rem at 50% 110%,
+      rgba(31, 155, 152, 0.05),
+      transparent 60%
+    ),
+    var(--backdrop-veil), var(--bg-base);
 }
+:root:not(.dark) .backdrop-scene {
+  background:
+    radial-gradient(
+      52rem 32rem at 8% -6%,
+      rgba(19, 122, 80, 0.07),
+      transparent 60%
+    ),
+    radial-gradient(
+      46rem 30rem at 96% 12%,
+      rgba(47, 184, 119, 0.05),
+      transparent 60%
+    ),
+    radial-gradient(
+      40rem 34rem at 50% 110%,
+      rgba(31, 155, 152, 0.04),
+      transparent 60%
+    ),
+    var(--backdrop-veil), var(--bg-base);
+}
+
 .gradient-text {
   background: var(--gradient-primary);
   -webkit-background-clip: text;
@@ -364,11 +483,11 @@ body {
 }
 
 .animate-fade-in {
-  animation: fadeIn 0.3s ease forwards;
+  animation: fadeIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 .animate-slide-in-right {
-  animation: slideInRight 0.3s ease forwards;
+  animation: slideInRight 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 .animate-pulse-glow {
@@ -378,9 +497,9 @@ body {
 .skeleton {
   background: linear-gradient(
     90deg,
-    var(--bg-surface) 25%,
-    var(--bg-elevated) 50%,
-    var(--bg-surface) 75%
+    var(--bg-elevated) 25%,
+    color-mix(in oklab, var(--primary) 6%, var(--bg-elevated)) 50%,
+    var(--bg-elevated) 75%
   );
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
@@ -397,21 +516,40 @@ body {
 .progress-fill {
   height: 100%;
   border-radius: 999px;
-  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: width 0.5s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* ─── Transitions ─────────────────────────────────────────────── */
 .transition-base {
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .hover-lift {
   transition:
-    transform 0.2s ease,
-    box-shadow 0.2s ease;
+    transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.2s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .hover-lift:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-elevated);
+}
+
+/* ─── Motion preference ───────────────────────────────────────── */
+/* Motion is decoration here, not information: nothing in this app
+   breaks if it stops moving. Anything JS-driven is handled by
+   <MotionConfig reducedMotion="user"> in the dashboard layout. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .hover-lift:hover {
+    transform: none;
+  }
 }

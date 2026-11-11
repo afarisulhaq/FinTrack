@@ -88,7 +88,7 @@ export function WalletPicker({
     >
       <Select.Trigger
         id={id}
-        className="bg-bg-surface border-border text-text-primary focus-visible:ring-primary flex h-10 w-full min-w-0 items-center justify-between gap-2 rounded-lg border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
+        className="bg-bg-surface border-border text-text-primary focus-visible:ring-primary flex h-10 w-full min-w-0 items-center justify-between gap-2 rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
       >
         <Select.Value placeholder={placeholder}>
           {selected?.name ?? (emptyLabel || placeholder)}
@@ -101,7 +101,7 @@ export function WalletPicker({
         <Select.Content
           position="popper"
           sideOffset={4}
-          className="bg-bg-surface border-border text-text-primary pointer-events-auto z-[110] max-h-[var(--radix-select-content-available-height)] w-[var(--radix-select-trigger-width)] min-w-56 overflow-hidden rounded-lg border shadow-md"
+          className="bg-bg-surface border-border text-text-primary pointer-events-auto z-[110] max-h-[var(--radix-select-content-available-height)] w-[var(--radix-select-trigger-width)] min-w-56 overflow-hidden rounded-md border shadow-md"
         >
           <Select.Viewport className="max-h-72 overflow-y-auto p-1">
             {emptyLabel && (

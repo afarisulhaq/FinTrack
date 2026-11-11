@@ -25,7 +25,7 @@ const monthNames = Array.from({ length: 12 }, (_, month) =>
   new Date(2026, month, 1).toLocaleDateString("id-ID", { month: "short" }),
 );
 const actionClass =
-  "min-h-10 rounded-lg px-3 text-sm hover:bg-bg-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-40";
+  "min-h-10 rounded-md px-3 text-sm hover:bg-bg-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-40";
 
 export function DatePicker({
   value,
@@ -82,7 +82,7 @@ export function DatePicker({
             id={fieldId}
             type="button"
             disabled={disabled}
-            className="border-border bg-bg-surface text-text-primary focus-visible:ring-primary flex h-10 w-full min-w-0 items-center justify-between gap-2 rounded-lg border px-3 text-left text-sm focus-visible:ring-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+            className="border-border bg-bg-surface text-text-primary focus-visible:ring-primary flex h-10 w-full min-w-0 items-center justify-between gap-2 rounded-md border px-3 text-left text-sm focus-visible:ring-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
           >
             <span
               className={cn(

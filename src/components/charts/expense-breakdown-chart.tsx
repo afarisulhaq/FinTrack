@@ -41,8 +41,8 @@ function CustomTooltip({ active, payload }: CustomTooltipProps) {
   return (
     <div
       style={{
-        backgroundColor: "#22263a",
-        border: "1px solid #2d3148",
+        backgroundColor: "var(--bg-surface)",
+        border: "1px solid var(--border)",
         borderRadius: 10,
         padding: "10px 14px",
         boxShadow: "0 4px 20px rgb(0 0 0 / 0.4)",
@@ -61,11 +61,11 @@ function CustomTooltip({ active, payload }: CustomTooltipProps) {
             backgroundColor: item.payload.color,
           }}
         />
-        <span style={{ fontSize: 13, fontWeight: 600, color: "#f1f5f9" }}>
+        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>
           {item.name}
         </span>
       </div>
-      <p style={{ fontSize: 15, fontWeight: 700, color: "#f1f5f9", margin: 0 }}>
+      <p style={{ fontSize: 15, fontWeight: 700, color: "var(--text-primary)", margin: 0 }}>
         {item.value.toLocaleString()}
       </p>
     </div>
@@ -116,7 +116,7 @@ function ExpenseBreakdownChart({ data, height = 260 }: ExpenseBreakdownChartProp
               style={{
                 fontSize: 17,
                 fontWeight: 700,
-                color: "#f1f5f9",
+                color: "var(--text-primary)",
                 margin: 0,
                 lineHeight: 1.1,
               }}
@@ -130,7 +130,7 @@ function ExpenseBreakdownChart({ data, height = 260 }: ExpenseBreakdownChartProp
             <p
               style={{
                 fontSize: 10,
-                color: "#475569",
+                color: "var(--text-muted)",
                 margin: "3px 0 0",
                 textTransform: "uppercase",
                 letterSpacing: "0.05em",
@@ -184,7 +184,7 @@ function ExpenseBreakdownChart({ data, height = 260 }: ExpenseBreakdownChartProp
               <span
                 style={{
                   fontSize: 13,
-                  color: "#94a3b8",
+                  color: "var(--text-muted)",
                   flex: 1,
                   minWidth: 0,
                   overflow: "hidden",
@@ -196,7 +196,7 @@ function ExpenseBreakdownChart({ data, height = 260 }: ExpenseBreakdownChartProp
               </span>
 
               {/* Percentage */}
-              <span style={{ fontSize: 12, color: "#475569", flexShrink: 0 }}>
+              <span style={{ fontSize: 12, color: "var(--text-muted)", flexShrink: 0 }}>
                 {pct}%
               </span>
 
@@ -205,7 +205,7 @@ function ExpenseBreakdownChart({ data, height = 260 }: ExpenseBreakdownChartProp
                 style={{
                   fontSize: 13,
                   fontWeight: 600,
-                  color: "#f1f5f9",
+                  color: "var(--text-primary)",
                   flexShrink: 0,
                   minWidth: 80,
                   textAlign: "right",

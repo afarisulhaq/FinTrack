@@ -182,10 +182,10 @@ export function daysToSave(price: number, dailyDisposable: number): number {
  * > 100%  → red    (danger)
  */
 export function getBudgetColor(pct: number): string {
-  if (pct > 100) return '#ef4444'   // danger
-  if (pct > 80) return '#f97316'    // orange
-  if (pct > 60) return '#f59e0b'    // warning
-  return '#22c55e'                  // success
+  if (pct > 100) return 'var(--danger)'
+  if (pct > 80) return 'var(--alert)'
+  if (pct > 60) return 'var(--warning)'
+  return 'var(--success)'
 }
 
 // ─── Misc Helpers ──────────────────────────────────────────────────────────────

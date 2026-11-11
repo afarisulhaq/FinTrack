@@ -622,9 +622,9 @@ export default function InvestmentsPage() {
               setShowSold(false);
               setActiveBroker("Semua");
             }}
-            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+            className={`rounded-lg px-3 py-1.5 text-xs font-medium max-sm:min-h-11 transition-colors ${
               !showSold
-                ? "bg-primary text-white"
+                ? "bg-primary text-on-primary"
                 : "bg-bg-elevated text-text-secondary hover:text-text-primary"
             }`}
           >
@@ -635,9 +635,9 @@ export default function InvestmentsPage() {
               setShowSold(true);
               setActiveBroker("Semua");
             }}
-            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+            className={`rounded-lg px-3 py-1.5 text-xs font-medium max-sm:min-h-11 transition-colors ${
               showSold
-                ? "bg-primary text-white"
+                ? "bg-primary text-on-primary"
                 : "bg-bg-elevated text-text-secondary hover:text-text-primary"
             }`}
           >
@@ -652,9 +652,9 @@ export default function InvestmentsPage() {
               <button
                 key={b}
                 onClick={() => setActiveBroker(b)}
-                className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium max-sm:min-h-11 transition-colors ${
                   activeBroker === b
-                    ? "bg-primary text-white"
+                    ? "bg-primary text-on-primary"
                     : "bg-bg-elevated text-text-secondary hover:text-text-primary"
                 }`}
               >
@@ -815,8 +815,8 @@ export default function InvestmentsPage() {
                           {Math.abs(plPct).toFixed(2)}%
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-right opacity-0 transition-opacity group-hover:opacity-100">
-                        <div className="flex justify-end gap-2">
+                      <td className="px-4 py-3 text-right transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
+                        <div className="flex justify-end gap-2 max-sm:[&>button]:inline-flex max-sm:[&>button]:min-h-11 max-sm:[&>button]:min-w-11 max-sm:[&>button]:items-center max-sm:[&>button]:justify-center">
                           {inv.quantity > 0 && (
                             <button
                               onClick={() => openSellModal(inv)}

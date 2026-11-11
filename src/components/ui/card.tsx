@@ -18,7 +18,7 @@ function Card({ className, children, padding = "md" }: CardProps) {
   return (
     <div
       className={cn(
-        "bg-surface-card border-border rounded-xl border shadow-card transition-all duration-200",
+        "bg-surface-card shadow-card rounded-xl [box-shadow:inset_0_0_0_1px_var(--glass-rim),var(--shadow-card)] transition-all duration-200",
         paddingMap[padding],
         className,
       )}
