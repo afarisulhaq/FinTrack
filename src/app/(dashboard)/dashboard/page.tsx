@@ -3,274 +3,192 @@
 import Link from "next/link";
 import {
   TrendingUp,
-  TrendingDown,
-  Wallet,
   Bell,
   PiggyBank,
   CreditCard,
   Star,
   BarChart2,
-  ArrowUpRight,
   Layers,
 } from "lucide-react";
 import { PageWrapper } from "~/components/layout/page-wrapper";
-import { Card, CardHeader, CardBody } from "~/components/ui/card";
-import { StatCard } from "~/components/ui/stat-card";
-import { Badge } from "~/components/ui/badge";
-import { ProgressBar } from "~/components/ui/progress-bar";
-import { DynamicIcon } from "~/components/ui/dynamic-icon";
-import { SpendingTrendChart } from "~/components/charts/spending-trend-chart";
-import { useServerPagination } from "~/lib/use-server-pagination";
 import { ServerListStatus } from "~/components/ui/server-paginated-list";
+import { useServerPagination } from "~/lib/use-server-pagination";
 import type { AnalyticsSummary } from "~/lib/analytics";
+import type { Transaction, Wallet } from "~/lib/types";
 import { useAppConfigStore } from "~/store/useAppConfigStore";
-import { formatCurrency, daysUntil, percentage } from "~/lib/utils";
+import { WalletStack } from "~/components/dashboard/wallet-stack";
+import { NetWorthHero } from "~/components/dashboard/networth-hero";
+import { CashflowTubes } from "~/components/dashboard/cashflow-tubes";
+import { SpendSplit } from "~/components/dashboard/spend-split";
+import { RecentPayments } from "~/components/dashboard/recent-payments";
+import { InsightCard } from "~/components/dashboard/insight-card";
+import { SavingGoals } from "~/components/dashboard/saving-goals";
+import { UpcomingBills } from "~/components/dashboard/upcoming-bills";
+import { KpiRow } from "~/components/dashboard/kpi-row";
+import { BudgetsCard } from "~/components/dashboard/budgets-card";
+import type { Budget } from "~/lib/types";
+
+const QUICK_ACTIONS = [
+  { href: "/investments", label: "Investasi", icon: TrendingUp },
+  { href: "/bills", label: "Tagihan", icon: Bell },
+  { href: "/savings", label: "Tabungan", icon: PiggyBank },
+  { href: "/debts", label: "Utang", icon: Layers },
+  { href: "/cards", label: "Kartu", icon: CreditCard },
+  { href: "/wishlist", label: "Wishlist", icon: Star },
+  { href: "/statistics", label: "Statistik", icon: BarChart2 },
+];
+
+/** Full month names, so the copy reads "November", not "Nov". */
+function monthName(offset = 0) {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth() + offset, 1).toLocaleDateString(
+    "id-ID",
+    { month: "long" },
+  );
+}
 
 export default function DashboardPage() {
-  const analytics = useServerPagination<never, AnalyticsSummary>("/analytics/summary", { period: "6" });
+  const analytics = useServerPagination<never, AnalyticsSummary>(
+    "/analytics/summary",
+    { period: "6" },
+  );
+  const wallets = useServerPagination<Wallet>("/wallets", { view: "parents" }, {
+    resource: "wallets",
+    pageSize: 8,
+  });
+  const transactions = useServerPagination<Transaction>("/transactions", {}, {
+    pageSize: 6,
+  });
+  const budgetPager = useServerPagination<
+    Budget,
+    { totalLimit: number; totalSpent: number; overspentCount: number }
+  >("/budgets", { period: "monthly" }, { resource: "budgets", pageSize: 6 });
+
   const summary = analytics.summary;
   const currency = useAppConfigStore((s) => s.config.currency);
   const appName = useAppConfigStore((s) => s.config.appName);
   const tagline = useAppConfigStore((s) => s.config.tagline);
 
-  const totalBalance = summary?.walletBalance ?? 0;
-  const portfolioValue = summary?.portfolioValue ?? 0;
-  const netWorth = totalBalance + portfolioValue;
+  const cash = summary?.walletBalance ?? 0;
+  const portfolio = summary?.portfolioValue ?? 0;
   const monthlyData = summary?.monthlyData ?? [];
-
-  const latestMonth = monthlyData[monthlyData.length - 1] ?? {
+  const currentMonth = monthlyData[monthlyData.length - 1] ?? {
     month: "-",
     income: 0,
     expense: 0,
   };
-  const prevMonth = monthlyData[monthlyData.length - 2] ?? {
+  const previousMonth = monthlyData[monthlyData.length - 2] ?? {
     month: "-",
     income: 0,
     expense: 0,
   };
 
-  // Real Month-over-Month calculations
-  const incomeTrend = prevMonth.income > 0
-    ? {
-        value: Math.round(((latestMonth.income - prevMonth.income) / prevMonth.income) * 1000) / 10,
-        label: `vs ${prevMonth.month}`,
-      }
-    : undefined;
+  const thisMonth = monthName(0);
+  const lastMonth = monthName(-1);
 
-  const expenseTrend = prevMonth.expense > 0
-    ? {
-        value: Math.round(((latestMonth.expense - prevMonth.expense) / prevMonth.expense) * 1000) / 10,
-        label: `vs ${prevMonth.month}`,
-      }
-    : undefined;
-
-  const unpaidBills = summary?.bills ?? [];
-  const topGoals = summary?.goals ?? [];
-
-  const spendingTrendData = monthlyData.map((m) => ({
-    month: m.month,
-    amount: m.expense,
-  }));
-
-  const QUICK_ACTIONS = [
-    { href: "/investments", label: "Investasi", icon: TrendingUp },
-    { href: "/bills", label: "Tagihan", icon: Bell },
-    { href: "/savings", label: "Tabungan", icon: PiggyBank },
-    { href: "/debts", label: "Utang & Piutang", icon: Layers },
-    { href: "/cards", label: "Kartu", icon: CreditCard },
-    { href: "/wishlist", label: "Wishlist", icon: Star },
-    { href: "/statistics", label: "Statistik", icon: BarChart2 },
-  ];
   return (
     <PageWrapper title={appName} subtitle={tagline}>
       <ServerListStatus {...analytics} />
-      {summary && <>
-      {/* ── Key Metrics Grid ─────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          title="Net Worth"
-          value={formatCurrency(netWorth, false, currency)}
-          subtitle="Total kas dan investasi"
-          icon={<Wallet className="text-primary" />}
-          className="bg-gradient-to-br from-bg-surface via-bg-surface to-primary/5 border-primary/30"
-        />
-        <StatCard
-          title="Saldo Rekening"
-          value={formatCurrency(totalBalance, false, currency)}
-          subtitle={`${summary.rootWalletCount} akun aktif`}
-          icon={<Wallet />}
-        />
-        <StatCard
-          title="Pemasukan Bulan Ini"
-          value={formatCurrency(latestMonth.income, false, currency)}
-          icon={<TrendingUp className="text-success" />}
-          trend={incomeTrend}
-        />
-        <StatCard
-          title="Pengeluaran Bulan Ini"
-          value={formatCurrency(latestMonth.expense, false, currency)}
-          icon={<TrendingDown className="text-danger" />}
-          trend={expenseTrend}
-        />
-      </div>
+      {summary && (
+        <>
+          <KpiRow
+            data={monthlyData}
+            currency={currency}
+            periodLabel={`Enam bulan terakhir sampai ${thisMonth}`}
+          />
 
-      {/* ── Quick Action Strip ────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 lg:grid-cols-7">
-        {QUICK_ACTIONS.map((item) => {
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="bg-surface-card border-border hover:border-primary/40 hover:bg-bg-elevated/70 group flex items-center gap-3 rounded-xl border p-3 shadow-subtle transition-all"
-            >
-              <div className="bg-primary/10 border-primary/20 text-primary group-hover:bg-primary group-hover:text-on-primary flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition-colors">
-                <Icon className="h-4 w-4" />
-              </div>
-              <span className="text-text-secondary group-hover:text-text-primary truncate text-xs font-semibold transition-colors">
-                {item.label}
-              </span>
-            </Link>
-          );
-        })}
-      </div>
-      {/* ── Main Grid ──────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Spending Trend */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <span className="text-text-primary text-sm font-semibold">
-              Tren Pengeluaran
-            </span>
-            <Link
-              href="/statistics"
-              className="text-primary flex items-center gap-1 text-xs hover:underline"
-            >
-              Lihat detail <ArrowUpRight className="h-3 w-3" />
-            </Link>
-          </CardHeader>
-          <CardBody>
-            <SpendingTrendChart data={spendingTrendData} height={200} />
-          </CardBody>
-        </Card>
-
-        {/* Saving Goals */}
-        <Card>
-          <CardHeader>
-            <span className="text-text-primary text-sm font-semibold">
-              Saving Goals
-            </span>
-            <Link
-              href="/savings"
-              className="text-primary flex items-center gap-1 text-xs hover:underline"
-            >
-              Semua <ArrowUpRight className="h-3 w-3" />
-            </Link>
-          </CardHeader>
-          <CardBody>
-            <div className="space-y-4">
-              {topGoals.map((goal) => {
-                const pct = percentage(goal.currentAmount, goal.targetAmount);
-                return (
-                  <div key={goal.id}>
-                    <div className="mb-1.5 flex items-center gap-2">
-                      <DynamicIcon name={goal.icon} className="h-4 w-4" />
-                      <span className="text-text-primary flex-1 truncate text-sm font-medium">
-                        {goal.name}
-                      </span>
-                      <span className="text-text-primary text-xs font-semibold tabular-nums">
-                        {pct}%
-                      </span>
-                    </div>
-                    <ProgressBar
-                      value={goal.currentAmount}
-                      max={goal.targetAmount}
-                      color={goal.color}
-                      size="sm"
-                    />
-                    <div className="text-text-muted mt-1 flex justify-between text-[11px] font-medium tabular-nums">
-                      <span>{formatCurrency(goal.currentAmount, false, currency)}</span>
-                      <span>{formatCurrency(goal.targetAmount, false, currency)}</span>
-                    </div>
-                  </div>
-                );
-              })}
-              {topGoals.length === 0 && (
-                <p className="text-text-muted py-4 text-center text-xs">
-                  Belum ada saving goal
-                </p>
-              )}
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+            <div className="xl:col-span-5">
+              <WalletStack
+                wallets={wallets.items}
+                currency={currency}
+                loading={wallets.loading}
+              />
             </div>
-          </CardBody>
-        </Card>
-      </div>
 
-      {/* ── Upcoming Bills ─────────────────────────────────────────── */}
-      <Card>
-        <CardHeader>
-          <span className="text-text-primary text-sm font-semibold">
-            Tagihan Terdekat
-          </span>
-          <Link
-            href="/bills"
-            className="text-primary flex items-center gap-1 text-xs hover:underline"
-          >
-            Semua <ArrowUpRight className="h-3 w-3" />
-          </Link>
-        </CardHeader>
-        <CardBody>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {unpaidBills.map((bill) => {
-              const days = daysUntil(bill.dueDate);
-              const isOverdue = days < 0;
-              const isUrgent = days >= 0 && days <= 3;
+            <div className="xl:col-span-7">
+              <NetWorthHero
+                netWorth={cash + portfolio}
+                cash={cash}
+                portfolio={portfolio}
+                currency={currency}
+                monthLabel={thisMonth}
+                income={currentMonth.income}
+                expense={currentMonth.expense}
+                transactionCount={summary.transactionCount}
+              />
+            </div>
+
+            <div className="xl:col-span-7">
+              <CashflowTubes data={monthlyData} currency={currency} />
+            </div>
+
+            <div className="xl:col-span-5">
+              <SpendSplit
+                categories={summary.categories}
+                currency={currency}
+                monthLabel={thisMonth}
+                previousExpense={previousMonth.expense}
+                previousLabel={lastMonth}
+              />
+            </div>
+
+            <div className="xl:col-span-5">
+              <BudgetsCard
+                budgets={budgetPager.items}
+                totalLimit={budgetPager.summary?.totalLimit ?? 0}
+                totalSpent={budgetPager.summary?.totalSpent ?? 0}
+                overspentCount={budgetPager.summary?.overspentCount ?? 0}
+                currency={currency}
+                loading={budgetPager.loading}
+              />
+            </div>
+
+            <div className="xl:col-span-7">
+              <RecentPayments
+                items={transactions.items}
+                currency={currency}
+                loading={transactions.loading}
+              />
+            </div>
+
+            <div className="xl:col-span-4">
+              <InsightCard
+                categories={summary.categories}
+                currency={currency}
+                currentExpense={currentMonth.expense}
+                previousExpense={previousMonth.expense}
+                currentLabel={thisMonth}
+                previousLabel={lastMonth}
+              />
+            </div>
+
+            <div className="xl:col-span-4">
+              <SavingGoals goals={summary.goals} currency={currency} />
+            </div>
+
+            <div className="xl:col-span-4">
+              <UpcomingBills bills={summary.bills} currency={currency} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+            {QUICK_ACTIONS.map((item) => {
+              const Icon = item.icon;
               return (
-                <div
-                  key={bill.id}
-                  className={`flex items-center gap-3 rounded-xl border p-3.5 transition-colors ${
-                    isOverdue
-                      ? "border-danger/30 bg-danger/5"
-                      : isUrgent
-                        ? "border-warning/30 bg-warning/5"
-                        : "border-border bg-bg-surface hover:bg-bg-elevated/50"
-                  }`}
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="bg-surface-card text-text-secondary hover:text-text-primary flex min-h-11 items-center gap-2.5 rounded-md px-3 text-xs font-semibold transition-colors [box-shadow:inset_0_0_0_1px_var(--glass-rim)] hover:bg-bg-elevated"
                 >
-                  <DynamicIcon name={bill.icon} className="h-5 w-5 shrink-0 text-text-secondary" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-text-primary truncate text-sm font-medium">
-                      {bill.name}
-                    </p>
-                    <p
-                      className={`text-xs font-medium ${
-                        isOverdue
-                          ? "text-danger"
-                          : isUrgent
-                            ? "text-warning"
-                            : "text-text-muted"
-                      }`}
-                    >
-                      {isOverdue
-                        ? `Terlambat ${Math.abs(days)} hari`
-                        : days === 0
-                          ? "Jatuh tempo hari ini"
-                          : `${days} hari lagi`}
-                    </p>
-                  </div>
-                  <span className="text-text-primary shrink-0 text-xs font-bold tabular-nums">
-                    {formatCurrency(bill.amount, false, currency)}
-                  </span>
-                </div>
+                  <Icon className="text-primary h-4 w-4 shrink-0" />
+                  <span className="truncate">{item.label}</span>
+                </Link>
               );
             })}
-            {unpaidBills.length === 0 && (
-              <div className="text-text-muted col-span-full py-6 text-center text-sm">
-                Tidak ada tagihan tertunda untuk saat ini.
-              </div>
-            )}
           </div>
-        </CardBody>
-      </Card>
-      </>}
+        </>
+      )}
     </PageWrapper>
   );
 }

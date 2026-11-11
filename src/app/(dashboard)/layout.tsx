@@ -58,7 +58,7 @@ export default function DashboardLayout({
     return () => window.removeEventListener("online", retryFailedBootstrap);
   }, [fetchData]);
 
-  const sidebarWidth = collapsed ? 64 : 240;
+  const sidebarWidth = collapsed ? 76 : 244;
 
   return (
     <MotionConfig reducedMotion="user">

@@ -89,6 +89,12 @@
   --glass-edge: rgba(20, 50, 34, 0.1);
   --backdrop-veil: linear-gradient(180deg, #ecf3ee2e, #e2eae552);
 
+  /* A physical card stays dark in both themes, so its ink never flips. */
+  --card-face-ink: #f3faf5;
+  --card-face-muted: rgba(243, 250, 245, 0.74);
+  --card-face-rim: rgba(255, 255, 255, 0.16);
+  --card-face-shadow: 0 24px 44px -24px rgba(0, 0, 0, 0.7);
+
   --text-primary: #0f1d17;
   --text-secondary: #26362e;
   --text-muted: #4a5b52;
@@ -110,6 +116,13 @@
   --alert-bg: rgba(190, 100, 30, 0.12);
   --info: #23609a;
   --info-bg: rgba(40, 100, 170, 0.1);
+
+  /* Four tints for the overview stat tiles. Each is a wash of one hue, so a
+     tile reads as a category marker without tinting its own text. */
+  --tile-1: rgba(47, 184, 119, 0.16);
+  --tile-2: rgba(31, 155, 152, 0.13);
+  --tile-3: rgba(192, 138, 30, 0.14);
+  --tile-4: rgba(61, 127, 191, 0.12);
 
   --gradient-primary: linear-gradient(
     135deg,
@@ -208,6 +221,11 @@
   --alert-bg: rgba(242, 168, 111, 0.12);
   --info: #a3cbf0;
   --info-bg: rgba(163, 203, 240, 0.12);
+
+  --tile-1: rgba(110, 224, 161, 0.12);
+  --tile-2: rgba(98, 203, 198, 0.1);
+  --tile-3: rgba(232, 192, 106, 0.1);
+  --tile-4: rgba(156, 196, 236, 0.1);
 
   --gradient-primary: linear-gradient(
     135deg,
@@ -356,8 +374,27 @@ body {
   box-shadow:
     inset 0 0 0 1px var(--glass-rim),
     var(--shadow-card);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   padding: 1.25rem;
+}
+
+/* Physical-card surface for the wallet stack. Always dark: a card is an
+   object, not a UI panel, so it must not flip with the theme. The wallet's
+   own colour enters only as a corner highlight, never as the ink colour,
+   because a user-picked colour cannot be guaranteed to pass contrast. */
+.card-face {
+  color: var(--card-face-ink);
+  border-radius: var(--radius-xl);
+  background:
+    radial-gradient(
+      120% 140% at 0% 0%,
+      var(--face-tint, transparent),
+      transparent 58%
+    ),
+    linear-gradient(140deg, #1b2a23 0%, #101815 62%, #0b110e 100%);
+  box-shadow:
+    inset 0 0 0 1px var(--card-face-rim),
+    var(--card-face-shadow);
 }
 
 .card-elevated {
@@ -365,8 +402,27 @@ body {
   box-shadow:
     inset 0 0 0 1px var(--glass-rim),
     var(--shadow-elevated);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   padding: 1.25rem;
+}
+
+/* Overview stat tile. The hue wash sits under the card surface so the tile
+   reads as one of four groups; the label and value keep their own ink. */
+.kpi {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 128px;
+  overflow: hidden;
+  border-radius: var(--radius-xl);
+  padding: 16px 18px 14px;
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.07), transparent 46%),
+    linear-gradient(var(--tile), var(--tile)),
+    var(--surface-card);
+  box-shadow:
+    inset 0 0 0 1px var(--glass-rim),
+    var(--shadow-card);
 }
 
 /* Tint + rim only. The blur itself comes from Tailwind's

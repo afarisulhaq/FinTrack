@@ -32,6 +32,7 @@
 ## 3. Surface & Elevation
 
 - **Cards:** Translucent glass tint + 1px inset rim + one soft green-black shadow. Cards sit _in_ the room, not on top of it.
+- **Stat tiles (`.kpi`):** A tile is a card with one hue wash underneath (mint, teal, amber, blue at 10–16% alpha, `--tile-1..4`). The wash marks which group a figure belongs to. It never tints the tile's own text: label and value keep `--text-muted` / `--text-primary`, so a tile cannot fail contrast in either theme.
 - **Radius hierarchy:**
   - Small tags / badges: `10px` (`rounded-sm`)
   - Buttons, inputs, nav rows, dropdown items: `14px` (`rounded-md`)
@@ -44,7 +45,13 @@
 ## 4. Layout & Rhythm
 
 - **Top Shell:** Frosted topbar (the one allowed blur in the shell) with search, sync state, notifications, theme switch.
-- **Sidebar:** Translucent rail over the backdrop veil; active item is a mint-tinted field with a mint dot, not a colored stripe.
+- **Sidebar:** A 244px rail (76px collapsed) that behaves like a shelf, not a menu of chips.
+  - Top: an app mark in the brand gradient (38px, `12px` radius), the app name at 21px/700 with the tagline under it, and a 32px fold button.
+  - Nav: flat 44px rows at `14px` radius with `18px` icons. The active row is the one filled surface in the rail — brand gradient, `--on-primary` ink, soft glow. Groups are separated by hairline rules, not headings.
+  - Badges: a small count pill on the rows that have something waiting (unpaid bills). Never a red dot without a number.
+  - Bottom, pinned: the "Aman dibelanjakan hari ini" strip (what is left of today after committed bills) and the account row. Both stay put while the nav scrolls under them.
+- **Overview composition:** Stat tiles first, then a 12-column card grid (wallet stack, balance, flow, where-the-money-went, recent, side stack). Every panel answers one question in its heading and carries its own empty state.
+- **Budget meters carry a pace tick:** the thin mark at today's point in the month. A bar that stops short of it is behind schedule, one that passes it is not — the bar alone cannot say that, because both a slow month and a cheap month look the same.
 - **Backdrop:** A fixed, CSS-only ambient veil (soft mint and sage radial glows over the base) sits behind the whole app so glass has something to refract. No photos, no grids, no patterns.
 - **Content Pages:** Page header with actions, one focal summary card, then structured tables or cards. Robust empty, loading, and error states everywhere.
 - **Motion:** MOTION 2: transitions on interaction (hover, open, tab switch), 150–300ms, `cubic-bezier(0.22, 1, 0.36, 1)`. No perpetual loops; the sync spinner and skeleton shimmer are the only loading motions. `prefers-reduced-motion: reduce` collapses CSS transitions to near-zero and `MotionConfig reducedMotion="user"` does the same for Framer springs — nothing here carries information in movement alone.
