@@ -210,7 +210,7 @@ export default function WalletsPage() {
       </div>
 
       {/* ── Main layout ──────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+      <div className="page-grid grid-cols-1 xl:grid-cols-3">
         {/* Wallet cards */}
         <div className="xl:col-span-2">
           <ServerListStatus {...walletPager} />
@@ -333,7 +333,7 @@ export default function WalletsPage() {
                   {/* Add kantong button */}
                   <button
                     onClick={() => openAdd(wallet.id)}
-                    className="text-text-muted hover:text-primary mt-3 ml-6 flex items-center gap-1.5 text-xs transition-colors"
+                    className="text-text-muted hover:text-primary mt-3 ml-6 flex items-center gap-1.5 text-xs transition-colors max-sm:min-h-11"
                   >
                     <Plus className="h-3 w-3" />
                     Tambah Kantong

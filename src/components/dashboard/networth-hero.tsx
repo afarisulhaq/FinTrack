@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
+import { CardHead } from "~/components/ui/card-head";
 import { formatCurrency } from "~/lib/utils";
 
 export interface PaceItem {
@@ -47,23 +48,19 @@ export function NetWorthHero({
   ];
 
   return (
-    <section className="card flex flex-col gap-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="text-text-primary text-lg font-semibold">
-            Kekayaan bersih
-          </h2>
-          <p className="text-text-muted mt-0.5 text-sm">
-            Kas ditambah nilai portofolio
-          </p>
-        </div>
-        <Link
-          href="/statistics"
-          className="text-primary inline-flex min-h-11 items-center gap-1 text-sm font-semibold hover:underline md:min-h-0"
-        >
-          Rincian <ArrowUpRight className="h-4 w-4" />
-        </Link>
-      </div>
+    <section className="card flex flex-col">
+      <CardHead
+        title="Kekayaan bersih"
+        subtitle="Kas ditambah nilai portofolio"
+        action={
+          <Link
+            href="/statistics"
+            className="text-primary inline-flex min-h-11 items-center gap-1 text-sm font-semibold hover:underline md:min-h-0"
+          >
+            Rincian <ArrowUpRight className="h-4 w-4" />
+          </Link>
+        }
+      />
 
       <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
         <span className="text-text-primary text-[clamp(34px,4vw,46px)] leading-none font-semibold tracking-tight tabular-nums">

@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
-import { DynamicIcon } from "~/components/ui/dynamic-icon";
+import { CardHead } from "~/components/ui/card-head";
+import { IconTile } from "~/components/ui/icon-tile";
 import { ProgressBar } from "~/components/ui/progress-bar";
 import { formatCurrency, percentage } from "~/lib/utils";
 
@@ -23,19 +24,19 @@ export function SavingGoals({
   currency: string;
 }) {
   return (
-    <section className="card flex flex-col gap-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="text-text-primary text-lg font-semibold">Tabungan</h2>
-          <p className="text-text-muted mt-0.5 text-sm">Target terdekat</p>
-        </div>
-        <Link
-          href="/savings"
-          className="text-primary inline-flex min-h-11 items-center gap-1 text-sm font-semibold hover:underline md:min-h-0"
-        >
-          Semua <ArrowUpRight className="h-4 w-4" />
-        </Link>
-      </div>
+    <section className="card flex flex-col">
+      <CardHead
+        title="Tabungan"
+        subtitle="Target terdekat"
+        action={
+          <Link
+            href="/savings"
+            className="text-primary inline-flex min-h-11 items-center gap-1 text-sm font-semibold hover:underline md:min-h-0"
+          >
+            Semua <ArrowUpRight className="h-4 w-4" />
+          </Link>
+        }
+      />
 
       {goals.length === 0 ? (
         <p className="text-text-muted py-6 text-center text-sm">
@@ -46,10 +47,7 @@ export function SavingGoals({
           {goals.map((goal) => (
             <div key={goal.id}>
               <div className="mb-1.5 flex items-center gap-2">
-                <DynamicIcon
-                  name={goal.icon}
-                  className="text-text-muted h-4 w-4 shrink-0"
-                />
+                <IconTile icon={goal.icon} color={goal.color} size="sm" />
                 <span className="text-text-primary flex-1 truncate text-sm font-semibold">
                   {goal.name}
                 </span>

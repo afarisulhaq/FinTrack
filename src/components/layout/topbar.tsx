@@ -187,7 +187,7 @@ function Topbar({ title, subtitle }: TopbarProps) {
           <DropdownMenu.Trigger asChild>
             <button className="hover:bg-bg-elevated focus-visible:ring-primary/50 ml-1 flex h-11 items-center gap-2 rounded-md pr-2 pl-1.5 transition-colors focus-visible:ring-2 focus-visible:outline-none md:h-9">
               <div className="bg-primary/20 border-primary/30 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border">
-                <span className="text-primary text-xs font-bold">
+                <span className="text-[color:var(--primary-on-tint)] text-xs font-bold">
                   {initials(user?.name)}
                 </span>
               </div>
@@ -206,7 +206,7 @@ function Topbar({ title, subtitle }: TopbarProps) {
               <div className="border-border mb-1 border-b px-3 py-2.5">
                 <div className="flex items-center gap-2.5">
                   <div className="bg-primary/20 border-primary/30 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border">
-                    <span className="text-primary text-sm font-bold">
+                    <span className="text-[color:var(--primary-on-tint)] text-sm font-bold">
                       {initials(user?.name)}
                     </span>
                   </div>

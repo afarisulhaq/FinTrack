@@ -168,7 +168,7 @@ function StyledSelect({
         onChange={(e) => onChange(e.target.value)}
         className={cn(
           "border-border bg-bg-surface w-full appearance-none rounded-lg border",
-          "text-text-primary h-10 px-3 pr-8 text-sm",
+          "text-text-primary h-10 px-3 pr-8 text-sm max-sm:h-11",
           "transition-all duration-200",
           "focus:ring-primary/50 focus:border-primary focus:ring-2 focus:outline-none",
         )}
@@ -3279,7 +3279,7 @@ export default function SettingsPage() {
       <Tabs.Root
         value={activeTab}
         onValueChange={setActiveTab}
-        className="space-y-6"
+        className="page-stack"
       >
         {/* Tab list */}
         <div className="overflow-x-auto">
@@ -3291,7 +3291,7 @@ export default function SettingsPage() {
                   key={t.value}
                   value={t.value}
                   className={cn(
-                    "inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium",
+                    "inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium max-sm:min-h-11",
                     "transition-all duration-150",
                     "text-text-muted hover:text-text-secondary",
                     "focus-visible:ring-primary/50 focus:outline-none focus-visible:ring-2",

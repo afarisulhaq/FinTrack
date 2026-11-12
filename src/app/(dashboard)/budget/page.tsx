@@ -362,7 +362,7 @@ export default function BudgetPage() {
           <button
             key={t.key}
             onClick={() => setPeriod(t.key)}
-            className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-all ${
+            className={`rounded-md px-4 py-1.5 text-sm font-medium transition-all max-sm:min-h-11 ${
               period === t.key
                 ? "bg-bg-surface text-text-primary shadow-sm"
                 : "text-text-muted hover:text-text-secondary"

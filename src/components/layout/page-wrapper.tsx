@@ -11,22 +11,22 @@ interface PageWrapperProps {
 
 function PageWrapper({ title, subtitle, actions, children }: PageWrapperProps) {
   return (
-    <div className="flex min-h-screen flex-col bg-bg-base">
+    <div className="flex flex-1 flex-col bg-bg-base">
       {/* Sticky top bar with page title + search + user */}
       <Topbar title={title} subtitle={subtitle} />
 
-      {/* Page content */}
-      <main className="mx-auto w-full max-w-[1440px] flex-1 space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-        {/* Optional action bar */}
+      {/* Every route shares one container: same max width, same padding, same
+          gap between sections. Card edges therefore line up across pages.
+          A div, not a second <main>: the dashboard layout already owns one. */}
+      <div className="page-shell">
         {actions && (
           <div className="flex flex-wrap items-center justify-end gap-2.5">
             {actions}
           </div>
         )}
 
-        {/* Page body */}
         {children}
-      </main>
+      </div>
     </div>
   );
 }

@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
-import { DynamicIcon } from "~/components/ui/dynamic-icon";
+import { CardHead } from "~/components/ui/card-head";
+import { IconTile } from "~/components/ui/icon-tile";
 import { formatCurrency, percentage } from "~/lib/utils";
 
 export interface BudgetRow {
@@ -67,25 +68,23 @@ export function BudgetsCard({
     .slice(0, 4);
 
   return (
-    <section className="card flex flex-col gap-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="text-text-primary text-lg font-semibold">Anggaran</h2>
-          <p className="text-text-muted mt-0.5 text-sm">
-            Hari ke-{dayOfMonth} dari {daysInMonth} di{" "}
-            {LONG_MONTHS[now.getMonth()]}
-            {overspentCount > 0
-              ? `. ${overspentCount} kategori sudah lewat batas.`
-              : "."}
-          </p>
-        </div>
-        <Link
-          href="/budget"
-          className="text-primary inline-flex min-h-11 items-center gap-1 text-sm font-semibold hover:underline md:min-h-0"
-        >
-          Kelola <ArrowUpRight className="h-4 w-4" />
-        </Link>
-      </div>
+    <section className="card flex flex-col">
+      <CardHead
+        title="Anggaran"
+        subtitle={`Hari ke-${dayOfMonth} dari ${daysInMonth} di ${LONG_MONTHS[now.getMonth()]}${
+          overspentCount > 0
+            ? `. ${overspentCount} kategori sudah lewat batas.`
+            : "."
+        }`}
+        action={
+          <Link
+            href="/budget"
+            className="text-primary inline-flex min-h-11 items-center gap-1 text-sm font-semibold hover:underline md:min-h-0"
+          >
+            Kelola <ArrowUpRight className="h-4 w-4" />
+          </Link>
+        }
+      />
 
       {loading && budgets.length === 0 ? (
         <p className="text-text-muted text-sm" role="status">
@@ -122,12 +121,7 @@ export function BudgetsCard({
               return (
                 <div key={budget.id} className="flex flex-col gap-1.5">
                   <div className="flex items-center gap-2">
-                    <span
-                      className="grid h-7 w-7 shrink-0 place-items-center rounded-[10px] bg-bg-elevated"
-                      style={{ color: budget.color }}
-                    >
-                      <DynamicIcon name={budget.categoryIcon} className="h-4 w-4" />
-                    </span>
+                    <IconTile icon={budget.categoryIcon} color={budget.color} size="sm" />
                     <span className="text-text-primary min-w-0 flex-1 truncate text-sm font-semibold">
                       {budget.category}
                     </span>

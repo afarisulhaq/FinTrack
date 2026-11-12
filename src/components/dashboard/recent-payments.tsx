@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
-import { DynamicIcon } from "~/components/ui/dynamic-icon";
+import { CardHead } from "~/components/ui/card-head";
+import { IconTile } from "~/components/ui/icon-tile";
 import { formatCurrency } from "~/lib/utils";
 import type { Transaction } from "~/lib/types";
 
@@ -22,21 +23,19 @@ export function RecentPayments({
   loading?: boolean;
 }) {
   return (
-    <section className="card flex flex-col gap-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="text-text-primary text-lg font-semibold">
-            Transaksi terakhir
-          </h2>
-          <p className="text-text-muted mt-0.5 text-sm">Semua dompet</p>
-        </div>
-        <Link
-          href="/transactions"
-          className="text-primary inline-flex min-h-11 items-center gap-1 text-sm font-semibold hover:underline md:min-h-0"
-        >
-          Semua <ArrowUpRight className="h-4 w-4" />
-        </Link>
-      </div>
+    <section className="card flex flex-col">
+      <CardHead
+        title="Transaksi terakhir"
+        subtitle="Semua dompet"
+        action={
+          <Link
+            href="/transactions"
+            className="text-primary inline-flex min-h-11 items-center gap-1 text-sm font-semibold hover:underline md:min-h-0"
+          >
+            Semua <ArrowUpRight className="h-4 w-4" />
+          </Link>
+        }
+      />
 
       {loading && items.length === 0 ? (
         <p className="text-text-muted py-6 text-center text-sm" role="status">
@@ -57,9 +56,7 @@ export function RecentPayments({
                 href="/transactions"
                 className="hover:bg-bg-elevated/70 flex min-h-11 items-center gap-3 rounded-md px-2 py-2 transition-colors"
               >
-                <span className="bg-primary/10 text-primary flex h-9 w-9 shrink-0 items-center justify-center rounded-md">
-                  <DynamicIcon name={row.categoryIcon} className="h-4 w-4" />
-                </span>
+                <IconTile icon={row.categoryIcon} size="lg" />
                 <span className="min-w-0 flex-1">
                   <span className="text-text-primary block truncate text-sm font-semibold">
                     {row.description || row.category}

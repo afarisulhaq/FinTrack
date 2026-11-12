@@ -161,12 +161,12 @@ export default async function RootLayout({
                     // Raw brand slots only: globals.css derives
                     // --primary / --primary-hover / --on-primary per
                     // theme from these, so a theme switch stays correct.
+                    // Ink for the light theme only: the dark theme fills
+                    // with a lifted brand, which is light by construction.
                     root.style.setProperty('--brand', p);
                     root.style.setProperty('--brand-accent', a);
-                    root.style.setProperty('--brand-dark', 'color-mix(in oklab, ' + p + ' 55%, white)');
-                    root.style.setProperty('--on-primary', onP);
+                    root.style.setProperty('--brand-ink', onP);
                     root.style.setProperty('--accent-color', a);
-                    root.style.setProperty('--gradient-primary', 'linear-gradient(135deg, ' + p + ' 0%, ' + a + ' 100%)');
                   }
                 }
               } catch (e) {}

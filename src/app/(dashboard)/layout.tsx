@@ -63,7 +63,7 @@ export default function DashboardLayout({
   return (
     <MotionConfig reducedMotion="user">
       <AuthGuard>
-        <div className="bg-bg-base min-h-screen overflow-hidden">
+        <div className="bg-bg-base h-[100dvh] overflow-hidden">
           {/* Ambient veil behind the app: the glass surfaces refract this. */}
           <div aria-hidden className="backdrop-scene" />
           <Sidebar />
@@ -74,11 +74,15 @@ export default function DashboardLayout({
               onClick={closeMobile}
             />
           )}
+          {/* The scroll container is <main>, not the document: a sticky header
+              only sticks inside the element that actually scrolls. With an
+              auto-height main the page scrolled on <body> and the header
+              travelled with it. */}
           <main
-            className="min-h-screen overflow-x-hidden overflow-y-auto transition-[margin-left] duration-300"
+            className="h-[100dvh] overflow-x-hidden overflow-y-auto overscroll-contain transition-[margin-left] duration-300"
             style={{ marginLeft: isMobile ? 0 : sidebarWidth }}
           >
-            <div className="min-h-screen">
+            <div className="flex min-h-full flex-col">
               {syncError && (
                 <div
                   role="status"

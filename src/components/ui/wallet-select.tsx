@@ -88,7 +88,7 @@ export function WalletPicker({
     >
       <Select.Trigger
         id={id}
-        className="bg-bg-surface border-border text-text-primary focus-visible:ring-primary flex h-10 w-full min-w-0 items-center justify-between gap-2 rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
+        className="bg-bg-surface border-border text-text-primary focus-visible:ring-primary flex h-10 w-full min-w-0 items-center justify-between gap-2 rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none max-sm:h-11"
       >
         <Select.Value placeholder={placeholder}>
           {selected?.name ?? (emptyLabel || placeholder)}

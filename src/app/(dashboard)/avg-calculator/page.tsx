@@ -122,7 +122,7 @@ export default function AvgCalculatorPage() {
       title="Avg Down Calculator"
       subtitle="Hitung harga rata-rata baru, BEP, dan simulasi profit/loss setelah fee broker"
     >
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <div className="page-grid grid-cols-1 lg:grid-cols-3">
         {/* Input column */}
         <div className="space-y-6 lg:col-span-2">
           {/* Broker selection */}

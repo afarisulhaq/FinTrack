@@ -494,7 +494,7 @@ export default function TransactionsPage() {
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
-              className="bg-bg-surface border-border text-text-primary focus:border-primary focus:ring-primary/20 h-10 rounded-lg border px-3 text-sm transition-colors focus:ring-1 focus:outline-none sm:w-44"
+              className="bg-bg-surface border-border text-text-primary focus:border-primary focus:ring-primary/20 h-10 rounded-md border px-3 text-sm transition-colors focus:ring-1 focus:outline-none max-sm:h-11 sm:w-44"
             >
               <option value="Semua Kategori">Semua Kategori</option>
               {allCategories.map((c) => (
@@ -526,7 +526,7 @@ export default function TransactionsPage() {
 
       {/* ── Transaction list ─────────────────────────────────────────────── */}
       <ServerListStatus {...pager} />
-      <div className="space-y-6">
+      <div className="page-stack">
         {Array.from(visibleGrouped.entries()).map(([dateKey, txList]) => {
           const net = pager.summary?.dayNet[dateKey] ?? 0;
           return (
@@ -609,7 +609,7 @@ export default function TransactionsPage() {
                         type="button"
                         aria-label={`Edit transaksi ${transactionTitle(tx)}`}
                         onClick={() => openEdit(tx)}
-                        className="text-text-secondary hover:bg-bg-elevated focus-visible:ring-primary flex h-9 w-9 shrink-0 items-center justify-center rounded-lg focus-visible:ring-2"
+                        className="text-text-secondary hover:bg-bg-elevated focus-visible:ring-primary flex h-9 w-9 shrink-0 items-center justify-center rounded-md focus-visible:ring-2 max-sm:h-11 max-sm:w-11"
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </button>
@@ -617,7 +617,7 @@ export default function TransactionsPage() {
                         type="button"
                         aria-label={`Hapus transaksi ${transactionTitle(tx)}`}
                         onClick={() => deleteTransaction(tx.id)}
-                        className="text-text-secondary hover:text-danger hover:bg-danger/10 focus-visible:ring-primary flex h-9 w-9 shrink-0 items-center justify-center rounded-lg focus-visible:ring-2"
+                        className="text-text-secondary hover:text-danger hover:bg-danger/10 focus-visible:ring-primary flex h-9 w-9 shrink-0 items-center justify-center rounded-md focus-visible:ring-2 max-sm:h-11 max-sm:w-11"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>

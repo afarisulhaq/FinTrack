@@ -175,7 +175,7 @@ export default function BillsPage() {
       </div>
 
       {/* ── Main Grid ──────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+      <div className="page-grid grid-cols-1 xl:grid-cols-3">
         {/* Bills List */}
         <div className="flex flex-col gap-4 xl:col-span-2">
           {/* Status Filter Tabs */}
@@ -184,7 +184,7 @@ export default function BillsPage() {
               <button
                 key={t.key}
                 onClick={() => setStatusFilter(t.key)}
-                className={`rounded-lg px-3 py-1.5 text-xs font-medium max-sm:min-h-11 transition-colors ${
+                className={`rounded-md px-3 py-1.5 text-xs font-medium max-sm:min-h-11 transition-colors ${
                   statusFilter === t.key
                     ? "bg-bg-surface text-text-primary shadow-sm"
                     : "text-text-muted hover:text-text-secondary"
@@ -267,7 +267,7 @@ export default function BillsPage() {
                             setPaymentWalletId(bill.walletId ?? "");
                             setPaymentBillId(bill.id);
                           }}
-                          className="bg-success/10 text-success hover:bg-success/20 flex h-8 w-8 items-center justify-center rounded-lg transition-colors"
+                          className="bg-success/10 text-success hover:bg-success/20 flex h-8 w-8 items-center justify-center rounded-md transition-colors max-sm:h-11 max-sm:w-11"
                           title={
                             bill.status === "paid"
                               ? "Catat pembayaran ke dompet"
@@ -295,7 +295,7 @@ export default function BillsPage() {
                           )
                             deleteBill(bill.id);
                         }}
-                        className="bg-danger/10 text-danger hover:bg-danger/20 flex h-8 w-8 items-center justify-center rounded-lg transition-colors"
+                        className="bg-danger/10 text-danger hover:bg-danger/20 flex h-8 w-8 items-center justify-center rounded-md transition-colors max-sm:h-11 max-sm:w-11"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>

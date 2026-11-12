@@ -173,7 +173,7 @@ function NavLink({
                 "grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[10px] font-bold tabular-nums",
                 isActive
                   ? "bg-black/20 text-on-primary"
-                  : "bg-primary/12 text-primary",
+                  : "bg-primary/12 text-[color:var(--primary-on-tint)]",
               )}
             >
               {count}
@@ -347,7 +347,7 @@ export function Sidebar() {
           collapsed && "justify-center",
         )}
       >
-        <span className="text-primary grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary/12 text-[11px] font-bold">
+        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary/12 text-[11px] font-bold text-[color:var(--primary-on-tint)]">
           {initials(user?.name)}
         </span>
         {!collapsed && (

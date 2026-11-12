@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { ArrowUpRight, TrendingDown, TrendingUp } from "lucide-react";
+import { CardHead } from "~/components/ui/card-head";
 import { formatCurrency } from "~/lib/utils";
 import type { SpendCategory } from "./spend-split";
 
@@ -61,8 +62,8 @@ export function InsightCard({
   if (insights.length === 0) {
     return (
       <section className="card">
-        <h2 className="text-text-primary text-lg font-semibold">Catatan</h2>
-        <p className="text-text-muted mt-2 text-sm">
+        <CardHead title="Catatan" />
+        <p className="text-text-muted text-sm">
           Belum cukup data bulan ini untuk dibandingkan dengan bulan lalu.
         </p>
       </section>
@@ -74,12 +75,14 @@ export function InsightCard({
 
   return (
     <section className="card flex flex-col">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="text-text-primary text-lg font-semibold">Catatan</h2>
-        <span className="text-text-muted text-xs font-semibold">
-          {currentLabel}
-        </span>
-      </div>
+      <CardHead
+        title="Catatan"
+        action={
+          <span className="text-text-muted text-xs font-semibold">
+            {currentLabel}
+          </span>
+        }
+      />
 
       <div className="flex flex-1 flex-col items-start gap-1.5">
         <span

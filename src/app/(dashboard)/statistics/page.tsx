@@ -132,7 +132,7 @@ export default function StatisticsPage() {
           <button
             key={p}
             onClick={() => setPeriod(p)}
-            className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-colors ${
+            className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors max-sm:min-h-11 ${
               period === p
                 ? "bg-bg-surface text-text-primary shadow-sm"
                 : "text-text-muted hover:text-text-secondary"
@@ -172,7 +172,7 @@ export default function StatisticsPage() {
       </div>
 
       {/* ── Charts Row 1 ─────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <div className="page-grid grid-cols-1 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader>
             <span className="text-text-primary text-sm font-semibold">
@@ -297,7 +297,7 @@ export default function StatisticsPage() {
       </Card>
 
       {/* ── Bottom Row ───────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="page-grid grid-cols-1 lg:grid-cols-2">
         {/* Financial Health */}
         <Card>
           <CardHeader>

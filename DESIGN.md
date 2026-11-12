@@ -41,8 +41,16 @@
   - Never `rounded-lg` for controls: the scale maps it to `20px`, which CSS clamps to half a 34–44px control's height, turning every button and nav row into an accidental pill.
 - **Shadows:** Deep, soft, greenish-black, used as elevation markers only. Most surfaces stay flat; modals and dropdowns lift.
 - **Brand slots:** A tenant's brand colour is written as two raw values (`--brand` for light, `--brand-dark` for a lifted dark variant). Every accent token (`--primary`, `--primary-hover`, `--primary-deep`, `--primary-glow`, `--gradient-primary`) is derived from those in CSS, so switching theme never needs a re-run of `applyBrand` and the two modes cannot drift apart.
+- **Ink follows the surface, not the brand.** `--on-primary` is a different colour in each theme because the filled surface is a different colour in each theme: dark green fills in light mode take `--brand-ink`, and the lifted mint fills of dark mode take the constant `--brand-dark-ink`. Writing one ink from the raw brand is what produced white-on-mint buttons that measured 1.57:1.
+- **Tinted chips need their own ink.** `--primary-on-tint` (a deep green in light mode, a pale mint in dark) is the only ink allowed on a primary wash such as an avatar or count pill. `--primary` on a 12–20% wash of itself is roughly 4.4:1: close enough to look fine, too close to pass.
+- **Icon tiles (`.icon-tile`):** a category colour is used twice, never once. It paints a 14% wash behind the glyph and then 55% of the glyph ink (`color-mix(in oklab, hue 55%, text-primary)`). Raw user colour on its own wash can land near 1:1 in one theme; mixing keeps every tile legible without flattening them to grey. Sizes: `sm` 28px, `md` 32px, `lg` 36px.
 
 ## 4. Layout & Rhythm
+
+- **One spacing set, one shape.** `--gap: 16px`, `--page-pad: 20px`, `--page-max: 1640px`, `--card-pad-y: 18px`, `--card-pad-x: 20px`. Every route renders inside `.page-shell` (max width, padding, column stack), so the left edge of a table lines up with the left edge of a stat tile on every screen. Cards do not carry their own padding classes.
+- **`.page-grid` / `.page-stack`** are the only two container rhythms: grid for parallel panels, stack for a single column of sections. Both use `--gap`, so a two-column page and a one-column page keep the same vertical beat.
+- **Card headers are a component, not a habit.** `CardHead` (`.chead`) fixes the rhythm: 15px/600 title, 12.5px muted subtitle, 32px min height, 14px below. Any card that adds a heading by hand drifts by a few pixels and the grid starts to look hand-set.
+- **The scroll container is `<main>`, not the document.** The shell is `100dvh` with the content column scrolling inside it; that is what makes `sticky top-0` on the topbar actually stick. A sticky header inside an auto-height `<main>` scrolls away with the page, because the page is what moves.
 
 - **Top Shell:** Frosted topbar (the one allowed blur in the shell) with search, sync state, notifications, theme switch.
 - **Sidebar:** A 244px rail (76px collapsed) that behaves like a shelf, not a menu of chips.

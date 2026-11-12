@@ -1,7 +1,8 @@
 "use client";
 
 import { CalendarClock } from "lucide-react";
-import { DynamicIcon } from "~/components/ui/dynamic-icon";
+import { CardHead } from "~/components/ui/card-head";
+import { IconTile } from "~/components/ui/icon-tile";
 import { formatCurrency } from "~/lib/utils";
 
 export interface SpendCategory {
@@ -42,13 +43,8 @@ export function SpendSplit({
 
   if (total === 0) {
     return (
-      <section className="card flex flex-col gap-3">
-        <div>
-          <h2 className="text-text-primary text-lg font-semibold">
-            Ke mana uang pergi
-          </h2>
-          <p className="text-text-muted mt-0.5 text-sm">{monthLabel}</p>
-        </div>
+      <section className="card flex flex-col">
+        <CardHead title="Ke mana uang pergi" subtitle={monthLabel} />
         <p className="text-text-muted py-6 text-center text-sm">
           Belum ada pengeluaran tercatat bulan ini.
         </p>
@@ -57,15 +53,11 @@ export function SpendSplit({
   }
 
   return (
-    <section className="card flex flex-col gap-4">
-      <div>
-        <h2 className="text-text-primary text-lg font-semibold">
-          Ke mana uang pergi
-        </h2>
-        <p className="text-text-muted mt-0.5 text-sm">
-          {monthLabel} · {formatCurrency(total, false, currency)}
-        </p>
-      </div>
+    <section className="card flex flex-col">
+      <CardHead
+        title="Ke mana uang pergi"
+        subtitle={`${monthLabel} · ${formatCurrency(total, false, currency)}`}
+      />
 
       <div className="flex h-3 gap-0.5" aria-hidden>
         {shown.map((row) => (
@@ -89,15 +81,7 @@ export function SpendSplit({
       <div className="flex flex-col">
         {shown.map((row) => (
           <div key={row.name} className="flex items-center gap-2.5 py-1.5 text-sm font-semibold">
-            <span
-              className="h-2.5 w-2.5 shrink-0 rounded-[3px]"
-              style={{ backgroundColor: row.color }}
-              aria-hidden
-            />
-            <DynamicIcon
-              name={row.icon}
-              className="text-text-muted h-4 w-4 shrink-0"
-            />
+            <IconTile icon={row.icon} color={row.color} size="sm" />
             <span className="text-text-primary flex-1 truncate">{row.name}</span>
             <span className="text-text-muted text-xs tabular-nums">
               {Math.round((row.value / total) * 100)}%

@@ -200,7 +200,7 @@ export default function CardsPage() {
 
       {/* ── Cards Grid ──────────────────────────────────────────────── */}
       <ServerListStatus {...cardPager} />
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+      <div className="page-grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
         {cardPager.items.map((card) => (
           <div key={card.id} className="group relative">
             {/* Visual Card */}

@@ -160,7 +160,7 @@ export default function SubscriptionPage() {
 
   return (
     <PageWrapper title="Langganan" subtitle="Status paket dan pembayaran QRIS">
-      <div className="mx-auto max-w-4xl space-y-6">
+      <div className="page-stack">
         <ServerListStatus {...invoicePager} />
         {invoiceLoading && (
           <p role="status" className="text-text-secondary text-sm">

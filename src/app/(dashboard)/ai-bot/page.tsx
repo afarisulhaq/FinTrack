@@ -722,7 +722,7 @@ export default function AiBotPage() {
       title="AI Bot"
       subtitle="Catat transaksi otomatis via WhatsApp & Telegram"
     >
-      <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-2">
+      <div className="page-grid grid-cols-1 items-start xl:grid-cols-2">
         {/* ── Left column: Setup ─────────────────────────────────── */}
         <div className="space-y-5">
           {/* WhatsApp Card */}

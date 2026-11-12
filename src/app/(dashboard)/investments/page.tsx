@@ -568,7 +568,7 @@ export default function InvestmentsPage() {
       </div>
 
       {/* ── Charts Row ─────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="page-grid grid-cols-1 lg:grid-cols-2">
         {/* Pie Chart */}
         <Card>
           <CardHeader>

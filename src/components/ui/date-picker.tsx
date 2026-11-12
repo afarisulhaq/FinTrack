@@ -82,7 +82,7 @@ export function DatePicker({
             id={fieldId}
             type="button"
             disabled={disabled}
-            className="border-border bg-bg-surface text-text-primary focus-visible:ring-primary flex h-10 w-full min-w-0 items-center justify-between gap-2 rounded-md border px-3 text-left text-sm focus-visible:ring-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+            className="border-border bg-bg-surface text-text-primary focus-visible:ring-primary flex h-10 w-full min-w-0 items-center justify-between gap-2 rounded-md border px-3 text-left text-sm focus-visible:ring-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 max-sm:h-11"
           >
             <span
               className={cn(

@@ -131,7 +131,7 @@ export function KpiRow({
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <div className="page-grid grid-cols-2 lg:grid-cols-4">
       {tiles.map((tile) => (
         <div
           key={tile.label}

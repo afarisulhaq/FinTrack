@@ -97,7 +97,7 @@ export default function DashboardPage() {
             periodLabel={`Enam bulan terakhir sampai ${thisMonth}`}
           />
 
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+          <div className="page-grid grid-cols-1 xl:grid-cols-12">
             <div className="xl:col-span-5">
               <WalletStack
                 wallets={wallets.items}
@@ -172,7 +172,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+          <div className="page-grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7">
             {QUICK_ACTIONS.map((item) => {
               const Icon = item.icon;
               return (

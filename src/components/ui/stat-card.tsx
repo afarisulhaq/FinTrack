@@ -30,8 +30,9 @@ function StatCard({
   return (
     <div
       className={cn(
-        "bg-surface-card p-5",
-        "shadow-card rounded-xl [box-shadow:inset_0_0_0_1px_var(--glass-rim),var(--shadow-card)] hover:shadow-elevated transition-all duration-200 flex flex-col justify-between gap-4",
+        "bg-surface-card",
+        "[padding:var(--card-pad-y)_var(--card-pad-x)_var(--card-pad-x)]",
+        "shadow-card rounded-xl [box-shadow:inset_0_0_0_1px_var(--glass-rim),var(--shadow-card)] hover:shadow-elevated transition-all duration-200 flex flex-col justify-between gap-3",
         className,
       )}
     >
@@ -50,23 +51,26 @@ function StatCard({
           )}
         </div>
 
-        {/* Icon container */}
-        <div
-          className={cn(
-            "shrink-0 rounded-lg p-2.5 flex items-center justify-center border",
-            iconColor ? "" : "bg-primary/10 border-primary/20 text-primary"
-          )}
-          style={iconColor ? { backgroundColor: `${iconColor}15`, borderColor: `${iconColor}30`, color: iconColor } : undefined}
+        {/* Icon tile: same hue-wash + mixed-ink treatment as every other icon
+            in the app, so a red wallet icon still reads as a red wallet. */}
+        <span
+          className={cn("icon-tile", !iconColor && "text-primary")}
+          style={
+            iconColor
+              ? ({ "--tile-hue": iconColor } as React.CSSProperties)
+              : undefined
+          }
+          aria-hidden
         >
-          <span className="flex items-center justify-center [&>svg]:h-5 [&>svg]:w-5">
+          <span className="flex items-center justify-center [&>svg]:h-[18px] [&>svg]:w-[18px]">
             {icon}
           </span>
-        </div>
+        </span>
       </div>
 
       {/* Trend row */}
       {trend && (
-        <div className="border-border/60 flex items-center gap-2 border-t pt-2.5">
+        <div className="border-border-subtle flex items-center gap-2 border-t pt-2.5">
           <div
             className={cn(
               "inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-semibold tabular-nums leading-none",

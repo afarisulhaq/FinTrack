@@ -1,12 +1,12 @@
 import { type ReactNode } from "react";
 import { cn } from "~/lib/utils";
 
-const paddingMap = {
-  none: "",
-  sm: "p-3",
-  md: "p-5",
-  lg: "p-7",
-} as const;
+  const paddingMap = {
+    none: "",
+    sm: "p-3",
+    md: "[padding:var(--card-pad-y)_var(--card-pad-x)_var(--card-pad-x)]",
+    lg: "p-7",
+  } as const;
 
 interface CardProps {
   className?: string;
@@ -37,7 +37,7 @@ function CardHeader({ className, children }: CardSectionProps) {
   return (
     <div
       className={cn(
-        "border-border/60 mb-4 flex items-center justify-between gap-3 border-b pb-3.5",
+        "mb-3.5 flex items-center justify-between gap-3",
         className,
       )}
     >
@@ -54,7 +54,7 @@ function CardFooter({ className, children }: CardSectionProps) {
   return (
     <div
       className={cn(
-        "border-border/60 mt-4 flex items-center justify-end gap-3 border-t pt-3.5",
+        "mt-3.5 flex items-center justify-end gap-3",
         className,
       )}
     >

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { ArrowUpRight, ChevronLeft, ChevronRight } from "lucide-react";
+import { CardHead } from "~/components/ui/card-head";
 import { DynamicIcon } from "~/components/ui/dynamic-icon";
 import { formatCurrency } from "~/lib/utils";
 import type { Wallet } from "~/lib/types";
@@ -37,8 +38,8 @@ export function WalletStack({
   if (loading && total === 0) {
     return (
       <section className="card">
-        <h2 className="text-text-primary text-lg font-semibold">Dompet</h2>
-        <p className="text-text-muted mt-2 text-sm" role="status">
+        <CardHead title="Dompet" />
+        <p className="text-text-muted text-sm" role="status">
           Memuat dompet…
         </p>
       </section>
@@ -47,13 +48,11 @@ export function WalletStack({
 
   if (total === 0) {
     return (
-      <section className="card flex flex-col gap-3">
-        <div>
-          <h2 className="text-text-primary text-lg font-semibold">Dompet</h2>
-          <p className="text-text-muted mt-0.5 text-sm">
-            Belum ada dompet yang tercatat
-          </p>
-        </div>
+      <section className="card flex flex-col">
+        <CardHead
+          title="Dompet"
+          subtitle="Belum ada dompet yang tercatat"
+        />
         <Link
           href="/wallets"
           className="text-primary inline-flex min-h-11 items-center gap-1 text-sm font-semibold hover:underline"
@@ -73,21 +72,19 @@ export function WalletStack({
     .filter((entry) => entry.layer < 3);
 
   return (
-    <section className="card flex flex-col gap-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="text-text-primary text-lg font-semibold">Dompet</h2>
-          <p className="text-text-muted mt-0.5 text-sm">
-            {total} akun aktif
-          </p>
-        </div>
-        <Link
-          href="/wallets"
-          className="text-primary inline-flex min-h-11 items-center gap-1 text-sm font-semibold hover:underline md:min-h-0"
-        >
-          Kelola <ArrowUpRight className="h-4 w-4" />
-        </Link>
-      </div>
+    <section className="card flex flex-col">
+      <CardHead
+        title="Dompet"
+        subtitle={`${total} akun aktif`}
+        action={
+          <Link
+            href="/wallets"
+            className="text-primary inline-flex min-h-11 items-center gap-1 text-sm font-semibold hover:underline md:min-h-0"
+          >
+            Kelola <ArrowUpRight className="h-4 w-4" />
+          </Link>
+        }
+      />
 
       <div className="relative mx-auto mt-6 aspect-[1.586] w-full max-w-[380px]">
         {visible.map(({ wallet, layer }) => {
