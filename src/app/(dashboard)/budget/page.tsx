@@ -10,7 +10,9 @@ import { DynamicIcon } from "~/components/ui/dynamic-icon";
 import { IconPicker } from "~/components/ui/icon-picker";
 import { PageWrapper } from "~/components/layout/page-wrapper";
 import { Button } from "~/components/ui/button";
-import { Card, CardHeader, CardBody } from "~/components/ui/card";
+import { Card, CardBody } from "~/components/ui/card";
+import { CardHead } from "~/components/ui/card-head";
+import { IconTile } from "~/components/ui/icon-tile";
 import { Badge } from "~/components/ui/badge";
 import { Modal } from "~/components/ui/modal";
 
@@ -129,6 +131,13 @@ export default function BudgetPage() {
   };
 
   const totalPct = percentage(totalSpent, totalLimit);
+
+  // Pace tick: the same "hari ke-X" mark the dashboard budget card carries.
+  // A meter that stops short of the tick is behind schedule; one that passes
+  // it is on track. Without it, a slow month and a cheap month look alike.
+  const now = new Date();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const pace = (now.getDate() / daysInMonth) * 100;
 
   // ── Modal helpers ────────────────────────────────────────────────────────────
 
@@ -290,91 +299,99 @@ export default function BudgetPage() {
         </Button>
       }
     >
-      {/* ── Overall Summary ──────────────────────────────────────────────── */}
-      <Card>
-        <div className="flex flex-col gap-4">
-          {/* Alert */}
-          {overspentCount > 0 && (
-            <div className="bg-danger/10 border-danger/20 flex items-center gap-2 rounded-lg border px-3 py-2">
-              <AlertTriangle className="text-danger h-4 w-4 shrink-0" />
-              <span className="text-danger text-sm font-medium">
-                {overspentCount} kategori melebihi anggaran
-              </span>
+      {/* ── Hero: how much of the plan is gone, and whether that is on pace ── */}
+      <section className="card">
+        <CardHead
+          title="Total anggaran"
+          subtitle={`Hari ke-${now.getDate()} dari ${daysInMonth}`}
+          action={
+            <div className="bg-bg-elevated flex w-fit gap-1 rounded-xl p-1">
+              {PERIOD_TABS.map((t) => (
+                <button
+                  key={t.key}
+                  onClick={() => setPeriod(t.key)}
+                  aria-pressed={period === t.key}
+                  className={`rounded-md px-4 py-1.5 text-sm font-medium transition-all max-sm:min-h-11 ${
+                    period === t.key
+                      ? "bg-bg-surface text-text-primary shadow-sm"
+                      : "text-text-muted hover:text-text-secondary"
+                  }`}
+                >
+                  {t.label}
+                  <span className="bg-bg-base text-text-muted ml-1.5 rounded-full px-1.5 py-0.5 text-[10px]">
+                    {pager.summary?.counts[t.key] ?? 0}
+                  </span>
+                </button>
+              ))}
             </div>
-          )}
+          }
+        />
 
-          {/* Big progress bar */}
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-text-primary font-semibold">
-                Total Penggunaan Anggaran
-              </span>
-              <span
-                className="font-bold tabular-nums"
-                style={{ color: getBudgetColor(totalPct) }}
-              >
-                {totalPct}%
-              </span>
-            </div>
-            <ProgressBar value={totalSpent} max={totalLimit || 1} animated />
+        {overspentCount > 0 && (
+          <div className="bg-danger/10 border-danger/20 mb-4 flex items-center gap-2 rounded-md border px-3 py-2">
+            <AlertTriangle className="text-danger h-4 w-4 shrink-0" />
+            <span className="text-danger text-sm font-medium">
+              {overspentCount} kategori melebihi anggaran
+            </span>
           </div>
+        )}
 
-          {/* 3 stats */}
-          <div className="grid grid-cols-3 gap-4 pt-1">
-            <div className="bg-bg-elevated flex flex-col gap-1 rounded-xl p-3">
-              <span className="text-text-muted text-xs tracking-wide uppercase">
-                Total Budget
-              </span>
-              <span className="text-text-primary text-base font-bold">
-                {formatCurrency(totalLimit, true)}
-              </span>
-            </div>
-            <div className="bg-bg-elevated flex flex-col gap-1 rounded-xl p-3">
-              <span className="text-text-muted text-xs tracking-wide uppercase">
-                Terpakai
-              </span>
-              <span
-                className="text-base font-bold tabular-nums"
-                style={{ color: getBudgetColor(totalPct) }}
-              >
-                {formatCurrency(totalSpent, true)}
-              </span>
-            </div>
-            <div className="bg-bg-elevated flex flex-col gap-1 rounded-xl p-3">
-              <span className="text-text-muted text-xs tracking-wide uppercase">
-                Sisa
-              </span>
-              <span
-                className={`text-base font-bold tabular-nums ${
-                  totalLimit - totalSpent < 0 ? "text-danger" : "text-success"
-                }`}
-              >
-                {formatCurrency(Math.max(0, totalLimit - totalSpent), true)}
-              </span>
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      {/* ── Period tabs ──────────────────────────────────────────────────── */}
-      <div className="bg-bg-elevated flex w-fit gap-1 rounded-xl p-1">
-        {PERIOD_TABS.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setPeriod(t.key)}
-            className={`rounded-md px-4 py-1.5 text-sm font-medium transition-all max-sm:min-h-11 ${
-              period === t.key
-                ? "bg-bg-surface text-text-primary shadow-sm"
-                : "text-text-muted hover:text-text-secondary"
+        <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
+          <span className="text-text-primary text-[clamp(30px,3.4vw,42px)] leading-none font-semibold tracking-tight tabular-nums">
+            {formatCurrency(totalLimit - totalSpent, true)}
+          </span>
+          <span
+            className={`mb-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold tabular-nums ${
+              totalSpent / (totalLimit || 1) > pace / 100
+                ? "bg-warning/12 text-warning"
+                : "bg-success/12 text-success"
             }`}
           >
-            {t.label}
-            <span className="bg-bg-base text-text-muted ml-1.5 rounded-full px-1.5 py-0.5 text-[10px]">
-              {pager.summary?.counts[t.key] ?? 0}
-            </span>
-          </button>
-        ))}
-      </div>
+            {totalSpent / (totalLimit || 1) > pace / 100
+              ? "Lebih cepat dari jadwal"
+              : "On pace"}{" "}
+            {Math.round(totalPct)}% · hari {Math.round(pace)}%
+          </span>
+        </div>
+
+        <div className="relative mt-4">
+          <ProgressBar value={totalSpent} max={totalLimit || 1} animated />
+          <span
+            aria-hidden
+            className="bg-text-primary/55 absolute -top-1.5 -bottom-1.5 w-0.5 rounded"
+            style={{ left: `calc(${pace}% - 1px)` }}
+          />
+        </div>
+
+        {/* Budget / spent / left: the three numbers behind the bar */}
+        <div className="mt-5 grid grid-cols-3 gap-3">
+          <div className="bg-bg-elevated rounded-xl p-3">
+            <span className="text-text-muted text-[11px] tracking-wide uppercase">Budget</span>
+            <p className="text-text-primary mt-1 text-base font-bold tabular-nums">
+              {formatCurrency(totalLimit, true)}
+            </p>
+          </div>
+          <div className="bg-bg-elevated rounded-xl p-3">
+            <span className="text-text-muted text-[11px] tracking-wide uppercase">Terpakai</span>
+            <p
+              className="mt-1 text-base font-bold tabular-nums"
+              style={{ color: getBudgetColor(totalPct) }}
+            >
+              {formatCurrency(totalSpent, true)}
+            </p>
+          </div>
+          <div className="bg-bg-elevated rounded-xl p-3">
+            <span className="text-text-muted text-[11px] tracking-wide uppercase">Sisa</span>
+            <p
+              className={`mt-1 text-base font-bold tabular-nums ${
+                totalLimit - totalSpent < 0 ? "text-danger" : "text-success"
+              }`}
+            >
+              {formatCurrency(Math.max(0, totalLimit - totalSpent), true)}
+            </p>
+          </div>
+        </div>
+      </section>
 
       {/* ── Budget cards grid ─────────────────────────────────────────────── */}
       <ServerListStatus {...pager} />
@@ -463,13 +480,22 @@ export default function BudgetPage() {
                 </span>
               </div>
 
-              {/* Progress bar */}
-              <ProgressBar
-                value={budget.spent}
-                max={budget.limit}
-                size="sm"
-                animated
-              />
+              {/* Progress bar with the same pace tick as the hero */}
+              <div className="relative">
+                <ProgressBar
+                  value={budget.spent}
+                  max={budget.limit}
+                  size="sm"
+                  animated
+                />
+                {budget.period === "monthly" && (
+                  <span
+                    aria-hidden
+                    className="bg-text-primary/55 absolute -top-1 -bottom-1 w-0.5 rounded"
+                    style={{ left: `calc(${pace}% - 1px)` }}
+                  />
+                )}
+              </div>
 
               {/* Footer: pct + alert badge */}
               <div className="flex items-center justify-between">
@@ -528,14 +554,10 @@ export default function BudgetPage() {
       {/* ── Budget Analysis ───────────────────────────────────────────────── */}
       {pager.total > 0 && (
         <Card>
-          <CardHeader>
-            <span className="text-text-primary text-sm font-semibold">
-              Analisis Anggaran
-            </span>
-            <Badge variant="default" size="sm">
-              {PERIOD_LABELS[period]}
-            </Badge>
-          </CardHeader>
+          <CardHead
+            title="Analisis anggaran"
+            subtitle="Porsi tiap kategori dari total budget"
+          />
           <CardBody>
             <ServerListStatus {...breakdownPager} />
             <div className="space-y-3">
@@ -546,18 +568,11 @@ export default function BudgetPage() {
                     <div key={budget.id} className="space-y-1">
                       <div className="flex items-center justify-between text-xs">
                         <div className="flex min-w-0 items-center gap-2">
-                          <span
-                            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
-                            style={{
-                              backgroundColor: `${budget.color}22`,
-                              color: budget.color,
-                            }}
-                          >
-                            <DynamicIcon
-                              name={budget.categoryIcon || "Tag"}
-                              className="h-3.5 w-3.5"
-                            />
-                          </span>
+                          <IconTile
+                            icon={budget.categoryIcon || "Tag"}
+                            color={budget.color}
+                            size="sm"
+                          />
                           <span className="text-text-secondary truncate font-medium">
                             {budget.category}
                             {(() => {

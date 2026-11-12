@@ -125,7 +125,9 @@
   --success: #11703f;
   --success-bg: rgba(24, 140, 88, 0.1);
   --on-success: #ffffff;
-  --danger: #b13b22;
+  /* In/out hero rows on /transactions tint at 8%; a plain --danger ink lands
+     at 4.33:1 on that wash, so the small label reads through a deepened mix. */
+  --danger-on-tint: color-mix(in oklab, var(--danger) 88%, black);
   --danger-bg: rgba(205, 70, 40, 0.1);
   --on-danger: #ffffff;
   --warning: #85560a;

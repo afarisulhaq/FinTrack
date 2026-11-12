@@ -17,8 +17,9 @@ import { DynamicIcon } from "~/components/ui/dynamic-icon";
 import { PageWrapper } from "~/components/layout/page-wrapper";
 import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
+import { CardHead } from "~/components/ui/card-head";
+import { IconTile } from "~/components/ui/icon-tile";
 import { Modal } from "~/components/ui/modal";
-import { StatCard } from "~/components/ui/stat-card";
 import { AmountInput } from "~/components/ui/amount-input";
 import { Input } from "~/components/ui/input";
 import { DatePicker } from "~/components/ui/date-picker";
@@ -253,6 +254,10 @@ export default function TransactionsPage() {
     walletId: walletFilter === "Semua Dompet" ? undefined : walletFilter,
   }, { resource: "transactions" });
   const monthStats = pager.summary?.monthStats ?? { income: 0, expense: 0, net: 0 };
+  const savingRate =
+    monthStats.income > 0
+      ? Math.round((monthStats.net / monthStats.income) * 100)
+      : null;
   const periodLabel = monthFilter
     ? new Date(`${monthFilter}-01T12:00:00`).toLocaleDateString("id-ID", {
         month: "long",
@@ -439,31 +444,87 @@ export default function TransactionsPage() {
         </Button>
       }
     >
-      {/* ── Summary (current month) ───────────────────────────────────────── */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard
-          title="Pemasukan"
+      {/* ── Hero: what came in, what went out, what is left ─────────────── */}
+      <section className="card">
+        <CardHead
+          title="Arus bulan ini"
           subtitle={periodLabel}
-          value={formatCurrency(monthStats.income, true)}
-          icon={<TrendingUp className="text-success" />}
-        />
-        <StatCard
-          title="Pengeluaran"
-          subtitle={periodLabel}
-          value={formatCurrency(monthStats.expense, true)}
-          icon={<TrendingDown className="text-danger" />}
-        />
-        <StatCard
-          title="Saldo Bersih"
-          value={formatCurrency(Math.abs(monthStats.net), true)}
-          subtitle={`${monthStats.net >= 0 ? "Surplus" : "Defisit"} · ${periodLabel}`}
-          icon={
-            <ArrowLeftRight
-              className={monthStats.net >= 0 ? "text-primary" : "text-danger"}
-            />
+          action={
+            <div className="bg-bg-elevated flex w-fit gap-1 rounded-xl p-1">
+              {TYPE_TABS.map((t) => (
+                <button
+                  key={t.key}
+                  onClick={() => setTypeFilter(t.key)}
+                  aria-pressed={typeFilter === t.key}
+                  className={`rounded-md px-3 py-1.5 text-xs font-medium max-sm:min-h-11 transition-colors ${
+                    typeFilter === t.key
+                      ? "bg-bg-surface text-text-primary shadow-sm"
+                      : "text-text-muted hover:text-text-secondary"
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
           }
         />
-      </div>
+
+        <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+          <div>
+            <p className="text-text-muted text-xs font-semibold tracking-wider uppercase">
+              {monthStats.net >= 0 ? "Sisa bulan ini" : "Defisit bulan ini"}
+            </p>
+            <p
+              className={`text-text-primary mt-1 text-[clamp(30px,3.4vw,42px)] leading-none font-semibold tracking-tight tabular-nums ${
+                monthStats.net < 0 ? "text-danger" : ""
+              }`}
+            >
+              {monthStats.net < 0 ? "−" : ""}
+              {formatCurrency(Math.abs(monthStats.net))}
+            </p>
+          </div>
+          {savingRate !== null && (
+            <span
+              className={`mb-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold tabular-nums ${
+                savingRate >= 0
+                  ? "bg-success/12 text-success"
+                  : "bg-danger/12 text-danger"
+              }`}
+            >
+              {savingRate >= 0 ? "Menabung" : "Terpakai"} {Math.abs(savingRate)}% dari pemasukan
+            </span>
+          )}
+        </div>
+
+        {/* In / out rows: the two numbers behind the net, kept visible so
+            "sisa" never reads as "gaji dikurangi kopi saja". */}
+        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="bg-success/8 border-success/20 rounded-xl border p-3.5">
+            <div className="flex items-center justify-between">
+              <span className="text-success inline-flex items-center gap-1.5 text-xs font-semibold">
+                <i className="bg-success h-2 w-2 rounded-full" aria-hidden />
+                Masuk
+              </span>
+              <TrendingUp className="text-success/60 h-3.5 w-3.5" aria-hidden />
+            </div>
+            <p className="text-text-primary mt-1.5 text-xl font-bold tabular-nums">
+              {formatCurrency(monthStats.income, true)}
+            </p>
+          </div>
+          <div className="bg-danger/8 border-danger/20 rounded-xl border p-3.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[color:var(--danger-on-tint)] inline-flex items-center gap-1.5 text-xs font-semibold">
+                <i className="bg-danger h-2 w-2 rounded-full" aria-hidden />
+                Keluar
+              </span>
+              <TrendingDown className="text-danger/60 h-3.5 w-3.5" aria-hidden />
+            </div>
+            <p className="text-text-primary mt-1.5 text-xl font-bold tabular-nums">
+              {formatCurrency(monthStats.expense, true)}
+            </p>
+          </div>
+        </div>
+      </section>
 
       {/* ── Filter bar ───────────────────────────────────────────────────── */}
       <Card>
@@ -505,22 +566,6 @@ export default function TransactionsPage() {
             </select>
             <WalletPicker value={walletFilter === "Semua Dompet" ? "" : walletFilter} onChange={(value) => setWalletFilter(value || "Semua Dompet")} wallets={allWallets} emptyLabel="Semua Dompet" />
           </div>
-          {/* Type filter tabs */}
-          <div className="bg-bg-elevated flex w-fit gap-1 rounded-xl p-1">
-            {TYPE_TABS.map((t) => (
-              <button
-                key={t.key}
-                onClick={() => setTypeFilter(t.key)}
-                className={`rounded-lg px-3 py-1.5 text-xs font-medium max-sm:min-h-11 transition-colors ${
-                  typeFilter === t.key
-                    ? "bg-bg-surface text-text-primary shadow-sm"
-                    : "text-text-muted hover:text-text-secondary"
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
         </div>
       </Card>
 
@@ -555,18 +600,13 @@ export default function TransactionsPage() {
                 {txList.map((tx) => (
                   <Card key={tx.id} className="group">
                     <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap sm:gap-3">
-                      {/* Category icon */}
-                      <div
-                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg"
-                        style={{
-                          backgroundColor: `${getCategoryColor(tx.category)}22`,
-                        }}
-                      >
-                        <DynamicIcon
-                          name={tx.categoryIcon}
-                          className="h-5 w-5 shrink-0"
-                        />
-                      </div>
+                      {/* Category icon: the category's own colour, used twice */}
+                      <IconTile
+                        icon={tx.categoryIcon}
+                        color={getCategoryColor(tx.category)}
+                        size="lg"
+                        className="h-10 w-10 rounded-[12px]"
+                      />
 
                       {/* Description + meta */}
                       <div className="min-w-0 flex-1">

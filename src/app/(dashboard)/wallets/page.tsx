@@ -7,15 +7,17 @@ import {
   Trash2,
   Wallet as WalletIcon,
   Layers,
-  BarChart2,
+  Coins,
+  ChevronRight,
 } from "lucide-react";
 import { PageWrapper } from "~/components/layout/page-wrapper";
 import { Button } from "~/components/ui/button";
-import { Card, CardHeader, CardBody } from "~/components/ui/card";
+import { Card, CardBody } from "~/components/ui/card";
+import { CardHead } from "~/components/ui/card-head";
 import { Badge } from "~/components/ui/badge";
 import { Modal } from "~/components/ui/modal";
-import { StatCard } from "~/components/ui/stat-card";
 import { Input } from "~/components/ui/input";
+import { IconTile } from "~/components/ui/icon-tile";
 import { useFinanceStore } from "~/store/useFinanceStore";
 import { DynamicIcon } from "~/components/ui/dynamic-icon";
 import { formatCurrency, percentage } from "~/lib/utils";
@@ -70,7 +72,6 @@ const EMPTY_FORM: WalletForm = {
   balance: "0",
 };
 
-
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default function WalletsPage() {
@@ -101,6 +102,8 @@ export default function WalletsPage() {
   );
   const distributionTotal = distribution.reduce((sum, wallet) => sum + wallet.groupBalance, 0);
   const { totalBalance = 0, childCount = 0, parentCount = 0 } = walletPager.summary ?? {};
+  const biggest = distribution[0];
+  const biggestPct = biggest ? percentage(biggest.groupBalance, distributionTotal) : 0;
 
   // ── Modal helpers ────────────────────────────────────────────────────────────
 
@@ -187,34 +190,55 @@ export default function WalletsPage() {
         </Button>
       }
     >
-      {/* ── Summary ─────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard
-          title="Total Saldo"
-          value={formatCurrency(totalBalance, true)}
-          subtitle="Semua dompet aktif"
-          icon={<WalletIcon className="text-primary" />}
+      {/* ── Hero: the one number the page exists for ─────────────────────── */}
+      <section className="card">
+        <CardHead
+          title="Total saldo"
+          subtitle={`${parentCount} dompet utama, ${childCount} kantong`}
         />
-        <StatCard
-          title="Jumlah Dompet"
-          value={String(parentCount)}
-          subtitle="Dompet utama"
-          icon={<Layers className="text-success" />}
-        />
-        <StatCard
-          title="Kantong Aktif"
-          value={String(childCount)}
-          subtitle="Sub-dompet / kantong"
-          icon={<BarChart2 className="text-warning" />}
-        />
-      </div>
+        <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
+          <span className="text-text-primary text-[clamp(34px,4vw,46px)] leading-none font-semibold tracking-tight tabular-nums">
+            {formatCurrency(totalBalance)}
+          </span>
+          {biggest && (
+            <div className="flex items-center gap-2.5 pb-1">
+              <IconTile icon={biggest.icon} color={biggest.color} />
+              <p className="text-text-muted text-xs">
+                Terbesar:{" "}
+                <span className="text-text-primary font-semibold">
+                  {biggest.name}
+                </span>{" "}
+                · {biggestPct}% dari total
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Distribution strip: every wallet, one bar, its own colour. Width
+            carries the share; the legend below carries the numbers. */}
+        {distribution.length > 0 && (
+          <div className="bg-bg-base mt-5 flex h-2.5 gap-0.5 overflow-hidden rounded-full">
+            {distribution.map((wallet) => {
+              const pct = percentage(wallet.groupBalance, distributionTotal);
+              if (pct <= 0) return null;
+              return (
+                <div
+                  key={wallet.id}
+                  className="h-full first:rounded-l-full last:rounded-r-full transition-[width] duration-700"
+                  style={{ width: `${pct}%`, backgroundColor: wallet.color }}
+                  title={`${wallet.name} ${pct}%`}
+                />
+              );
+            })}
+          </div>
+        )}
+      </section>
 
       {/* ── Main layout ──────────────────────────────────────────────────── */}
       <div className="page-grid grid-cols-1 xl:grid-cols-3">
         {/* Wallet cards */}
-        <div className="xl:col-span-2">
+        <div className="page-stack xl:col-span-2">
           <ServerListStatus {...walletPager} />
-          <div className="space-y-4">
           {walletPager.items.map((wallet) => {
             return (
               <Card
@@ -230,16 +254,12 @@ export default function WalletsPage() {
                   {/* Wallet header */}
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-3.5">
-                      <div
-                        className="shadow-subtle flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-xl"
-                        style={{
-                          backgroundColor: `${wallet.color}18`,
-                          color: wallet.color,
-                          border: `1px solid ${wallet.color}30`,
-                        }}
-                      >
-                        <DynamicIcon name={wallet.icon} className="h-5 w-5" />
-                      </div>
+                      <IconTile
+                        icon={wallet.icon}
+                        color={wallet.color}
+                        size="lg"
+                        className="h-11 w-11 rounded-[13px]"
+                      />
                       <div className="min-w-0">
                         <h3 className="text-text-primary truncate text-base font-bold">
                           {wallet.name}
@@ -263,14 +283,14 @@ export default function WalletsPage() {
                       <div className="flex items-center gap-1">
                         <button
                           onClick={() => openEdit(wallet)}
-                          className="bg-bg-elevated text-text-secondary hover:text-primary hover:bg-primary/10 border-border/50 flex h-11 w-11 items-center justify-center rounded-lg border transition-colors focus-visible:ring-2 focus-visible:ring-primary"
+                          className="bg-bg-elevated text-text-secondary hover:text-primary hover:bg-primary/10 border-border/50 flex h-11 w-11 items-center justify-center rounded-md border transition-colors focus-visible:ring-2 focus-visible:ring-primary"
                           title="Edit dompet"
                         >
                           <Pencil className="h-3.5 w-3.5" />
                         </button>
                         <button
                           onClick={() => deleteWallet(wallet.id)}
-                          className="bg-bg-elevated text-text-secondary hover:text-danger hover:bg-danger/10 border-border/50 flex h-11 w-11 items-center justify-center rounded-lg border transition-colors focus-visible:ring-2 focus-visible:ring-primary"
+                          className="bg-bg-elevated text-text-secondary hover:text-danger hover:bg-danger/10 border-border/50 flex h-11 w-11 items-center justify-center rounded-md border transition-colors focus-visible:ring-2 focus-visible:ring-primary"
                           title="Hapus dompet"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -287,15 +307,10 @@ export default function WalletsPage() {
                       {items.map((child) => (
                         <div
                           key={child.id}
-                          className="bg-bg-elevated/70 border-border/60 group/child hover:bg-bg-elevated flex flex-wrap items-center justify-between gap-3 rounded-lg border px-3 py-2 transition-colors"
+                          className="bg-bg-elevated/70 border-border/60 group/child hover:bg-bg-elevated flex flex-wrap items-center justify-between gap-3 rounded-md border px-3 py-2 transition-colors"
                         >
                           <div className="flex min-w-0 items-center gap-2">
-                            <span className="text-text-secondary shrink-0">
-                              <DynamicIcon
-                                name={child.icon}
-                                className="h-4 w-4"
-                              />
-                            </span>
+                            <IconTile icon={child.icon} color={child.color} size="sm" />
                             <span className="text-text-primary truncate text-sm font-medium">
                               {child.name}
                             </span>
@@ -310,14 +325,14 @@ export default function WalletsPage() {
                             <button
                               type="button"
                               onClick={() => openEdit(child)}
-                              className="text-text-secondary hover:bg-bg-elevated focus-visible:ring-primary flex h-11 w-11 items-center justify-center rounded-lg focus-visible:ring-2"
+                              className="text-text-secondary hover:bg-bg-elevated focus-visible:ring-primary flex h-11 w-11 items-center justify-center rounded-md focus-visible:ring-2"
                               aria-label={`Edit kantong ${child.name}`}
                             >
                               <Pencil className="h-3.5 w-3.5" />
                             </button>
                             <button
                               onClick={() => deleteWallet(child.id)}
-                              className="text-text-secondary hover:text-danger hover:bg-danger/10 flex h-11 w-11 items-center justify-center rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-primary"
+                              className="text-text-secondary hover:text-danger hover:bg-danger/10 flex h-11 w-11 items-center justify-center rounded-md transition-colors focus-visible:ring-2 focus-visible:ring-primary"
                               title="Hapus kantong"
                             >
                               <Trash2 className="h-3 w-3" />
@@ -361,21 +376,16 @@ export default function WalletsPage() {
               </div>
             </Card>
           )}
-          </div>
           <Pagination {...walletPager} label="dompet utama" />
         </div>
 
         {/* Distribution sidebar */}
-        <div>
+        <div className="page-stack">
           <Card>
-            <CardHeader>
-              <span className="text-text-primary text-sm font-semibold">
-                Distribusi Saldo
-              </span>
-              <Badge variant="default" size="sm">
-                % porsi
-              </Badge>
-            </CardHeader>
+            <CardHead
+              title="Distribusi saldo"
+              subtitle="Porsi tiap dompet dari total"
+            />
             <CardBody>
               <div className="space-y-4">
                 {distribution.map((wallet) => {
@@ -384,12 +394,7 @@ export default function WalletsPage() {
                     <div key={wallet.id} className="space-y-1.5">
                       <div className="flex items-center justify-between text-xs">
                         <div className="flex min-w-0 items-center gap-1.5">
-                          <span className="shrink-0">
-                            <DynamicIcon
-                              name={wallet.icon}
-                              className="h-5 w-5"
-                            />
-                          </span>
+                          <IconTile icon={wallet.icon} color={wallet.color} size="sm" />
                           <span className="text-text-secondary truncate font-medium">
                             {wallet.name}
                           </span>
@@ -437,6 +442,56 @@ export default function WalletsPage() {
               )}
             </CardBody>
           </Card>
+
+          <Card>
+            <CardHead title="Ringkasan" />
+            <CardBody>
+              <div className="space-y-1">
+                {[
+                  { icon: WalletIcon, hue: "var(--primary)", label: "Dompet utama", value: String(parentCount) },
+                  { icon: Layers, hue: "var(--success)", label: "Kantong aktif", value: String(childCount) },
+                  { icon: Coins, hue: "var(--warning)", label: "Rata-rata per dompet", value: parentCount > 0 ? formatCurrency(Math.round(totalBalance / parentCount), true) : "0" },
+                ].map((row) => (
+                  <div
+                    key={row.label}
+                    className="border-border-subtle flex items-center gap-3 border-b py-2.5 last:border-b-0 last:pb-0"
+                  >
+                    <span
+                      className="icon-tile h-7 w-7 rounded-[9px]"
+                      style={{ "--tile-hue": row.hue } as React.CSSProperties}
+                      aria-hidden
+                    >
+                      <row.icon className="h-4 w-4" />
+                    </span>
+                    <span className="text-text-secondary flex-1 text-sm">{row.label}</span>
+                    <span className="text-text-primary text-sm font-bold tabular-nums">{row.value}</span>
+                  </div>
+                ))}
+              </div>
+              {biggest && biggestPct > 0 && (
+                <p className="text-text-muted mt-4 text-xs">
+                  Konsentrasi tertinggi di{" "}
+                  <span className="text-text-secondary font-semibold">{biggest.name}</span>
+                  {" "}({biggestPct}%). Kalau dompet itu bermasalah, yang lain ikut terasa.
+                </p>
+              )}
+            </CardBody>
+          </Card>
+
+          <button
+            onClick={() => openAdd()}
+            className="group border-border/60 hover:border-primary/40 hover:bg-primary/6 flex items-center justify-between rounded-xl border border-dashed p-4 text-left transition-colors max-sm:min-h-11"
+          >
+            <span className="flex items-center gap-3">
+              <span className="bg-primary/12 text-[color:var(--primary-on-tint)] flex h-8 w-8 items-center justify-center rounded-[10px]">
+                <Plus className="h-4 w-4" />
+              </span>
+              <span className="text-text-secondary text-sm font-medium">
+                Dompet baru, kartu kredit, atau kantong tunai
+              </span>
+            </span>
+            <ChevronRight className="text-text-muted group-hover:text-primary h-4 w-4 transition-colors" />
+          </button>
         </div>
       </div>
 
@@ -481,7 +536,7 @@ export default function WalletsPage() {
               <select
                 value={form.type}
                 onChange={(e) => fld("type", e.target.value as WalletType)}
-                className="bg-bg-surface border-border text-text-primary focus:border-primary focus:ring-primary/20 h-10 rounded-lg border px-3 text-sm transition-colors focus:ring-1 focus:outline-none"
+                className="bg-bg-surface border-border text-text-primary focus:border-primary focus:ring-primary/20 h-10 max-sm:h-11 rounded-md border px-3 text-sm transition-colors focus:ring-1 focus:outline-none"
               >
                 {(
                   Object.entries(WALLET_TYPE_LABELS) as [WalletType, string][]
@@ -498,12 +553,12 @@ export default function WalletsPage() {
               <label className="text-text-secondary text-sm font-medium">
                 Warna
               </label>
-              <div className="flex h-10 items-center gap-2">
+              <div className="flex h-10 max-sm:h-11 items-center gap-2">
                 <input
                   type="color"
                   value={form.color}
                   onChange={(e) => fld("color", e.target.value)}
-                  className="border-border bg-bg-surface h-9 w-14 cursor-pointer rounded-lg border p-1"
+                  className="border-border bg-bg-surface h-9 w-14 cursor-pointer rounded-md border p-1"
                 />
                 <span className="text-text-muted font-mono text-sm">
                   {form.color}
@@ -521,7 +576,7 @@ export default function WalletsPage() {
             <select
               value={form.parentId}
               onChange={(e) => fld("parentId", e.target.value)}
-              className="bg-bg-surface border-border text-text-primary focus:border-primary focus:ring-primary/20 h-10 rounded-lg border px-3 text-sm transition-colors focus:ring-1 focus:outline-none"
+              className="bg-bg-surface border-border text-text-primary focus:border-primary focus:ring-primary/20 h-10 max-sm:h-11 rounded-md border px-3 text-sm transition-colors focus:ring-1 focus:outline-none"
             >
               <option value="">(Jadikan Dompet Utama)</option>
               {wallets

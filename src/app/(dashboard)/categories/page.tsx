@@ -17,6 +17,8 @@ import { IconPicker as SharedIconPicker } from "~/components/ui/icon-picker";
 import { PageWrapper } from "~/components/layout/page-wrapper";
 import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
+import { CardHead } from "~/components/ui/card-head";
+import { IconTile } from "~/components/ui/icon-tile";
 import { Badge } from "~/components/ui/badge";
 import { Modal } from "~/components/ui/modal";
 import { Input } from "~/components/ui/input";
@@ -353,58 +355,65 @@ export default function CategoriesPage() {
         </Button>
       }
     >
-      {/* ── Stats ────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <StatTile
-          label="Kategori Pengeluaran"
-          value={expense}
-          icon="TrendingDown"
-          color="#f97316"
+      {/* ── Hero: the map of the taxonomy, plus its two tabs ─────────── */}
+      <section className="card">
+        <CardHead
+          title="Struktur kategori"
+          subtitle="Master jadi payung transaksi dan anggaran; sub merinci jenisnya"
+          action={
+            <div className="bg-bg-elevated flex w-fit gap-1 rounded-xl p-1">
+              {TABS.map((t) => {
+                const count = categoryPager.summary?.[t.key] ?? 0;
+                return (
+                  <button
+                    key={t.key}
+                    onClick={() => setTab(t.key)}
+                    aria-pressed={tab === t.key}
+                    className={cn(
+                      "flex items-center gap-1.5 rounded-md px-4 py-1.5 text-sm font-medium transition-all max-sm:min-h-11",
+                      tab === t.key
+                        ? "bg-bg-surface text-text-primary shadow-sm"
+                        : "text-text-muted hover:text-text-secondary",
+                    )}
+                  >
+                    <DynamicIcon name={t.icon} className="h-5 w-5" />
+                    {t.label}
+                    <span className="bg-bg-base text-text-muted rounded-full px-1.5 py-0.5 text-[10px]">
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          }
         />
-        <StatTile
-          label="Sub Pengeluaran"
-          value={expenseSubs}
-          icon="Tags"
-          color="#3b82f6"
-        />
-        <StatTile
-          label="Kategori Pemasukan"
-          value={income}
-          icon="TrendingUp"
-          color="#22c55e"
-        />
-        <StatTile
-          label="Sub Pemasukan"
-          value={incomeSubs}
-          icon="Tag"
-          color="#a855f7"
-        />
-      </div>
-
-      {/* ── Tabs ─────────────────────────────────────────────────────── */}
-      <div className="bg-bg-elevated flex w-fit gap-1 rounded-xl p-1">
-        {TABS.map((t) => {
-          const count = categoryPager.summary?.[t.key] ?? 0;
-          return (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={cn(
-                "flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-sm font-medium transition-all max-sm:min-h-11",
-                tab === t.key
-                  ? "bg-bg-surface text-text-primary shadow-sm"
-                  : "text-text-muted hover:text-text-secondary",
-              )}
-            >
-              <DynamicIcon name={t.icon} className="h-5 w-5" />
-              {t.label}
-              <span className="bg-bg-base text-text-muted rounded-full px-1.5 py-0.5 text-[10px]">
-                {count}
-              </span>
-            </button>
-          );
-        })}
-      </div>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <StatTile
+            label="Kategori Pengeluaran"
+            value={expense}
+            icon="TrendingDown"
+            color="#f97316"
+          />
+          <StatTile
+            label="Sub Pengeluaran"
+            value={expenseSubs}
+            icon="Tags"
+            color="#3b82f6"
+          />
+          <StatTile
+            label="Kategori Pemasukan"
+            value={income}
+            icon="TrendingUp"
+            color="#22c55e"
+          />
+          <StatTile
+            label="Sub Pemasukan"
+            value={incomeSubs}
+            icon="Tag"
+            color="#a855f7"
+          />
+        </div>
+      </section>
 
       {/* ── Empty state with seed button ────────────────────────────── */}
       <ServerListStatus {...categoryPager} />
@@ -464,12 +473,7 @@ export default function CategoriesPage() {
                     )}
                   </button>
 
-                  <div
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
-                    style={{ backgroundColor: `${c.color}22`, color: c.color }}
-                  >
-                    <DynamicIcon name={c.icon} className="h-5 w-5" />
-                  </div>
+                  <IconTile icon={c.icon} color={c.color} size="lg" className="h-10 w-10 rounded-[12px]" />
 
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
@@ -501,7 +505,7 @@ export default function CategoriesPage() {
                     </Button>
                     <button
                       onClick={() => openEditCategory(c)}
-                      className="bg-bg-elevated text-text-secondary hover:text-primary hover:bg-primary/10 flex max-sm:h-11 max-sm:w-11 h-7 w-7 items-center justify-center rounded-lg transition-colors"
+                      className="bg-bg-elevated text-text-secondary hover:text-primary hover:bg-primary/10 flex max-sm:h-11 max-sm:w-11 h-7 w-7 items-center justify-center rounded-md transition-colors"
                       title="Edit kategori"
                     >
                       <Pencil className="h-3 w-3" />
@@ -514,7 +518,7 @@ export default function CategoriesPage() {
                           name: c.name,
                         })
                       }
-                      className="bg-bg-elevated text-text-secondary hover:text-danger hover:bg-danger/10 flex max-sm:h-11 max-sm:w-11 h-7 w-7 items-center justify-center rounded-lg transition-colors"
+                      className="bg-bg-elevated text-text-secondary hover:text-danger hover:bg-danger/10 flex max-sm:h-11 max-sm:w-11 h-7 w-7 items-center justify-center rounded-md transition-colors"
                       title="Hapus kategori"
                     >
                       <Trash2 className="h-3 w-3" />
@@ -538,19 +542,7 @@ export default function CategoriesPage() {
                               key={s.id}
                               className="group bg-bg-elevated/40 hover:bg-bg-elevated flex items-center gap-3 rounded-lg px-3 py-2 transition-colors"
                             >
-                              <Tag
-                                className="h-3.5 w-3.5 shrink-0"
-                                style={{ color: s.color }}
-                              />
-                              <span
-                                className="shrink-0"
-                                style={{ color: s.color }}
-                              >
-                                <DynamicIcon
-                                  name={s.icon}
-                                  className="h-5 w-5"
-                                />
-                              </span>
+                              <IconTile icon={s.icon} color={s.color} size="sm" />
                               <span className="text-text-primary min-w-0 flex-1 truncate text-sm font-medium">
                                 {s.name}
                               </span>
@@ -693,12 +685,7 @@ function StatTile({
   return (
     <Card padding="sm">
       <div className="flex items-center gap-3">
-        <div
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
-          style={{ backgroundColor: `${color}22`, color }}
-        >
-          <DynamicIcon name={icon} className="h-5 w-5" />
-        </div>
+        <IconTile icon={icon} color={color} size="lg" className="h-10 w-10 rounded-[12px]" />
         <div className="min-w-0">
           <p className="text-text-muted text-[11px] tracking-wide uppercase">
             {label}
@@ -739,7 +726,7 @@ function CategoryFormFields({
           <select
             value={form.type}
             onChange={(e) => fld("type", e.target.value as CategoryKind)}
-            className="bg-bg-surface border-border text-text-primary focus:border-primary focus:ring-primary/20 h-10 rounded-lg border px-3 text-sm focus:ring-1 focus:outline-none transition-colors"
+            className="bg-bg-surface border-border text-text-primary focus:border-primary focus:ring-primary/20 h-10 max-sm:h-11 rounded-md border px-3 text-sm focus:ring-1 focus:outline-none transition-colors"
           >
             <option value="expense">Pengeluaran</option>
             <option value="income">Pemasukan</option>
@@ -856,7 +843,7 @@ function ColorPicker({
           type="color"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="border-border bg-bg-surface h-8 w-12 cursor-pointer rounded-lg border p-0.5"
+          className="border-border bg-bg-surface h-8 w-12 cursor-pointer rounded-md border p-0.5"
         />
         <span className="text-text-muted self-center font-mono text-xs">
           {value}
